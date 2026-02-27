@@ -2,10 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   input,
   output,
 } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, NgOptimizedImage } from '@angular/common';
+import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -18,16 +20,25 @@ type StarType = 'full' | 'half' | 'empty';
 @Component({
   selector: 'lib-salon-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, MatButtonModule, MatCardModule, MatIconModule, MatTooltipModule],
+  imports: [DecimalPipe, NgOptimizedImage, MatButtonModule, MatCardModule, MatIconModule, MatTooltipModule],
   template: `
-    <mat-card class="salon-card" appearance="outlined">
+    <mat-card
+      class="salon-card"
+      appearance="outlined"
+      role="article"
+      tabindex="0"
+      (click)="onCardClick()"
+      (keydown.enter)="onCardClick()"
+    >
       <!-- Cover image -->
       <div class="card-image-wrapper">
+        <!-- NgOptimizedImage fill mode: parent must have position:relative + defined size -->
         <img
           class="card-image"
-          [src]="coverImage()"
+          [ngSrc]="coverImage()"
           [alt]="salon().name"
-          loading="lazy"
+          fill
+          sizes="(max-width: 640px) 100vw, 320px"
           (error)="onImgError($event)"
         />
         @if (!salon().isActive || !salon().isApproved) {
@@ -81,7 +92,7 @@ type StarType = 'full' | 'half' | 'empty';
           color="primary"
           [disabled]="!salon().isActive || !salon().isApproved"
           [matTooltip]="salon().isActive && salon().isApproved ? '' : 'This salon is currently unavailable'"
-          (click)="onBookNow()"
+          (click)="onBookNow(); $event.stopPropagation()"
           aria-label="Book an appointment at {{ salon().name }}"
         >
           <mat-icon>calendar_today</mat-icon>
@@ -96,7 +107,7 @@ type StarType = 'full' | 'half' | 'empty';
       flex-direction: column;
       height: 100%;
       transition: box-shadow 0.25s ease, transform 0.25s ease;
-      cursor: default;
+      cursor: pointer;
     }
 
     .salon-card:hover {
@@ -260,6 +271,8 @@ export class SalonCardComponent {
   readonly salon = input.required<Salon>();
   readonly bookNow = output<Salon>();
 
+  private readonly router = inject(Router);
+
   /** First image URL or a fallback placeholder */
   readonly coverImage = computed(
     () => this.salon().images?.[0] ?? 'assets/images/salon-placeholder.jpg',
@@ -280,7 +293,13 @@ export class SalonCardComponent {
     });
   });
 
+  onCardClick(): void {
+    void this.router.navigate(['/discover', this.salon()._id]);
+  }
+
   onBookNow(): void {
+    // Stop the card-click event from also firing
+    void this.router.navigate(['/booking'], { queryParams: { salonId: this.salon()._id } });
     this.bookNow.emit(this.salon());
   }
 

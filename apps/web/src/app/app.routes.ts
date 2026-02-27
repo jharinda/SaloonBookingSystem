@@ -1,5 +1,7 @@
 import { Route } from '@angular/router';
-import { authGuard, roleGuard } from './guards/auth.guard';
+import { authGuard } from './guards/auth.guard';
+import { roleGuard } from './guards/role.guard';
+import { redirectIfAuthenticatedGuard } from './guards/redirect-if-authenticated.guard';
 
 export const appRoutes: Route[] = [
   // Home / landing page
@@ -10,9 +12,10 @@ export const appRoutes: Route[] = [
     pathMatch: 'full',
   },
 
-  // Auth (login / register) — lazy-loaded from @org/auth lib
+  // Auth (login / register) — guest only; authenticated users are bounced to /discover
   {
     path: 'auth',
+    canActivate: [redirectIfAuthenticatedGuard],
     loadChildren: () =>
       import('./features/auth/auth.routes').then((m) => m.AUTH_ROUTES),
   },
@@ -24,7 +27,14 @@ export const appRoutes: Route[] = [
       import('@org/discover').then((m) => m.SalonSearchComponent),
   },
 
-  // Booking wizard — protected, lazy children
+  // Salon detail page — public
+  {
+    path: 'discover/:salonId',
+    loadComponent: () =>
+      import('@org/discover').then((m) => m.SalonDetailComponent),
+  },
+
+  // Booking wizard — protected
   {
     path: 'booking',
     canActivate: [authGuard],
@@ -32,19 +42,12 @@ export const appRoutes: Route[] = [
       import('@org/booking').then((m) => m.BOOKING_ROUTES),
   },
 
-  // Salon owner dashboard — protected + role-gated
+  // My Appointments — client/any authenticated user
   {
-    path: 'salon-dashboard',
-    canActivate: [authGuard, roleGuard('salon_owner')],
+    path: 'my-appointments',
+    canActivate: [authGuard],
     loadComponent: () =>
-      import('@org/salon-dashboard').then((m) => m.SalonDashboard),
-  },
-
-  // Reviews — public read
-  {
-    path: 'reviews',
-    loadComponent: () =>
-      import('@org/reviews').then((m) => m.Reviews),
+      import('@org/booking').then((m) => m.MyAppointmentsComponent),
   },
 
   // Account / profile — auth required
@@ -52,9 +55,32 @@ export const appRoutes: Route[] = [
     path: 'account',
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./shared/placeholder.component').then(
-        (m) => m.PlaceholderComponent
-      ),
+      import('@org/account').then((m) => m.AccountComponent),
+  },
+
+  // Salon owner / franchise dashboard — role-gated
+  {
+    path: 'salon-dashboard',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['salon_owner', 'franchise_owner', 'admin'] },
+    loadChildren: () =>
+      import('@org/salon-dashboard').then((m) => m.DASHBOARD_ROUTES),
+  },
+
+  // Admin panel — admin role only
+  {
+    path: 'admin',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['admin'] },
+    loadChildren: () =>
+      import('@org/admin').then((m) => m.ADMIN_ROUTES),
+  },
+
+  // Reviews — public read
+  {
+    path: 'reviews',
+    loadComponent: () =>
+      import('@org/reviews').then((m) => m.Reviews),
   },
 
   // Wildcard fallback

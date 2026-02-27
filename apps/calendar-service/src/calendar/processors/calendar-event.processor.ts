@@ -1,6 +1,9 @@
 import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 import { Job } from 'bull';
+import { firstValueFrom } from 'rxjs';
 
 import { BOOKING_QUEUE, CalendarEvent } from '../constants/calendar-events.constants';
 import { CalendarJobPayload } from '../interfaces/calendar-payload.interface';
@@ -10,7 +13,11 @@ import { GoogleCalendarService } from '../google-calendar.service';
 export class CalendarEventProcessor {
   private readonly logger = new Logger(CalendarEventProcessor.name);
 
-  constructor(private readonly googleCalendar: GoogleCalendarService) {}
+  constructor(
+    private readonly googleCalendar: GoogleCalendarService,
+    private readonly httpService: HttpService,
+    private readonly config: ConfigService,
+  ) {}
 
   // ── booking.confirmed ──────────────────────────────────────────────────────
 
@@ -30,10 +37,9 @@ export class CalendarEventProcessor {
         this.logger.log(
           `Calendar event created: bookingId=${booking.id} googleEventId=${result.googleEventId}`,
         );
-        // NOTE: The booking-service should be notified to store the googleEventId.
-        // In a microservices architecture this would be done via a response queue or
-        // a direct HTTP/gRPC call back to the booking-service. The ID is logged here
-        // so it can be correlated and stored by a downstream handler.
+        // Write the googleEventId back to booking-service so it can be
+        // included in future notification payloads and used for deletion.
+        await this.patchGoogleEventId(booking.id, result.googleEventId);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -73,5 +79,40 @@ export class CalendarEventProcessor {
     this.logger.error(
       `Calendar job failed | event=${job.name} id=${job.id}: ${error.message}`,
     );
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  /**
+   * Tell booking-service to persist the Google Calendar event ID on the booking
+   * document. Failures are logged but not re-thrown because the calendar event
+   * was created successfully — the write-back is best-effort.
+   */
+  private async patchGoogleEventId(
+    bookingId: string,
+    googleEventId: string,
+  ): Promise<void> {
+    const bookingServiceUrl = this.config.get<string>(
+      'BOOKING_SERVICE_URL',
+      'http://booking-service',
+    );
+    try {
+      await firstValueFrom(
+        this.httpService.patch(
+          `${bookingServiceUrl}/api/bookings/${bookingId}/google-event`,
+          { googleEventId },
+        ),
+      );
+      this.logger.log(
+        `googleEventId persisted on bookingId=${bookingId}`,
+      );
+    } catch (err: unknown) {
+      // Non-fatal: log and move on
+      this.logger.warn(
+        `Failed to persist googleEventId for bookingId=${bookingId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 }

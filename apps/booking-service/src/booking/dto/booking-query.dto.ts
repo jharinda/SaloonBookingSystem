@@ -23,7 +23,12 @@ export class AvailableSlotsQueryDto {
   @Min(15)
   @Max(480)
   @Type(() => Number)
-  serviceDuration: number;
+  durationMinutes: number;
+
+  /** Optional – filter availability for a specific stylist */
+  @IsOptional()
+  @IsMongoId()
+  stylistId?: string;
 }
 
 export class BookingListQueryDto {

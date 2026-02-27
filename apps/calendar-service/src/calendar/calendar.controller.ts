@@ -20,6 +20,7 @@ import {
   Booking,
   BookingDocument,
 } from './schemas/booking-ref.schema';
+import { ConfigService } from '@nestjs/config';
 
 @Controller('calendar')
 export class CalendarController {
@@ -28,6 +29,7 @@ export class CalendarController {
     private readonly iCal: ICalService,
     @InjectModel(Booking.name)
     private readonly bookingModel: Model<BookingDocument>,
+    private readonly configService: ConfigService,
   ) {}
 
   // ── Google OAuth ────────────────────────────────────────────────────────────
@@ -65,7 +67,7 @@ export class CalendarController {
     const googleEmail = await this.oAuth.handleCallback(code, userId);
 
     // Redirect to the frontend with a success indicator
-    const frontendUrl = `${process.env['FRONTEND_URL'] ?? 'http://localhost:4200'}/settings/calendar?connected=true&email=${encodeURIComponent(googleEmail)}`;
+    const frontendUrl = `${this.configService.get<string>('app.frontendUrl') ?? 'http://localhost:4200'}/settings/calendar?connected=true&email=${encodeURIComponent(googleEmail)}`;
     res.redirect(frontendUrl);
   }
 
@@ -142,7 +144,7 @@ export class CalendarController {
       },
       b.salonName ?? 'SnapSalon',
       b.salonAddress ?? '',
-      process.env['EMAIL_FROM'] ?? 'noreply@snapsalon.lk',
+      this.configService.get<string>('app.emailFrom') ?? 'noreply@snapsalon.lk',
     );
 
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');

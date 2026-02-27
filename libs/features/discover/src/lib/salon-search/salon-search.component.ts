@@ -6,7 +6,6 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, debounceTime, Observable, of, Subject, switchMap } from 'rxjs';
 
@@ -16,9 +15,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 
-import { Salon, SalonSearchQuery, SalonSearchResponse } from '@org/models';
-import { SalonService } from '../services/salon.service';
+import { Salon, SalonSearchResponse } from '@org/models';
+import { SalonService, SearchParams } from '../services/salon.service';
 import { SalonCardComponent } from '../salon-card/salon-card.component';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // ─── Static filter options ────────────────────────────────────────────────────
 
@@ -69,33 +69,44 @@ interface SearchFilters {
     MatIconModule,
     MatInputModule,
     MatSelectModule,
+    MatProgressSpinnerModule,
     SalonCardComponent,
   ],
   template: `
     <div class="discover-container">
 
-      <!-- ── Page header ───────────────────────────────────────────────────── -->
+      <!-- ── Hero ────────────────────────────────────────────────────────────── -->
       <header class="discover-header">
         <h1 class="discover-title">Find Your Perfect Salon</h1>
         <p class="discover-subtitle">
           Discover top-rated salons and book appointments instantly
         </p>
-      </header>
-
-      <!-- ── Filter bar ────────────────────────────────────────────────────── -->
-      <div class="filter-bar">
-        <mat-form-field appearance="outline" class="filter-field filter-field--search">
-          <mat-label>Search salons or services…</mat-label>
+        <div class="hero-search-bar">
+          <mat-icon class="hero-search-icon">search</mat-icon>
           <input
-            matInput
+            class="hero-search-input"
             type="search"
+            placeholder="Search salons or services…"
             autocomplete="off"
             [ngModel]="searchTerm()"
             (ngModelChange)="onSearchInput($event)"
+            (keydown.enter)="triggerSearchImmediate()"
+            aria-label="Search salons or services"
           />
-          <mat-icon matSuffix>search</mat-icon>
-        </mat-form-field>
+          <button
+            mat-flat-button
+            color="primary"
+            class="hero-search-btn"
+            (click)="triggerSearchImmediate()"
+            [disabled]="isLoading()"
+          >
+            Find a Salon
+          </button>
+        </div>
+      </header>
 
+      <!-- ── Filter row ────────────────────────────────────────────────────── -->
+      <div class="filter-bar">
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Service type</mat-label>
           <mat-select
@@ -122,6 +133,23 @@ interface SearchFilters {
           </mat-select>
         </mat-form-field>
 
+        <button
+          mat-stroked-button
+          class="near-me-btn"
+          [disabled]="geoLoading()"
+          (click)="onNearMe()"
+          aria-label="Search near my location"
+        >
+          @if (geoLoading()) {
+            <mat-spinner diameter="16" />
+          } @else {
+            <ng-container>
+              <mat-icon>my_location</mat-icon>
+              Near Me
+            </ng-container>
+          }
+        </button>
+
         @if (hasActiveFilters()) {
           <button
             mat-stroked-button
@@ -134,6 +162,21 @@ interface SearchFilters {
           </button>
         }
       </div>
+
+      <!-- ── Featured Salons ────────────────────────────────────────────────── -->
+      @if (!hasActiveFilters() && !hasSearched() && !isLoading() && featuredSalons().length > 0) {
+        <section class="featured-section" aria-label="Featured salons">
+          <h2 class="section-heading">
+            <mat-icon class="section-icon">star</mat-icon>
+            Featured Salons
+          </h2>
+          <div class="results-grid">
+            @for (salon of featuredSalons(); track salon._id) {
+              <lib-salon-card [salon]="salon" />
+            }
+          </div>
+        </section>
+      }
 
       <!-- ── Loading — skeleton grid ───────────────────────────────────────── -->
       @if (isLoading()) {
@@ -165,10 +208,7 @@ interface SearchFilters {
 
         <div class="results-grid">
           @for (salon of results(); track salon._id) {
-            <lib-salon-card
-              [salon]="salon"
-              (bookNow)="onBookNow($event)"
-            />
+            <lib-salon-card [salon]="salon" />
           }
         </div>
       }
@@ -257,10 +297,6 @@ interface SearchFilters {
     .filter-field {
       flex: 1 1 180px;
       min-width: 160px;
-    }
-
-    .filter-field--search {
-      flex: 2 1 260px;
     }
 
     .clear-btn {
@@ -366,19 +402,93 @@ interface SearchFilters {
       line-height: 1.6;
     }
 
+    /* ── Hero search bar ─────────────────────────────────────────────────────── */
+
+    .hero-search-bar {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border-radius: 50px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      padding: 6px 6px 6px 20px;
+      margin-top: 28px;
+      max-width: 680px;
+      width: 100%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-search-icon {
+      color: #9ca3af;
+      flex-shrink: 0;
+      margin-right: 8px;
+    }
+
+    .hero-search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 1rem;
+      background: transparent;
+      color: #1f2937;
+      min-width: 0;
+      &::placeholder { color: #9ca3af; }
+    }
+
+    .hero-search-btn {
+      border-radius: 40px;
+      padding: 0 24px;
+      height: 44px;
+      flex-shrink: 0;
+      font-weight: 600;
+    }
+
+    /* ── Near Me button ──────────────────────────────────────────────────────── */
+
+    .near-me-btn {
+      align-self: center;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ── Featured section ────────────────────────────────────────────────────── */
+
+    .featured-section {
+      margin-bottom: 40px;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin: 0 0 20px;
+      color: #1a1a2e;
+    }
+
+    .section-icon {
+      color: #f59e0b;
+    }
+
     /* ── Responsive ──────────────────────────────────────────────────────────── */
 
     @media (max-width: 640px) {
       .discover-container { padding: 20px 16px 40px; }
       .filter-field { flex: 1 1 100%; }
+      .near-me-btn { flex: 1 1 100%; justify-content: center; }
       .results-grid { grid-template-columns: 1fr; }
+      .hero-search-bar { flex-wrap: wrap; border-radius: 16px; padding: 12px; gap: 8px; }
+      .hero-search-input { width: 100%; }
+      .hero-search-btn { width: 100%; border-radius: 12px; }
     }
   `],
 })
 export class SalonSearchComponent {
   // ── Services ────────────────────────────────────────────────────────────────
   private readonly salonService = inject(SalonService);
-  private readonly router = inject(Router);
 
   // ── State (signals) ──────────────────────────────────────────────────────────
   readonly searchTerm = signal('');
@@ -387,6 +497,8 @@ export class SalonSearchComponent {
   readonly isLoading = signal(false);
   readonly hasSearched = signal(false);
   readonly error = signal<string | null>(null);
+  readonly featuredSalons = signal<Salon[]>([]);
+  readonly geoLoading = signal(false);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   readonly hasActiveFilters = computed(
@@ -408,8 +520,8 @@ export class SalonSearchComponent {
   readonly skeletonItems = Array.from({ length: 6 }, (_, i) => i);
 
   // ── RxJS pipeline (debounced search) ─────────────────────────────────────────
-  private readonly searchTrigger$ = new Subject<SalonSearchQuery>();
-  private lastQuery: SalonSearchQuery = {};
+  private readonly searchTrigger$ = new Subject<SearchParams>();
+  private lastQuery: SearchParams = {};
 
   constructor() {
     this.searchTrigger$
@@ -419,7 +531,7 @@ export class SalonSearchComponent {
           this.isLoading.set(true);
           this.error.set(null);
           this.lastQuery = query;
-          return this.salonService.search(query).pipe(
+          return this.salonService.searchSalons(query).pipe(
             catchError((): Observable<SalonSearchResponse> => {
               this.error.set('Failed to load salons. Please check your connection and try again.');
               return of({ data: [], total: 0, page: 1, limit: 20 });
@@ -433,6 +545,8 @@ export class SalonSearchComponent {
         this.isLoading.set(false);
         this.hasSearched.set(true);
       });
+
+    this.loadFeaturedSalons();
   }
 
   // ── Event handlers ────────────────────────────────────────────────────────────
@@ -452,9 +566,7 @@ export class SalonSearchComponent {
     this.triggerSearch();
   }
 
-  onBookNow(salon: Salon): void {
-    void this.router.navigate(['/book', salon._id]);
-  }
+  // Navigation is handled by SalonCardComponent directly.
 
   clearFilters(): void {
     this.searchTerm.set('');
@@ -469,10 +581,55 @@ export class SalonSearchComponent {
     this.searchTrigger$.next(this.lastQuery);
   }
 
+  onNearMe(): void {
+    if (!navigator.geolocation) {
+      this.error.set('Geolocation is not supported by your browser.');
+      return;
+    }
+    this.geoLoading.set(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        this.geoLoading.set(false);
+        const query: SearchParams = {
+          lat:     coords.latitude,
+          lng:     coords.longitude,
+          q:       this.searchTerm() || undefined,
+          service: this.filters().serviceType || undefined,
+          city:    this.filters().city || undefined,
+        };
+        this.lastQuery = query;
+        this.searchTrigger$.next(query);
+      },
+      () => {
+        this.geoLoading.set(false);
+        this.error.set('Location access denied. Please enable location permissions and try again.');
+      },
+    );
+  }
+
+  private loadFeaturedSalons(): void {
+    this.salonService.getFeaturedSalons().subscribe({
+      next: (salons) => this.featuredSalons.set(salons),
+      error: () => { /* silently ignore — featured salons are non-critical */ },
+    });
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────────
 
+  /** Fires immediately (used by the hero button and Enter key). */
+  triggerSearchImmediate(): void {
+    if (!this.searchTerm() && !this.filters().serviceType && !this.filters().city) return;
+    const query: SearchParams = {
+      q:       this.searchTerm() || undefined,
+      service: this.filters().serviceType || undefined,
+      city:    this.filters().city || undefined,
+    };
+    this.lastQuery = query;
+    this.searchTrigger$.next(query);
+  }
+
   private triggerSearch(): void {
-    const query: SalonSearchQuery = {
+    const query: SearchParams = {
       q:       this.searchTerm() || undefined,
       service: this.filters().serviceType || undefined,
       city:    this.filters().city || undefined,

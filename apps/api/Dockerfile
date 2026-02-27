@@ -4,19 +4,10 @@
 #
 # Run the container with `nx docker:run api -p 3000:3000`.
 #
-FROM docker.io/node:lts-alpine
-
+FROM node:20-alpine
 ENV HOST=0.0.0.0
-ENV PORT=3333
-
-
+ENV PORT=3000
 WORKDIR /app
-
-COPY dist .
-
-# You can remove this install step if you build with `--bundle` option.
-# The bundled output will include external dependencies.
-
-RUN npm --omit=dev -f install
-
-CMD [ "node", "main.js" ]
+COPY apps/api/dist/ .
+RUN npm ci --omit=dev
+CMD ["node", "main.js"]

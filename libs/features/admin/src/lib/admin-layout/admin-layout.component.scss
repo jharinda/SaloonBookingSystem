@@ -1,0 +1,95 @@
+@use 'sass:color';
+
+$sidebar-width: 240px;
+$brand:         #6750a4;
+$brand-dark:    #4f3c83;
+$sidebar-bg:    #1e1b2e;
+$text-dim:      rgba(255, 255, 255, .6);
+$text-bright:   #fff;
+$active-bg:     rgba(255, 255, 255, .12);
+$hover-bg:      rgba(255, 255, 255, .07);
+
+:host { display: block; height: 100vh; }
+
+// ── Shell layout ──────────────────────────────────────────────────────────
+.admin-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────
+.sidebar {
+  width: $sidebar-width;
+  flex-shrink: 0;
+  background: $sidebar-bg;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 20px 24px;
+  text-decoration: none;
+  color: $text-bright;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  margin-bottom: 8px;
+}
+
+.brand-icon {
+  font-size: 28px; width: 28px; height: 28px;
+  color: color.adjust(#6750a4, $lightness: 30%);
+}
+
+.brand-text {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+}
+
+// ── Nav items ─────────────────────────────────────────────────────────────
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 10px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: $text-dim;
+  text-decoration: none;
+  font-size: .9rem;
+  font-weight: 500;
+  transition: background .15s, color .15s;
+
+  &:hover { background: $hover-bg; color: $text-bright; }
+
+  &--active {
+    background: $active-bg;
+    color: $text-bright;
+    .nav-icon { color: color.adjust(#6750a4, $lightness: 30%); }
+  }
+}
+
+.nav-icon {
+  font-size: 20px; width: 20px; height: 20px;
+  flex-shrink: 0;
+}
+
+.nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+// ── Main content ──────────────────────────────────────────────────────────
+.admin-main {
+  flex: 1;
+  overflow-y: auto;
+  background: #f3f4f6;
+}

@@ -1,0 +1,340 @@
+/* ─────────────────────────────────────────────────────────────
+   Account Settings page
+   ───────────────────────────────────────────────────────────── */
+
+$brand:       #6750a4;
+$brand-dark:  #4f3c83;
+$danger:      #dc2626;
+$border:      #e5e7eb;
+$bg-muted:    #f9fafb;
+$text-primary:   #1f2937;
+$text-secondary: #6b7280;
+$mobile: 768px;
+
+// ── Page scaffold ──────────────────────────────────────────────────────────
+.page-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 28px 16px 64px;
+
+  @media (min-width: $mobile) { padding: 40px 24px 80px; }
+}
+
+.page-title {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 800;
+  color: $text-primary;
+  margin: 0 0 28px;
+}
+
+.center-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 80px 0;
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+.settings-tabs {
+  --mat-tab-header-active-label-text-color: #{$brand};
+  --mat-tab-header-active-indicator-color:  #{$brand};
+  border: 1px solid $border;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tab-content {
+  padding: 4px 0 8px;
+}
+
+// ── Section blocks ─────────────────────────────────────────────────────────
+.section {
+  padding: 24px;
+
+  @media (min-width: $mobile) { padding: 28px 32px; }
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: $text-primary;
+  margin: 0 0 16px;
+}
+
+.section-desc {
+  font-size: .875rem;
+  color: $text-secondary;
+  margin: -8px 0 20px;
+}
+
+// ── Avatar ─────────────────────────────────────────────────────────────────
+.avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.avatar-circle {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: $brand;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px $brand;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-initials {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  user-select: none;
+}
+
+.avatar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.change-photo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: $brand;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 24px;
+  font-size: .875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+  &:hover { background: $brand-dark; }
+}
+
+.file-input { display: none; }
+
+.upload-btn {
+  background: #059669 !important;
+  color: #fff !important;
+  border-radius: 24px !important;
+  font-weight: 600 !important;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+}
+
+// ── Reactive form layout ───────────────────────────────────────────────────
+.form-row { display: flex; flex-direction: column; gap: 0; }
+
+.two-col {
+  @media (min-width: $mobile) {
+    flex-direction: row;
+    gap: 16px;
+    > * { flex: 1; }
+  }
+}
+
+.full-width { width: 100%; }
+
+.form-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.save-btn {
+  background: $brand !important;
+  color: #fff !important;
+  border-radius: 24px !important;
+  font-weight: 600 !important;
+  min-width: 150px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+  &[disabled] { opacity: .5 !important; }
+}
+
+.btn-spinner {
+  display: inline-block;
+  vertical-align: middle;
+  --mdc-circular-progress-active-indicator-color: currentColor;
+}
+
+// ── Connected accounts ─────────────────────────────────────────────────────
+.connected-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: $bg-muted;
+  border: 1px solid $border;
+  border-radius: 10px;
+  padding: 14px 18px;
+  flex-wrap: wrap;
+}
+
+.connected-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.google-logo {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.connected-name {
+  margin: 0;
+  font-weight: 600;
+  color: $text-primary;
+  font-size: .9rem;
+}
+
+.connected-email {
+  margin: 2px 0 0;
+  font-size: .8rem;
+  color: $text-secondary;
+
+  &.muted { font-style: italic; }
+}
+
+.disconnect-btn {
+  color: $danger !important;
+  border-color: $danger !important;
+  border-radius: 24px !important;
+}
+
+.connect-google-btn {
+  background: #1a73e8 !important;
+  color: #fff !important;
+  border-radius: 24px !important;
+  font-weight: 600 !important;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+// ── Notification list ──────────────────────────────────────────────────────
+.notif-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 0;
+  flex-wrap: wrap;
+}
+
+.notif-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-icon {
+  color: $brand;
+  font-size: 22px;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.notif-label {
+  margin: 0;
+  font-weight: 600;
+  font-size: .9rem;
+  color: $text-primary;
+}
+
+.notif-desc {
+  margin: 3px 0 0;
+  font-size: .8rem;
+  color: $text-secondary;
+}
+
+// ── Danger zone ────────────────────────────────────────────────────────────
+.danger-zone {
+  margin-top: 32px;
+  border: 1px solid rgba($danger, .45);
+  border-radius: 12px;
+  padding: 24px;
+  background: rgba($danger, .03);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+
+  @media (min-width: $mobile) { padding: 28px 32px; }
+}
+
+.danger-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+.danger-icon {
+  color: $danger;
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.danger-title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: $danger;
+}
+
+.danger-desc {
+  margin: 0;
+  font-size: .85rem;
+  color: $text-secondary;
+  max-width: 520px;
+}
+
+.delete-account-btn {
+  color: $danger !important;
+  border-color: $danger !important;
+  border-radius: 24px !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+
+  &[disabled] { opacity: .5 !important; }
+}

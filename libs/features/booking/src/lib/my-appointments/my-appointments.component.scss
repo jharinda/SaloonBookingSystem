@@ -1,0 +1,157 @@
+/* ─────────────────────────────────────────────────────────────
+   My Appointments page
+   ───────────────────────────────────────────────────────────── */
+
+$brand: #6750a4;
+$brand-light: #f5f3ff;
+$border: #e5e7eb;
+$text-primary: #1f2937;
+$text-secondary: #6b7280;
+$mobile: 768px;
+
+// ── Page scaffold ─────────────────────────────────────────────
+.page-wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 28px 16px 48px;
+
+  @media (min-width: $mobile) { padding: 40px 24px 64px; }
+}
+
+.page-title {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 800;
+  color: $text-primary;
+  margin: 0 0 24px;
+}
+
+// ── Spinner / error ───────────────────────────────────────────
+.center-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 80px 0;
+}
+
+.error-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  border: 1px solid $border;
+  border-radius: 12px;
+  color: $text-secondary;
+}
+
+.error-icon {
+  font-size: 48px; width: 48px; height: 48px;
+  color: #dc2626; opacity: .7;
+}
+
+.retry-btn { background: $brand; color: #fff; border-radius: 24px; }
+
+// ── Next appointment banner ───────────────────────────────────
+.next-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: $brand;
+  color: #fff;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+
+  &__icon-wrap {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    background: rgba(255,255,255,.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__icon { font-size: 24px; width: 24px; height: 24px; color: #fff; }
+
+  &__headline {
+    margin: 0 0 4px;
+    font-size: .95rem;
+    font-weight: 500;
+    opacity: .9;
+  }
+
+  &__detail {
+    margin: 0;
+    font-size: .875rem;
+    font-weight: 700;
+  }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────
+.appt-tabs {
+  --mat-tab-header-active-label-text-color: #{$brand};
+  --mat-tab-header-active-indicator-color: #{$brand};
+}
+
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  background: $brand;
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 0 5px;
+  margin-left: 6px;
+
+  &--warn { background: #dc2626; }
+}
+
+.tab-content {
+  padding: 20px 0;
+}
+
+// ── Appointment list ──────────────────────────────────────────
+.appt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+// ── Empty state ───────────────────────────────────────────────
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 56px 16px;
+  text-align: center;
+  color: $text-secondary;
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0;
+  }
+
+  p { margin: 0; font-size: .9rem; }
+}
+
+.empty-icon {
+  font-size: 56px; width: 56px; height: 56px;
+  color: $brand; opacity: .3;
+}
+
+.find-btn {
+  margin-top: 8px;
+  background: $brand;
+  color: #fff;
+  border-radius: 24px;
+  font-weight: 600;
+}

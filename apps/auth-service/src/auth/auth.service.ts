@@ -34,15 +34,15 @@ export class AuthService {
       throw new ConflictException('An account with this email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
 
     const user = await this.userModel.create({
       ...dto,
       email: dto.email.toLowerCase(),
-      password: hashedPassword,
+      passwordHash,
     });
 
-    const tokens = await this.generateAndStoreTokens(user);
+    const tokens = await this.generateTokens(user);
 
     return {
       user: this.toUserResponse(user),
@@ -54,18 +54,18 @@ export class AuthService {
 
     const user = await this.userModel
       .findOne({ email: dto.email.toLowerCase() })
-      .select('+password');
+      .select('+passwordHash');
 
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const passwordValid = await bcrypt.compare(dto.password, user.password);
+    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const tokens = await this.generateAndStoreTokens(user);
+    const tokens = await this.generateTokens(user);
 
     return {
       user: this.toUserResponse(user),
@@ -103,7 +103,7 @@ export class AuthService {
     const accessToken = this.jwtService.sign(
       { sub: user.id, email: user.email, role: user.role },
       {
-        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+        secret: this.configService.get<string>('jwt.accessSecret'),
         expiresIn: ACCESS_TOKEN_EXPIRY,
       },
     );
@@ -115,20 +115,20 @@ export class AuthService {
     await this.userModel.findByIdAndUpdate(userId, { refreshToken: null });
   }
 
-  // ── Private helpers ────────────────────────────────────────────────────────
+  // ── Public helpers (used by OAuth callback) ─────────────────────────────
 
-  private async generateAndStoreTokens(
+  async generateTokens(
     user: UserDocument,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const jwtPayload = { sub: user.id, email: user.email, role: user.role };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(jwtPayload, {
-        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+        secret: this.configService.get<string>('jwt.accessSecret'),
         expiresIn: ACCESS_TOKEN_EXPIRY,
       }),
       this.jwtService.signAsync(jwtPayload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        secret: this.configService.get<string>('jwt.refreshSecret'),
         expiresIn: REFRESH_TOKEN_EXPIRY,
       }),
     ]);

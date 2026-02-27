@@ -1,0 +1,199 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     SnapSalon Navbar
+     ═══════════════════════════════════════════════════════════════ -->
+<mat-toolbar class="snapsalon-navbar" role="banner">
+
+  <!-- ── Logo ──────────────────────────────────────────────────── -->
+  <a class="brand" routerLink="/discover" aria-label="SnapSalon home">
+    <span class="brand__icon">✂️</span>
+    <span class="brand__name">SnapSalon</span>
+  </a>
+
+  <!-- ── Desktop centre nav ────────────────────────────────────── -->
+  <nav class="desktop-nav" aria-label="Main navigation">
+    <a
+      routerLink="/discover"
+      routerLinkActive="active-link"
+      [routerLinkActiveOptions]="{ exact: false }"
+    >Find a Salon</a>
+  </nav>
+
+  <span class="flex-spacer"></span>
+
+  <!-- ── Right-side auth area ──────────────────────────────────── -->
+  <div class="auth-area">
+
+    <!-- ── Guest state ── -->
+    @if (!isLoggedIn()) {
+      <a mat-button routerLink="/auth/login" class="login-btn">Login</a>
+      <a mat-flat-button routerLink="/auth/register" class="register-btn">Register</a>
+    }
+
+    <!-- ── Logged-in state ── -->
+    @if (isLoggedIn()) {
+
+      <!-- Role-based desktop links -->
+      @if (currentUser()?.role === 'client') {
+        <a
+          mat-button
+          routerLink="/appointments"
+          routerLinkActive="active-link"
+          class="nav-link"
+        >My Appointments</a>
+      }
+
+      @if (
+        currentUser()?.role === 'salon_owner' ||
+        currentUser()?.role === 'franchise_owner'
+      ) {
+        <a
+          mat-button
+          routerLink="/salon-dashboard"
+          routerLinkActive="active-link"
+          class="nav-link"
+        >Dashboard</a>
+      }
+
+      @if (currentUser()?.role === 'admin') {
+        <a
+          mat-button
+          routerLink="/admin"
+          routerLinkActive="active-link"
+          class="nav-link"
+        >Admin</a>
+      }
+
+      <!-- Avatar + dropdown menu -->
+      <button
+        mat-icon-button
+        [matMenuTriggerFor]="userMenu"
+        class="avatar-btn"
+        aria-label="Open user menu"
+      >
+        <span class="avatar-circle" aria-hidden="true">{{ userInitial() }}</span>
+      </button>
+
+      <mat-menu #userMenu="matMenu" xPosition="before">
+        <a mat-menu-item routerLink="/account">
+          <mat-icon>person</mat-icon>
+          <span>My Profile</span>
+        </a>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Logout</span>
+        </button>
+      </mat-menu>
+    }
+
+    <!-- ── Hamburger (mobile only) ── -->
+    <button
+      mat-icon-button
+      class="hamburger-btn"
+      (click)="toggleDrawer()"
+      [attr.aria-expanded]="drawerOpen()"
+      aria-label="Toggle navigation menu"
+    >
+      <mat-icon>{{ drawerOpen() ? 'close' : 'menu' }}</mat-icon>
+    </button>
+
+  </div>
+</mat-toolbar>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     Mobile side drawer
+     ═══════════════════════════════════════════════════════════════ -->
+@if (drawerOpen()) {
+  <!-- Backdrop -->
+  <div
+    class="drawer-backdrop"
+    (click)="closeDrawer()"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Drawer panel -->
+  <nav class="mobile-drawer" aria-label="Mobile navigation">
+
+    <div class="drawer-header">
+      <span class="brand__name">SnapSalon</span>
+      <button mat-icon-button (click)="closeDrawer()" aria-label="Close menu">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Common link -->
+    <a
+      class="drawer-link"
+      routerLink="/discover"
+      routerLinkActive="drawer-link--active"
+      (click)="closeDrawer()"
+    >Find a Salon</a>
+
+    <!-- Auth-aware drawer links -->
+    @if (isLoggedIn()) {
+
+      @if (currentUser()?.role === 'client') {
+        <a
+          class="drawer-link"
+          routerLink="/appointments"
+          routerLinkActive="drawer-link--active"
+          (click)="closeDrawer()"
+        >My Appointments</a>
+      }
+
+      @if (
+        currentUser()?.role === 'salon_owner' ||
+        currentUser()?.role === 'franchise_owner'
+      ) {
+        <a
+          class="drawer-link"
+          routerLink="/salon-dashboard"
+          routerLinkActive="drawer-link--active"
+          (click)="closeDrawer()"
+        >Dashboard</a>
+      }
+
+      @if (currentUser()?.role === 'admin') {
+        <a
+          class="drawer-link"
+          routerLink="/admin"
+          routerLinkActive="drawer-link--active"
+          (click)="closeDrawer()"
+        >Admin</a>
+      }
+
+      <hr class="drawer-divider" />
+
+      <a
+        class="drawer-link"
+        routerLink="/account"
+        routerLinkActive="drawer-link--active"
+        (click)="closeDrawer()"
+      >
+        <mat-icon class="drawer-icon">person</mat-icon>
+        My Profile
+      </a>
+
+      <button class="drawer-link drawer-link--logout" (click)="logout()">
+        <mat-icon class="drawer-icon">logout</mat-icon>
+        Logout
+      </button>
+
+    } @else {
+
+      <hr class="drawer-divider" />
+
+      <a
+        class="drawer-link"
+        routerLink="/auth/login"
+        (click)="closeDrawer()"
+      >Login</a>
+
+      <a
+        class="drawer-link drawer-link--register"
+        routerLink="/auth/register"
+        (click)="closeDrawer()"
+      >Register</a>
+
+    }
+  </nav>
+}

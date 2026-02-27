@@ -37,7 +37,7 @@ class ServiceItem {
   @Prop({ required: true }) category: string;
 }
 
-@Schema({ _id: false })
+@Schema({ _id: true })
 class SalonImage {
   @Prop({ required: true }) cloudinaryId: string;
   @Prop({ required: true }) url: string;
@@ -88,11 +88,24 @@ export class Salon extends Document {
   @Prop({ default: false })
   isApproved: boolean;
 
+  @Prop({ default: true })
+  isActive: boolean;
+
+  @Prop({ type: String, default: null })
+  rejectionReason: string | null;
+
   @Prop({ default: 0, min: 0, max: 5 })
   rating: number;
 
   @Prop({ default: 0, min: 0 })
   reviewCount: number;
+
+  @Prop({
+    type: String,
+    enum: ['trial', 'active', 'past_due', 'cancelled'],
+    default: 'trial',
+  })
+  subscriptionStatus: 'trial' | 'active' | 'past_due' | 'cancelled';
 
   createdAt: Date;
   updatedAt: Date;

@@ -306,8 +306,8 @@ export class SlotPickerComponent {
           this.selectedSlot.set(null);
         }),
         switchMap((dateStr) =>
-          this.bookingService.getSlots(this.salonId(), dateStr, this.duration()).pipe(
-            catchError((): ReturnType<BookingService['getSlots']> => {
+          this.bookingService.getAvailableSlots(this.salonId(), dateStr, this.duration()).pipe(
+            catchError((): ReturnType<BookingService['getAvailableSlots']> => {
               this.slotsError.set('Could not load slots. Please try again.');
               return of({ date: dateStr, slots: [] });
             }),

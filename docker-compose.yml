@@ -1,16 +1,210 @@
 version: '3.8'
+
+networks:
+  snapsalon:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  redis_data:
+
 services:
+  # ─── Infrastructure ────────────────────────────────────────────────────────
   mongodb:
     image: mongo:7
+    restart: unless-stopped
     ports:
       - '27017:27017'
     volumes:
       - mongo_data:/data/db
+    networks:
+      - snapsalon
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - snapsalon
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-volumes:
-  mongo_data:
+  # ─── API Gateway ────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      PORT: '3000'
+      JWT_SECRET: '${JWT_SECRET:-change-me-in-production}'
+      CORS_ORIGIN: '${CORS_ORIGIN:-http://localhost:4200}'
+      AUTH_SERVICE_URL: 'http://auth-service:3003'
+      SALON_SERVICE_URL: 'http://salon-service:3001'
+      BOOKING_SERVICE_URL: 'http://booking-service:3002'
+      REVIEW_SERVICE_URL: 'http://review-service:3006'
+      CALENDAR_SERVICE_URL: 'http://calendar-service:3005'
+      SUBSCRIPTION_SERVICE_URL: 'http://subscription-service:3007'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Auth Service ───────────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: .
+      dockerfile: apps/auth-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3003:3003'
+    environment:
+      AUTH_PORT: '3003'
+      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-auth'
+      REDIS_URL: 'redis://redis:6379'
+      JWT_SECRET: '${JWT_SECRET:-change-me-in-production}'
+      JWT_EXPIRES_IN: '${JWT_EXPIRES_IN:-7d}'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Salon Service ──────────────────────────────────────────────────────────
+  salon-service:
+    build:
+      context: .
+      dockerfile: apps/salon-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      SALON_PORT: '3001'
+      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-salons'
+      REDIS_URL: 'redis://redis:6379'
+      CLOUDINARY_CLOUD_NAME: '${CLOUDINARY_CLOUD_NAME:-}'
+      CLOUDINARY_API_KEY: '${CLOUDINARY_API_KEY:-}'
+      CLOUDINARY_API_SECRET: '${CLOUDINARY_API_SECRET:-}'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Booking Service ────────────────────────────────────────────────────────
+  booking-service:
+    build:
+      context: .
+      dockerfile: apps/booking-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3002:3002'
+    environment:
+      BOOKING_PORT: '3002'
+      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-bookings'
+      REDIS_URL: 'redis://redis:6379'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Calendar Service ───────────────────────────────────────────────────────
+  calendar-service:
+    build:
+      context: .
+      dockerfile: apps/calendar-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3005:3005'
+    environment:
+      CALENDAR_PORT: '3005'
+      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-calendar'
+      REDIS_URL: 'redis://redis:6379'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Review Service ─────────────────────────────────────────────────────────
+  review-service:
+    build:
+      context: .
+      dockerfile: apps/review-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3006:3006'
+    environment:
+      REVIEW_PORT: '3006'
+      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-reviews'
+      REDIS_URL: 'redis://redis:6379'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Subscription Service ───────────────────────────────────────────────────
+  subscription-service:
+    build:
+      context: .
+      dockerfile: apps/subscription-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3007:3007'
+    environment:
+      SUBSCRIPTION_PORT: '3007'
+      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-subscriptions'
+      REDIS_URL: 'redis://redis:6379'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── Notification Service (queue consumer — no HTTP port) ───────────────────
+  notification-service:
+    build:
+      context: .
+      dockerfile: apps/notification-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      REDIS_URL: 'redis://redis:6379'
+      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-notifications'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy

@@ -1,0 +1,46 @@
+# docker-compose.dev.yml — starts infrastructure only (MongoDB + Redis).
+# Use this for local development when running services via `nx serve`.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+#
+version: '3.8'
+
+networks:
+  snapsalon:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  redis_data:
+
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - snapsalon
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - snapsalon
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5

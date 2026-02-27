@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
 import { PassportModule } from '@nestjs/passport';
+import { HttpModule } from '@nestjs/axios';
 
 import { BOOKING_QUEUE } from './constants/calendar-events.constants';
 import { GoogleToken, GoogleTokenSchema } from './schemas/google-token.schema';
@@ -22,6 +23,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
       { name: Booking.name, schema: BookingRefSchema },
     ]),
     BullModule.registerQueue({ name: BOOKING_QUEUE }),
+    HttpModule,
   ],
   controllers: [CalendarController],
   providers: [

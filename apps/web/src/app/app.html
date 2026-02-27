@@ -1,47 +1,8 @@
 <!-- ===== Top Navigation ===== -->
-<header class="navbar">
-  <a class="navbar__brand" routerLink="/discover" (click)="closeMenu()">
-    <span class="navbar__logo">✂️</span>
-    <span class="navbar__name">SnapSalon</span>
-  </a>
+<app-navbar />
 
-  <!-- Desktop links -->
-  <nav class="navbar__links" aria-label="Main navigation">
-    <a routerLink="/discover" routerLinkActive="active" (click)="closeMenu()">Discover</a>
-    <a routerLink="/booking"  routerLinkActive="active" (click)="closeMenu()">Bookings</a>
-    <a routerLink="/reviews"  routerLinkActive="active" (click)="closeMenu()">Reviews</a>
-    <a routerLink="/salon-dashboard" routerLinkActive="active" (click)="closeMenu()">Dashboard</a>
-  </nav>
-
-  <!-- Auth actions (desktop) -->
-  <div class="navbar__auth">
-    <a routerLink="/auth/login"    class="btn btn--ghost">Log in</a>
-    <a routerLink="/auth/register" class="btn btn--primary">Sign up</a>
-  </div>
-
-  <!-- Hamburger (mobile) -->
-  <button
-    class="navbar__hamburger"
-    aria-label="Toggle menu"
-    [attr.aria-expanded]="menuOpen()"
-    (click)="toggleMenu()"
-  >
-    <span></span><span></span><span></span>
-  </button>
-</header>
-
-<!-- Mobile drawer -->
-@if (menuOpen()) {
-  <nav class="mobile-menu" aria-label="Mobile navigation">
-    <a routerLink="/discover"        routerLinkActive="active" (click)="closeMenu()">Discover</a>
-    <a routerLink="/booking"         routerLinkActive="active" (click)="closeMenu()">Bookings</a>
-    <a routerLink="/reviews"         routerLinkActive="active" (click)="closeMenu()">Reviews</a>
-    <a routerLink="/salon-dashboard" routerLinkActive="active" (click)="closeMenu()">Dashboard</a>
-    <hr />
-    <a routerLink="/auth/login"    (click)="closeMenu()">Log in</a>
-    <a routerLink="/auth/register" (click)="closeMenu()">Sign up</a>
-  </nav>
-}
+<!-- ===== PWA Install Banner ===== -->
+<app-pwa-install-banner />
 
 <!-- ===== Main content ===== -->
 <main class="content">

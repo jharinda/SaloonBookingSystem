@@ -18,7 +18,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
 
 import { Booking, BookingDraft, Salon, SalonServiceItem } from '@org/models';
-import { SalonService } from '@org/discover';
+import { SalonService } from '@org/shared-data-access';
 import { BookingService } from '../services/booking.service';
 import { ServiceSelectorComponent } from '../service-selector/service-selector.component';
 import { SlotPickerComponent } from '../slot-picker/slot-picker.component';
@@ -252,7 +252,7 @@ export class BookingWizardComponent {
       .pipe(
         filter((id) => !!id),
         switchMap((id) =>
-          this.salonService.getById(id).pipe(
+          this.salonService.getSalonById(id).pipe(
             catchError(() => {
               this.salonError.set('Could not load salon details. Please go back and try again.');
               return of(null);

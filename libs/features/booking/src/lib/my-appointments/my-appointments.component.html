@@ -1,0 +1,144 @@
+<div class="page-wrap">
+  <h1 class="page-title">My Appointments</h1>
+
+  <!-- ── Loading ── -->
+  @if (loading()) {
+    <div class="center-spinner" aria-busy="true" aria-label="Loading appointments">
+      <mat-spinner diameter="48" />
+    </div>
+  }
+
+  <!-- ── Error ── -->
+  @if (!loading() && error()) {
+    <div class="error-card" role="alert">
+      <mat-icon class="error-icon">error_outline</mat-icon>
+      <p>{{ error() }}</p>
+      <button mat-flat-button class="retry-btn" (click)="loadBookings()">Retry</button>
+    </div>
+  }
+
+  <!-- ── Main content ── -->
+  @if (!loading() && !error()) {
+
+    <!-- ══ NEXT APPOINTMENT BANNER ══════════════════════════════════ -->
+    @if (nextAppointment(); as next) {
+      <div class="next-banner" role="region" aria-label="Your next appointment">
+        <div class="next-banner__icon-wrap" aria-hidden="true">
+          <mat-icon class="next-banner__icon">alarm</mat-icon>
+        </div>
+        <div class="next-banner__body">
+          <p class="next-banner__headline">
+            Your next appointment is in
+            <strong>{{ countdown() || '…' }}</strong>
+          </p>
+          <p class="next-banner__detail">
+            <strong>{{ next.salonName }}</strong> —
+            {{ next.serviceName }} ·
+            {{ next.appointmentDate | date: 'EEE, d MMM' }}
+            at {{ next.startTime }}
+          </p>
+        </div>
+      </div>
+    }
+
+    <!-- ══ TABS ══════════════════════════════════════════════════════ -->
+    <mat-tab-group
+      class="appt-tabs"
+      animationDuration="200ms"
+      [disableRipple]="false"
+    >
+
+      <!-- ── Upcoming tab ── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          Upcoming
+          @if (upcoming().length) {
+            <span class="tab-count">{{ upcoming().length }}</span>
+          }
+        </ng-template>
+
+        <div class="tab-content">
+          @if (upcoming().length === 0) {
+            <div class="empty-state" role="status">
+              <mat-icon class="empty-icon">event_available</mat-icon>
+              <h3>No upcoming appointments</h3>
+              <p>Book your next session at one of our partner salons.</p>
+              <a mat-flat-button routerLink="/discover" class="find-btn">
+                Find a Salon
+              </a>
+            </div>
+          } @else {
+            <div class="appt-list">
+              @for (booking of upcoming(); track booking._id) {
+                <lib-appointment-card
+                  [booking]="booking"
+                  tab="upcoming"
+                  (cancelRequested)="openCancelDialog(booking)"
+                />
+              }
+            </div>
+          }
+        </div>
+      </mat-tab>
+
+      <!-- ── Past tab ── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          Past
+          @if (past().length) {
+            <span class="tab-count">{{ past().length }}</span>
+          }
+        </ng-template>
+
+        <div class="tab-content">
+          @if (past().length === 0) {
+            <div class="empty-state" role="status">
+              <mat-icon class="empty-icon">history</mat-icon>
+              <h3>No past appointments yet</h3>
+              <p>Completed appointments will appear here.</p>
+            </div>
+          } @else {
+            <div class="appt-list">
+              @for (booking of past(); track booking._id) {
+                <lib-appointment-card
+                  [booking]="booking"
+                  tab="past"
+                />
+              }
+            </div>
+          }
+        </div>
+      </mat-tab>
+
+      <!-- ── Cancelled tab ── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          Cancelled
+          @if (cancelled().length) {
+            <span class="tab-count tab-count--warn">{{ cancelled().length }}</span>
+          }
+        </ng-template>
+
+        <div class="tab-content">
+          @if (cancelled().length === 0) {
+            <div class="empty-state" role="status">
+              <mat-icon class="empty-icon">do_not_disturb</mat-icon>
+              <h3>No cancelled appointments</h3>
+              <p>Cancelled or no-show bookings will appear here.</p>
+            </div>
+          } @else {
+            <div class="appt-list">
+              @for (booking of cancelled(); track booking._id) {
+                <lib-appointment-card
+                  [booking]="booking"
+                  tab="cancelled"
+                />
+              }
+            </div>
+          }
+        </div>
+      </mat-tab>
+
+    </mat-tab-group>
+  }
+</div>

@@ -1,0 +1,29 @@
+<div class="dash-wrap">
+  <h1 class="page-title">Dashboard</h1>
+
+  @if (loading()) {
+    <div class="center-spin"><mat-spinner diameter="48" /></div>
+  } @else if (error()) {
+    <div class="error-card">
+      <mat-icon class="error-icon">error_outline</mat-icon>
+      <p>{{ error() }}</p>
+      <button mat-flat-button class="retry-btn" (click)="loadStats()">Retry</button>
+    </div>
+  } @else {
+    <div class="cards-grid">
+      @for (card of cards; track card.key) {
+        <div class="stat-card" [class.stat-card--warn]="card.key === 'pendingApproval' && getStatValue(card.key) > 0">
+          <div class="stat-card__header">
+            <mat-icon class="stat-icon">{{ card.icon }}</mat-icon>
+            <span class="stat-label">{{ card.label }}</span>
+          </div>
+          <div class="stat-card__body">
+            <span class="stat-value">
+              {{ card.prefix ?? '' }}{{ getStatValue(card.key) | number }}
+            </span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

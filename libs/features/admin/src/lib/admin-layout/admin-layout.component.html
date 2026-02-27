@@ -1,0 +1,37 @@
+<div class="admin-shell">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <a class="sidebar__brand" routerLink="/admin/dashboard">
+      <mat-icon class="brand-icon">admin_panel_settings</mat-icon>
+      <span class="brand-text">Admin</span>
+    </a>
+
+    <nav class="sidebar__nav">
+      @for (item of navItems; track item.route) {
+        <a
+          class="nav-item"
+          [routerLink]="item.route"
+          routerLinkActive="nav-item--active"
+          [matTooltip]="item.label"
+          matTooltipPosition="right"
+        >
+          <mat-icon
+            [matBadge]="getBadge(item)"
+            [matBadgeHidden]="getBadge(item) === null"
+            matBadgeColor="warn"
+            matBadgeSize="small"
+            class="nav-icon"
+          >{{ item.icon }}</mat-icon>
+          <span class="nav-label">{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+  </aside>
+
+  <!-- ── Main area ─────────────────────────────────────────────────────── -->
+  <main class="admin-main">
+    <router-outlet />
+  </main>
+
+</div>

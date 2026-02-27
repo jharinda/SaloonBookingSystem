@@ -1,0 +1,86 @@
+<div class="page-wrap">
+  <h1 class="page-title">Users</h1>
+
+  <div class="toolbar">
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Role</mat-label>
+      <mat-select [value]="roleFilter()" (selectionChange)="onRoleChange($event.value)">
+        @for (opt of roleOptions; track opt.value) {
+          <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  @if (loading()) {
+    <div class="center-spin"><mat-spinner diameter="44" /></div>
+  } @else if (error()) {
+    <div class="error-card">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ error() }}</p>
+      <button mat-flat-button class="retry-btn" (click)="loadUsers()">Retry</button>
+    </div>
+  } @else {
+    <div class="table-card">
+      <table mat-table [dataSource]="users()">
+
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let u">
+            <span class="bold">{{ u.firstName }} {{ u.lastName }}</span>
+            @if (!u.isActive) { <span class="badge badge--suspended">Suspended</span> }
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="email">
+          <th mat-header-cell *matHeaderCellDef>Email</th>
+          <td mat-cell *matCellDef="let u">{{ u.email }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="role">
+          <th mat-header-cell *matHeaderCellDef>Role</th>
+          <td mat-cell *matCellDef="let u">
+            <span class="role-chip role-chip--{{ u.role }}">{{ u.role | titlecase }}</span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="joined">
+          <th mat-header-cell *matHeaderCellDef>Joined</th>
+          <td mat-cell *matCellDef="let u">{{ u.createdAt | date:'d MMM y' }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let u">
+            <div class="action-btns">
+              @if (actionId() === u._id) {
+                <mat-spinner diameter="22" />
+              } @else {
+                <button mat-icon-button matTooltip="View Bookings" (click)="viewBookings(u)">
+                  <mat-icon>event_note</mat-icon>
+                </button>
+                @if (u.isActive) {
+                  <button mat-icon-button matTooltip="Suspend Account" class="danger-icon-btn" (click)="suspend(u)">
+                    <mat-icon>person_off</mat-icon>
+                  </button>
+                }
+              }
+            </div>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+
+      <mat-paginator
+        [length]="total()"
+        [pageIndex]="page()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="[10, 25, 50]"
+        (page)="onPage($event)"
+        showFirstLastButtons
+      />
+    </div>
+  }
+</div>

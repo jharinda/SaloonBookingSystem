@@ -4,14 +4,22 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SalonModule } from '../salon/salon.module';
+import configuration from '../config/configuration';
+import { validationSchema } from '../config/validation.schema';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+      load: [configuration],
+      validationSchema,
+      validationOptions: { abortEarly: false },
+    }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        uri: config.get<string>('SALON_MONGODB_URI'),
+        uri: config.get<string>('db.uri'),
       }),
     }),
     SalonModule,

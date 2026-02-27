@@ -1,9 +1,12 @@
 {
-  "name": "web",
-  "short_name": "web",
+  "name": "SnapSalon",
+  "short_name": "SnapSalon",
+  "description": "Sri Lanka Online Salon Booking",
+  "theme_color": "#2563EB",
+  "background_color": "#FFFFFF",
   "display": "standalone",
-  "scope": "./",
-  "start_url": "./",
+  "scope": "/",
+  "start_url": "/discover",
   "icons": [
     {
       "src": "icons/icon-72x72.png",

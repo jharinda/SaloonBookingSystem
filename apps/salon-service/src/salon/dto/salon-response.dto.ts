@@ -42,6 +42,9 @@ export class SalonResponseDto {
   staff: string[];
   images: SalonImageDto[];
   isApproved: boolean;
+  isActive: boolean;
+  rejectionReason?: string;
+  subscriptionStatus: 'trial' | 'active' | 'past_due' | 'cancelled';
   rating: number;
   reviewCount: number;
   createdAt: Date;
@@ -53,5 +56,12 @@ export class PaginatedSalonsDto {
   total: number;
   page: number;
   limit: number;
+  totalPages: number;
+}
+
+export class SalonSearchResultDto {
+  salons: SalonResponseDto[];
+  total: number;
+  page: number;
   totalPages: number;
 }

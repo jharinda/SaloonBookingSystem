@@ -1,14 +1,9 @@
 import {
   IsArray,
-  IsBoolean,
   IsEmail,
-  IsNumber,
   IsOptional,
   IsString,
-  IsUrl,
-  Max,
   MaxLength,
-  Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';

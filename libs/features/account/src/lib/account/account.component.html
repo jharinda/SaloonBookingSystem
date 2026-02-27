@@ -1,0 +1,346 @@
+<div class="page-wrap">
+  <h1 class="page-title">Account Settings</h1>
+
+  <!-- ── Global loading ───────────────────────────────────────────────── -->
+  @if (loading()) {
+    <div class="center-spinner">
+      <mat-spinner diameter="48" />
+    </div>
+  } @else {
+
+  <!-- ── Tabs ─────────────────────────────────────────────────────────── -->
+  <mat-tab-group class="settings-tabs" animationDuration="200ms">
+
+    <!-- ═══════════════════════════════ TAB 1: Profile ════════════════════ -->
+    <mat-tab label="Profile">
+      <div class="tab-content">
+
+        <!-- Avatar section -->
+        <section class="section">
+          <h3 class="section-title">Profile Photo</h3>
+          <div class="avatar-row">
+            <div class="avatar-circle">
+              @if (avatarPreview() || profile()?.avatarUrl; as src) {
+                <img [src]="src" alt="Profile photo" class="avatar-img" />
+              } @else {
+                <span class="avatar-initials">{{ initials() }}</span>
+              }
+            </div>
+
+            <div class="avatar-actions">
+              <label class="change-photo-btn" mat-flat-button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="file-input"
+                  (change)="onAvatarFileChange($event)"
+                />
+                <mat-icon>photo_camera</mat-icon>
+                Change Photo
+              </label>
+
+              @if (avatarFile()) {
+                <button
+                  mat-flat-button
+                  class="upload-btn"
+                  [disabled]="savingAvatar()"
+                  (click)="uploadAvatar()"
+                >
+                  @if (savingAvatar()) {
+                    <mat-spinner diameter="18" class="btn-spinner" />
+                  } @else {
+                    <mat-icon>cloud_upload</mat-icon>
+                  }
+                  Upload
+                </button>
+              }
+            </div>
+          </div>
+        </section>
+
+        <mat-divider />
+
+        <!-- Profile form -->
+        <section class="section" [formGroup]="profileForm">
+          <h3 class="section-title">Personal Information</h3>
+
+          <div class="form-row two-col">
+            <!-- First name -->
+            <mat-form-field appearance="outline">
+              <mat-label>First Name</mat-label>
+              <input matInput formControlName="firstName" autocomplete="given-name" />
+              @if (profileError('firstName'); as err) {
+                <mat-error>{{ err }}</mat-error>
+              }
+            </mat-form-field>
+
+            <!-- Last name -->
+            <mat-form-field appearance="outline">
+              <mat-label>Last Name</mat-label>
+              <input matInput formControlName="lastName" autocomplete="family-name" />
+              @if (profileError('lastName'); as err) {
+                <mat-error>{{ err }}</mat-error>
+              }
+            </mat-form-field>
+          </div>
+
+          <!-- Phone -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Phone (optional)</mat-label>
+            <mat-icon matPrefix>phone</mat-icon>
+            <input
+              matInput
+              formControlName="phone"
+              placeholder="+94XXXXXXXXX"
+              autocomplete="tel"
+            />
+            <mat-hint>Sri Lanka format: +94XXXXXXXXX</mat-hint>
+            @if (profileError('phone'); as err) {
+              <mat-error>{{ err }}</mat-error>
+            }
+          </mat-form-field>
+
+          <!-- Email (read-only) -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Email Address</mat-label>
+            <mat-icon matPrefix>email</mat-icon>
+            <input matInput formControlName="email" autocomplete="email" />
+            <mat-hint>Email cannot be changed. Contact support if needed.</mat-hint>
+          </mat-form-field>
+
+          <div class="form-actions">
+            <button
+              mat-flat-button
+              class="save-btn"
+              [disabled]="savingProfile()"
+              (click)="saveProfile()"
+            >
+              @if (savingProfile()) {
+                <mat-spinner diameter="18" class="btn-spinner" />
+              } @else {
+                <mat-icon>save</mat-icon>
+              }
+              Save Changes
+            </button>
+          </div>
+        </section>
+
+      </div>
+    </mat-tab>
+
+    <!-- ══════════════════════════════ TAB 2: Security ════════════════════ -->
+    <mat-tab label="Security">
+      <div class="tab-content">
+
+        <!-- Change password -->
+        <section class="section" [formGroup]="passwordForm">
+          <h3 class="section-title">Change Password</h3>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Current Password</mat-label>
+            <mat-icon matPrefix>lock</mat-icon>
+            <input matInput type="password" formControlName="currentPassword" autocomplete="current-password" />
+            @if (passwordError('currentPassword'); as err) {
+              <mat-error>{{ err }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>New Password</mat-label>
+            <mat-icon matPrefix>lock_reset</mat-icon>
+            <input matInput type="password" formControlName="newPassword" autocomplete="new-password" />
+            <mat-hint>Min 8 chars · uppercase · lowercase · number · special character</mat-hint>
+            @if (passwordError('newPassword'); as err) {
+              <mat-error>{{ err }}</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Confirm New Password</mat-label>
+            <mat-icon matPrefix>lock_reset</mat-icon>
+            <input matInput type="password" formControlName="confirmPassword" autocomplete="new-password" />
+            @if (passwordError('confirmPassword'); as err) {
+              <mat-error>{{ err }}</mat-error>
+            }
+          </mat-form-field>
+
+          <div class="form-actions">
+            <button
+              mat-flat-button
+              class="save-btn"
+              [disabled]="savingPassword()"
+              (click)="changePassword()"
+            >
+              @if (savingPassword()) {
+                <mat-spinner diameter="18" class="btn-spinner" />
+              } @else {
+                <mat-icon>vpn_key</mat-icon>
+              }
+              Update Password
+            </button>
+          </div>
+        </section>
+
+        <mat-divider />
+
+        <!-- Connected accounts -->
+        <section class="section">
+          <h3 class="section-title">Connected Accounts</h3>
+          <p class="section-desc">Link third-party accounts for faster sign‑in.</p>
+
+          <div class="connected-row">
+            <div class="connected-info">
+              <!-- Google logo SVG -->
+              <svg class="google-logo" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 33.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9L37.9 9A20 20 0 1 0 44 24c0-1.4-.1-2.7-.4-4z"/>
+                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3 0 5.7 1.1 7.8 2.9L37.9 9A20 20 0 0 0 6.3 14.7z"/>
+                <path fill="#4CAF50" d="M24 44a20 20 0 0 0 13.4-5.2l-6.2-5.2C29.3 35.3 26.8 36 24 36c-5.3 0-9.7-3.4-11.3-8.1l-6.5 5C9.2 40.5 16 44 24 44z"/>
+                <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.2-2.3 4-4.2 5.4l6.2 5.2C40.8 35.7 44 30.3 44 24c0-1.4-.1-2.7-.4-4z"/>
+              </svg>
+              <div>
+                <p class="connected-name">Google</p>
+                @if (connectedAccounts().google; as g) {
+                  <p class="connected-email">{{ g.email }}</p>
+                } @else {
+                  <p class="connected-email muted">Not connected</p>
+                }
+              </div>
+            </div>
+
+            @if (connectedAccounts().google) {
+              <button
+                mat-stroked-button
+                class="disconnect-btn"
+                [disabled]="disconnectingGoogle()"
+                (click)="disconnectGoogle()"
+              >
+                @if (disconnectingGoogle()) {
+                  <mat-spinner diameter="16" class="btn-spinner" />
+                }
+                Disconnect
+              </button>
+            } @else {
+              <button mat-flat-button class="connect-google-btn" (click)="connectGoogle()">
+                <mat-icon>login</mat-icon>
+                Connect Google
+              </button>
+            }
+          </div>
+        </section>
+
+      </div>
+    </mat-tab>
+
+    <!-- ═══════════════════════════ TAB 3: Notifications ══════════════════ -->
+    <mat-tab label="Notifications">
+      <div class="tab-content">
+
+        <section class="section">
+          <h3 class="section-title">Notification Preferences</h3>
+          <p class="section-desc">Choose how you want to be notified about your appointments.</p>
+
+          <div class="notif-list">
+
+            <div class="notif-row">
+              <div class="notif-info">
+                <mat-icon class="notif-icon">email</mat-icon>
+                <div>
+                  <p class="notif-label">Booking Confirmations</p>
+                  <p class="notif-desc">Receive email when a booking is confirmed or cancelled</p>
+                </div>
+              </div>
+              <mat-slide-toggle
+                [checked]="notifPrefs().emailBookingConfirmations"
+                (change)="onNotifToggle('emailBookingConfirmations', $event.checked)"
+                color="primary"
+              />
+            </div>
+
+            <mat-divider />
+
+            <div class="notif-row">
+              <div class="notif-info">
+                <mat-icon class="notif-icon">schedule</mat-icon>
+                <div>
+                  <p class="notif-label">Email Reminders</p>
+                  <p class="notif-desc">Get an email reminder 24 hours before your appointment</p>
+                </div>
+              </div>
+              <mat-slide-toggle
+                [checked]="notifPrefs().emailReminders"
+                (change)="onNotifToggle('emailReminders', $event.checked)"
+                color="primary"
+              />
+            </div>
+
+            <mat-divider />
+
+            <div class="notif-row">
+              <div class="notif-info">
+                <mat-icon class="notif-icon">sms</mat-icon>
+                <div>
+                  <p class="notif-label">SMS Reminders</p>
+                  <p class="notif-desc">Receive an SMS 2 hours before your appointment</p>
+                </div>
+              </div>
+              <mat-slide-toggle
+                [checked]="notifPrefs().smsReminders"
+                (change)="onNotifToggle('smsReminders', $event.checked)"
+                color="primary"
+              />
+            </div>
+
+            <mat-divider />
+
+            <div class="notif-row">
+              <div class="notif-info">
+                <mat-icon class="notif-icon">chat</mat-icon>
+                <div>
+                  <p class="notif-label">WhatsApp Messages</p>
+                  <p class="notif-desc">Receive appointment updates via WhatsApp</p>
+                </div>
+              </div>
+              <mat-slide-toggle
+                [checked]="notifPrefs().whatsappMessages"
+                (change)="onNotifToggle('whatsappMessages', $event.checked)"
+                color="primary"
+              />
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </mat-tab>
+
+  </mat-tab-group>
+
+  <!-- ── Danger zone ────────────────────────────────────────────────── -->
+  <section class="danger-zone">
+    <div class="danger-header">
+      <mat-icon class="danger-icon">dangerous</mat-icon>
+      <div>
+        <h3 class="danger-title">Danger Zone</h3>
+        <p class="danger-desc">
+          Once you delete your account, all your data will be permanently removed.
+          This cannot be undone.
+        </p>
+      </div>
+    </div>
+    <button
+      mat-stroked-button
+      class="delete-account-btn"
+      [disabled]="deletingAccount()"
+      (click)="openDeleteDialog()"
+    >
+      @if (deletingAccount()) {
+        <mat-spinner diameter="18" class="btn-spinner" />
+      } @else {
+        <mat-icon>delete_forever</mat-icon>
+      }
+      Delete My Account
+    </button>
+  </section>
+
+  } <!-- end @else (not loading) -->
+</div>

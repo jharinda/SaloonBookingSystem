@@ -11,7 +11,9 @@ import {
 export enum UserRole {
   CLIENT = 'client',
   SALON_OWNER = 'salon_owner',
+  FRANCHISE_OWNER = 'franchise_owner',
   STYLIST = 'stylist',
+  ADMIN = 'admin',
 }
 
 export class RegisterDto {
@@ -37,7 +39,7 @@ export class RegisterDto {
   lastName: string;
 
   @IsEnum(UserRole, {
-    message: 'Role must be one of: client, salon_owner, stylist',
+    message: 'Role must be one of: client, salon_owner, franchise_owner, stylist, admin',
   })
   role: UserRole;
 }

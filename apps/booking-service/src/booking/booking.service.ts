@@ -1,12 +1,18 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { InjectQueue } from '@nestjs/bull';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 import { Model, Types } from 'mongoose';
 import { Queue } from 'bull';
+import Redis from 'ioredis';
 
 import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -19,6 +25,21 @@ import {
 import { BOOKING_QUEUE, BookingEvent } from './constants/booking-events.constants';
 
 const SLOT_INTERVAL_MINUTES = 30;
+const BOOKING_BUFFER_MINUTES = 15;
+const CACHE_TTL_SECONDS = 60;
+
+/** Shape of the operatingHours entry returned by salon-service */
+interface SalonOperatingHours {
+  day: number;    // 0 = Sunday … 6 = Saturday
+  open: string;   // "HH:mm"
+  close: string;  // "HH:mm"
+  closed: boolean;
+}
+
+/** Minimal shape of the salon-service GET /api/salons/:id response */
+interface SalonResponse {
+  operatingHours: SalonOperatingHours[];
+}
 
 /** Convert "HH:mm" to total minutes since midnight */
 function toMinutes(time: string): number {
@@ -40,65 +61,128 @@ function addMinutes(time: string, duration: number): string {
 
 @Injectable()
 export class BookingService {
+  private readonly logger = new Logger(BookingService.name);
+
   constructor(
     @InjectModel(Booking.name)
     private readonly bookingModel: Model<BookingDocument>,
     @InjectQueue(BOOKING_QUEUE)
     private readonly bookingQueue: Queue,
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+    @Inject('REDIS_CLIENT')
+    private readonly redis: Redis,
   ) {}
 
   // ── Availability ─────────────────────────────────────────────────────────
 
   async getAvailableSlots(
     salonId: string,
+    stylistId: string | null,
     date: string,
-    serviceDuration: number,
+    durationMinutes: number,
   ): Promise<AvailableSlotsResponseDto> {
-    // Normalise to UTC midnight
-    const dayStart = new Date(`${date}T00:00:00.000Z`);
-    const dayEnd = new Date(`${date}T23:59:59.999Z`);
+    // ── Step 0: Redis cache ──────────────────────────────────────────────
+    const cacheKey = `slots:${salonId}:${date}`;
+    try {
+      const cached = await this.redis.get(cacheKey);
+      if (cached) {
+        return JSON.parse(cached) as AvailableSlotsResponseDto;
+      }
+    } catch (err) {
+      this.logger.warn(`Redis cache read failed: ${(err as Error).message}`);
+    }
 
-    // Fetch all active bookings for that salon on that day
+    // ── Step 1: Fetch salon operating hours from salon-service ───────────
+    const salonServiceUrl = this.configService.get<string>(
+      'services.salonUrl',
+      'http://salon-service:3001',
+    );
+
+    let salon: SalonResponse;
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get<SalonResponse>(
+          `${salonServiceUrl}/api/salons/${salonId}`,
+        ),
+      );
+      salon = data;
+    } catch (err) {
+      this.logger.error(
+        `Failed to fetch salon ${salonId} from salon-service: ${(err as Error).message}`,
+      );
+      throw new BadRequestException(
+        `Could not retrieve operating hours for salon ${salonId}`,
+      );
+    }
+
+    // Find the operating hours entry for the given day of week.
+    // Use noon UTC to avoid date-boundary issues with timezone offsets.
+    const dayOfWeek = new Date(`${date}T12:00:00.000Z`).getUTCDay();
+    const hours = salon.operatingHours?.find((h) => h.day === dayOfWeek);
+
+    if (!hours || hours.closed) {
+      const result: AvailableSlotsResponseDto = { salonId, date, slots: [] };
+      await this.cacheResult(cacheKey, result);
+      return result;
+    }
+
+    // ── Step 2: Generate all possible 30-minute-interval slots ───────────
+    const openMin = toMinutes(hours.open);
+    const closeMin = toMinutes(hours.close);
+    const allSlots: string[] = [];
+
+    for (
+      let slot = openMin;
+      slot + durationMinutes <= closeMin;
+      slot += SLOT_INTERVAL_MINUTES
+    ) {
+      allSlots.push(toTimeString(slot));
+    }
+
+    // ── Step 3: Query existing bookings ──────────────────────────────────
+    const dayStart = new Date(`${date}T00:00:00.000Z`);
+    const dayEnd   = new Date(`${date}T23:59:59.999Z`);
+
+    const bookingQuery: Record<string, unknown> = {
+      salonId: new Types.ObjectId(salonId),
+      appointmentDate: { $gte: dayStart, $lte: dayEnd },
+      status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+    };
+
+    if (stylistId) {
+      bookingQuery['stylistId'] = new Types.ObjectId(stylistId);
+    }
+
     const existingBookings = await this.bookingModel
-      .find({
-        salonId: new Types.ObjectId(salonId),
-        appointmentDate: { $gte: dayStart, $lte: dayEnd },
-        status: {
-          $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW],
-        },
-      })
+      .find(bookingQuery)
       .lean()
       .exec();
 
-    // Build a set of occupied minute-ranges [startMin, endMin)
-    const occupied: Array<{ start: number; end: number }> = existingBookings.map(
-      (b) => ({
-        start: toMinutes(b.startTime),
-        end: toMinutes(b.endTime),
-      }),
-    );
+    // ── Step 4: Build blocked ranges (endTime + 15 min buffer) ───────────
+    const blocked = existingBookings.map((b) => ({
+      start: toMinutes(b.startTime),
+      end:   toMinutes(b.endTime) + BOOKING_BUFFER_MINUTES,
+    }));
 
-    // Default operating window 09:00 – 18:00 (override with salon operating hours if available)
-    const workStart = 9 * 60;  // 09:00
-    const workEnd = 18 * 60;   // 18:00
+    // ── Step 5: Filter slots that overlap any blocked range ───────────────
+    const available = allSlots.filter((slot) => {
+      const slotStart = toMinutes(slot);
+      const slotEnd   = slotStart + durationMinutes;
+      return !blocked.some((b) => slotStart < b.end && slotEnd > b.start);
+    });
 
-    const available: string[] = [];
+    const result: AvailableSlotsResponseDto = { salonId, date, slots: available };
+    await this.cacheResult(cacheKey, result);
+    return result;
+  }
 
-    for (
-      let slot = workStart;
-      slot + serviceDuration <= workEnd;
-      slot += SLOT_INTERVAL_MINUTES
-    ) {
-      const slotEnd = slot + serviceDuration;
-      const conflict = occupied.some(
-        (o) => slot < o.end && slotEnd > o.start,
-      );
-      if (!conflict) {
-        available.push(toTimeString(slot));
-      }
+  private async cacheResult(key: string, value: unknown): Promise<void> {
+    try {
+      await this.redis.setex(key, CACHE_TTL_SECONDS, JSON.stringify(value));
+    } catch (err) {
+      this.logger.warn(`Redis cache write failed: ${(err as Error).message}`);
     }
-
-    return { salonId, date, slots: available };
   }
 
   // ── CRUD ─────────────────────────────────────────────────────────────────
@@ -236,6 +320,20 @@ export class BookingService {
     const response = this.toResponse(booking);
     await this.bookingQueue.add(BookingEvent.CANCELLED, { booking: response, reason });
     return response;
+  }
+
+  /** Internal: store the Google Calendar event ID returned by calendar-service */
+  async setGoogleEventId(
+    bookingId: string,
+    googleEventId: string,
+  ): Promise<BookingResponseDto> {
+    const booking = await this.bookingModel.findByIdAndUpdate(
+      bookingId,
+      { googleEventId },
+      { new: true },
+    );
+    if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
+    return this.toResponse(booking);
   }
 
   async completeBooking(bookingId: string): Promise<BookingResponseDto> {

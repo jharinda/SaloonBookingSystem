@@ -2,31 +2,29 @@ import {
   ChangeDetectionStrategy,
   Component,
   inject,
-  signal,
+  PLATFORM_ID,
 } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { isPlatformBrowser } from '@angular/common';
+import { RouterOutlet } from '@angular/router';
+import { NavbarComponent } from './components/navbar/navbar.component';
+import { PwaInstallBannerComponent } from './components/pwa-install-banner/pwa-install-banner.component';
+import { PwaInstallService } from './shared/services/pwa-install.service';
 
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, NavbarComponent, PwaInstallBannerComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
-  protected readonly router = inject(Router);
-  protected readonly menuOpen = signal(false);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly pwaInstall = inject(PwaInstallService);
 
-  toggleMenu(): void {
-    this.menuOpen.update((v) => !v);
-  }
-
-  closeMenu(): void {
-    this.menuOpen.set(false);
-  }
-
-  navigateToDiscover(): void {
-    this.closeMenu();
-    this.router.navigate(['/discover']);
+  constructor() {
+    // Register the beforeinstallprompt listener only in the browser
+    if (isPlatformBrowser(this.platformId)) {
+      this.pwaInstall.listen(window);
+    }
   }
 }

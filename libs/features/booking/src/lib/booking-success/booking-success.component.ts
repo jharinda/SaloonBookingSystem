@@ -11,6 +11,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -18,6 +19,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Booking } from '@org/models';
 import { BookingService } from '../services/booking.service';
 import { CalendarService } from '../services/calendar.service';
+import { PushNotificationDialogComponent } from './push-notification-dialog.component';
 
 @Component({
   selector: 'lib-booking-success',
@@ -26,6 +28,7 @@ import { CalendarService } from '../services/calendar.service';
     DatePipe,
     DecimalPipe,
     MatButtonModule,
+    MatDialogModule,
     MatDividerModule,
     MatIconModule,
     MatProgressSpinnerModule,
@@ -386,28 +389,45 @@ export class BookingSuccessComponent implements OnInit {
   private readonly calendarService = inject(CalendarService);
   private readonly snackBar        = inject(MatSnackBar);
   private readonly router          = inject(Router);
+  private readonly dialog          = inject(MatDialog);
 
   private get bookingId(): string {
     return this.route.snapshot.paramMap.get('bookingId') ?? '';
   }
 
-  readonly booking          = signal<Booking | null>(null);
-  readonly isLoading        = signal(true);
-  readonly loadError        = signal<string | null>(null);
+  readonly booking           = signal<Booking | null>(null);
+  readonly isLoading         = signal(true);
+  readonly loadError         = signal<string | null>(null);
   readonly isCalendarLoading = signal(false);
-  readonly isIcsLoading     = signal(false);
+  readonly isIcsLoading      = signal(false);
 
   ngOnInit(): void {
     this.bookingService.getById(this.bookingId).subscribe({
       next: (b) => {
         this.booking.set(b);
         this.isLoading.set(false);
+        this.maybePromptPushNotifications();
       },
       error: () => {
         this.loadError.set('Could not load booking details.');
         this.isLoading.set(false);
       },
     });
+  }
+
+  /** Open the push-notification opt-in dialog (once per browser session). */
+  private maybePromptPushNotifications(): void {
+    if (sessionStorage.getItem('pn_prompted')) return;
+    if ('Notification' in window && Notification.permission !== 'default') return;
+
+    sessionStorage.setItem('pn_prompted', '1');
+    setTimeout(() => {
+      this.dialog.open(PushNotificationDialogComponent, {
+        width: '380px',
+        panelClass: 'pwa-dialog-panel',
+        disableClose: false,
+      });
+    }, 800);
   }
 
   addToGoogleCalendar(): void {

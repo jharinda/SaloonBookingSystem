@@ -19,11 +19,7 @@ import {
   BookingResponseDto,
   PaginatedBookingsDto,
 } from './dto/booking-response.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
-import { UserRole } from '../common/enums/user-role.enum';
+import { JwtAuthGuard, RolesGuard, Roles, CurrentUser, JwtUser, UserRole } from '@org/shared-auth';
 import { IsString, IsNotEmpty } from 'class-validator';
 
 class CancelBookingDto {
@@ -44,8 +40,9 @@ export class BookingController {
   ): Promise<AvailableSlotsResponseDto> {
     return this.bookingService.getAvailableSlots(
       query.salonId,
+      query.stylistId ?? null,
       query.date,
-      query.serviceDuration,
+      query.durationMinutes,
     );
   }
 
@@ -108,6 +105,15 @@ export class BookingController {
     @Param('id') id: string,
   ): Promise<BookingResponseDto> {
     return this.bookingService.confirmBooking(id);
+  }
+
+  /** Internal route — called by calendar-service to persist the Google Calendar event ID */
+  @Patch(':id/google-event')
+  async setGoogleEventId(
+    @Param('id') id: string,
+    @Body() body: { googleEventId: string },
+  ): Promise<BookingResponseDto> {
+    return this.bookingService.setGoogleEventId(id, body.googleEventId);
   }
 
   @Patch(':id/complete')

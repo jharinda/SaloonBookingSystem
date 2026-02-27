@@ -4,7 +4,7 @@
   "projectType": "application",
   "prefix": "app",
   "sourceRoot": "apps/web/src",
-  "tags": [],
+  "tags": ["scope:app"],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
@@ -41,7 +41,13 @@
             }
           ],
           "outputHashing": "all",
-          "serviceWorker": "apps/web/ngsw-config.json"
+          "serviceWorker": "apps/web/ngsw-config.json",
+          "fileReplacements": [
+            {
+              "replace": "apps/web/src/environments/environment.ts",
+              "with": "apps/web/src/environments/environment.prod.ts"
+            }
+          ]
         },
         "development": {
           "optimization": false,
@@ -59,7 +65,8 @@
           "buildTarget": "web:build:production"
         },
         "development": {
-          "buildTarget": "web:build:development"
+          "buildTarget": "web:build:development",
+          "proxyConfig": "apps/web/proxy.conf.json"
         }
       },
       "defaultConfiguration": "development"

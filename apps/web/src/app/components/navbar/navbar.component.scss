@@ -1,0 +1,262 @@
+/* ─────────────────────────────────────────────────────────────
+   SnapSalon Navbar  –  navbar.component.scss
+   Brand blue: #6750a4
+   ───────────────────────────────────────────────────────────── */
+
+$brand-blue: #6750a4;
+$brand-blue-hover: #5a3e91;
+$border-color: #e5e7eb;
+$text-primary: #1f2937;
+$text-secondary: #374151;
+$mobile-breakpoint: 768px;
+
+// ── Toolbar shell ──────────────────────────────────────────────
+.snapsalon-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: #ffffff;
+  border-bottom: 1px solid $border-color;
+  padding: 0 16px;
+  gap: 16px;
+  height: 64px;
+  color: $text-primary;
+
+  // Override Material's default toolbar shadow so the border looks clean
+  box-shadow: none;
+}
+
+// ── Brand / logo ───────────────────────────────────────────────
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: $text-primary;
+  flex-shrink: 0;
+
+  &__icon { font-size: 1.4rem; line-height: 1; }
+
+  &__name {
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+}
+
+// ── Desktop centre links ───────────────────────────────────────
+.desktop-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 24px;
+
+  a {
+    text-decoration: none;
+    color: $text-secondary;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+
+    &:hover { color: $brand-blue; }
+
+    &.active-link {
+      color: $brand-blue;
+      border-bottom-color: $brand-blue;
+      font-weight: 600;
+    }
+  }
+
+  @media (max-width: $mobile-breakpoint) {
+    display: none;
+  }
+}
+
+// ── Spacer (pushes auth area to right) ────────────────────────
+.flex-spacer {
+  flex: 1 1 auto;
+}
+
+// ── Right-side auth area ───────────────────────────────────────
+.auth-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// ── Desktop nav links (My Appointments / Dashboard / Admin) ───
+.nav-link {
+  color: $text-secondary;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+
+  &.active-link {
+    color: $brand-blue;
+    border-bottom-color: $brand-blue;
+  }
+
+  @media (max-width: $mobile-breakpoint) {
+    display: none;
+  }
+}
+
+// ── Login / Register buttons ───────────────────────────────────
+.login-btn {
+  color: $brand-blue;
+  border: 1.5px solid $brand-blue;
+  border-radius: 20px;
+  font-weight: 600;
+
+  @media (max-width: $mobile-breakpoint) {
+    display: none;
+  }
+}
+
+.register-btn {
+  background-color: $brand-blue;
+  color: #ffffff;
+  border-radius: 20px;
+  font-weight: 600;
+
+  &:hover {
+    background-color: $brand-blue-hover;
+  }
+
+  @media (max-width: $mobile-breakpoint) {
+    display: none;
+  }
+}
+
+// ── Avatar button + circle ─────────────────────────────────────
+.avatar-btn {
+  @media (max-width: $mobile-breakpoint) {
+    display: none;
+  }
+}
+
+.avatar-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: $brand-blue;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+// ── Hamburger (mobile only) ────────────────────────────────────
+.hamburger-btn {
+  display: none;
+  color: $text-secondary;
+
+  @media (max-width: $mobile-breakpoint) {
+    display: flex;
+  }
+}
+
+// ── Mobile drawer backdrop ─────────────────────────────────────
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 300;
+  animation: fadeIn 0.2s ease;
+}
+
+// ── Mobile drawer panel ────────────────────────────────────────
+.mobile-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(300px, 85vw);
+  background: #ffffff;
+  z-index: 301;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 24px;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+  animation: slideIn 0.25s ease;
+  overflow-y: auto;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 16px 20px;
+  border-bottom: 1px solid $border-color;
+  margin-bottom: 8px;
+
+  .brand__name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: $text-primary;
+    letter-spacing: -0.3px;
+  }
+}
+
+.drawer-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  text-decoration: none;
+  color: $text-secondary;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { background: #f5f3ff; color: $brand-blue; }
+
+  &--active { color: $brand-blue; font-weight: 600; background: #f5f3ff; }
+
+  &--logout { color: #dc2626; &:hover { background: #fef2f2; } }
+
+  &--register {
+    background: $brand-blue;
+    color: #ffffff;
+    border-radius: 8px;
+    margin: 4px 16px;
+    width: calc(100% - 32px);
+    justify-content: center;
+    &:hover { background: $brand-blue-hover; }
+  }
+}
+
+.drawer-divider {
+  border: none;
+  border-top: 1px solid $border-color;
+  margin: 8px 0;
+}
+
+.drawer-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  opacity: 0.7;
+}
+
+// ── Animations ─────────────────────────────────────────────────
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

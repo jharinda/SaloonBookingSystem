@@ -1,0 +1,27 @@
+node_modules
+.nx/cache
+.git
+.env
+*.env.local
+coverage
+# Angular build outputs (not needed for service containers)
+apps/shop/dist
+apps/web/dist
+# Source files (containers only need compiled dist/)
+apps/*/src
+libs
+# Test and config files
+**/*.spec.ts
+**/*.spec.js
+**/*.e2e.ts
+jest.config.*
+playwright.config.*
+.eslintrc*
+eslint.config.*
+tsconfig*.json
+nx.json
+README.md
+ARCHITECTURE.md
+AGENTS.md
+CLAUDE.md
+opencode.json

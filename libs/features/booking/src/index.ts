@@ -6,3 +6,6 @@ export * from './lib/service-selector/service-selector.component';
 export * from './lib/slot-picker/slot-picker.component';
 export * from './lib/services/booking.service';
 export * from './lib/services/calendar.service';
+export * from './lib/my-appointments/my-appointments.component';
+export * from './lib/my-appointments/appointment-card.component';
+export * from './lib/my-appointments/cancel-booking-dialog.component';

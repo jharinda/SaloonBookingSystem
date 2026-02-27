@@ -1,6 +1,8 @@
 import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bull';
+import { InjectQueue } from '@nestjs/bull';
+import { ConfigService } from '@nestjs/config';
+import { Job, Queue } from 'bull';
 
 import {
   BOOKING_QUEUE,
@@ -15,6 +17,8 @@ import { WhatsAppService } from '../providers/whatsapp.service';
 import { TemplateService, TemplateVariables } from '../template.service';
 import { NotificationStatus } from '../schemas/notification-log.schema';
 
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
 @Processor(BOOKING_QUEUE)
 export class BookingNotificationProcessor {
   private readonly logger = new Logger(BookingNotificationProcessor.name);
@@ -24,6 +28,9 @@ export class BookingNotificationProcessor {
     private readonly sms: SmsService,
     private readonly whatsApp: WhatsAppService,
     private readonly templates: TemplateService,
+    private readonly config: ConfigService,
+    @InjectQueue(BOOKING_QUEUE)
+    private readonly bookingQueue: Queue,
   ) {}
 
   // ── booking.created ────────────────────────────────────────────────────────
@@ -146,6 +153,63 @@ export class BookingNotificationProcessor {
         booking.id,
       ),
     ]);
+  }
+
+  // ── booking.completed ─────────────────────────────────────────────────────
+
+  /**
+   * Schedules a 'booking.review.request' job with a 2-hour delay instead of
+   * sending the review email immediately, so the customer has had time to leave
+   * the salon before being prompted to review.
+   */
+  @Process(NotificationEvent.BOOKING_COMPLETED)
+  async handleBookingCompleted(
+    job: Job<BookingNotificationPayload>,
+  ): Promise<void> {
+    this.logger.log(
+      `Scheduling review request for booking ${job.data.booking.id} in 2 hours`,
+    );
+    await this.bookingQueue.add(
+      NotificationEvent.REVIEW_REQUEST,
+      job.data,
+      {
+        delay: TWO_HOURS_MS,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 30_000 },
+        removeOnComplete: true,
+      },
+    );
+  }
+
+  // ── booking.review.request (2-hr delayed) ─────────────────────────────────
+
+  @Process(NotificationEvent.REVIEW_REQUEST)
+  async handleBookingReviewRequest(
+    job: Job<BookingNotificationPayload>,
+  ): Promise<void> {
+    const { booking, client, salonName } = job.data;
+
+    // Build a review deep-link: adjust base URL via FRONTEND_URL env var
+    const frontendUrl = this.config.get<string>(
+      'FRONTEND_URL',
+      'https://snapsalon.lk',
+    );
+
+    const vars: TemplateVariables = {
+      clientName: client.name,
+      salonName,
+      serviceName: booking.services.map((s) => s.name).join(', '),
+      date: new Date(booking.appointmentDate).toLocaleDateString('en-LK'),
+      reviewLink: `${frontendUrl ?? 'https://snapsalon.lk'}/review/${booking.id}`,
+    };
+
+    await this.sendEmail(
+      NotificationEvent.REVIEW_REQUEST,
+      TemplateType.BOOKING_REVIEW_REQUEST,
+      client.email,
+      vars,
+      booking.id,
+    );
   }
 
   // ── Queue error handler ────────────────────────────────────────────────────
