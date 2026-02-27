@@ -1,0 +1,17 @@
+{
+  "name": "booking-service-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "implicitDependencies": ["booking-service"],
+  "projectType": "application",
+  "targets": {
+    "e2e": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{e2eProjectRoot}"],
+      "options": {
+        "jestConfig": "apps/booking-service-e2e/jest.config.cts",
+        "passWithNoTests": true
+      },
+      "dependsOn": ["booking-service:build", "booking-service:serve"]
+    }
+  }
+}

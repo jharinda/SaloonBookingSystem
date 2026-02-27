@@ -22,7 +22,12 @@
         "libs/shop/feature-product-detail/src/index.ts"
       ],
       "@org/shop/feature-products": ["libs/shop/feature-products/src/index.ts"],
-      "@org/shop/shared-ui": ["libs/shop/shared-ui/src/index.ts"]
+      "@org/shop/shared-ui": ["libs/shop/shared-ui/src/index.ts"],
+      "@org/auth": ["libs/features/auth/src/index.ts"],
+      "@org/booking": ["libs/features/booking/src/index.ts"],
+      "@org/discover": ["libs/features/discover/src/index.ts"],
+      "@org/salon-dashboard": ["libs/features/salon-dashboard/src/index.ts"],
+      "@org/reviews": ["libs/features/reviews/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]
