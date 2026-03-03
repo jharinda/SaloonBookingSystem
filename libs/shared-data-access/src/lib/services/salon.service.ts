@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { Salon, SalonSearchResponse } from '@org/models';
 
@@ -14,6 +15,11 @@ export interface SearchParams {
   service?: string;
   page?: number;
   limit?: number;
+}
+
+/** Normalise backend `id` → `_id` so the rest of the frontend is consistent. */
+function normSalonId(s: Salon & { id?: string }): Salon {
+  return { ...s, _id: s._id || s.id || '' };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -34,16 +40,29 @@ export class SalonService {
     if (params.page)         p = p.set('page', String(params.page));
     if (params.limit)        p = p.set('limit', String(params.limit));
 
-    return this.http.get<SalonSearchResponse>('/api/salons/search', { params: p });
+    // The backend returns { salons: [...], total, page, totalPages }.
+    // Normalise to the SalonSearchResponse shape { data: [...], total, page, limit }.
+    // Also normalise id → _id since SalonResponseDto uses `id` but the Salon interface uses `_id`.
+    return this.http.get<{ salons: Salon[]; total: number; page: number; totalPages: number }>(
+      '/api/salons/search', { params: p }
+    ).pipe(
+      map((res) => ({
+        data:  (res.salons ?? []).map(normSalonId),
+        total: res.total,
+        page:  res.page,
+        limit: params.limit ?? 10,
+      })),
+    );
   }
 
   /**
    * Returns salons flagged as featured by the API.
-   * GET /api/salons?featured=true
+   * GET /api/salons/featured
    */
   getFeaturedSalons(): Observable<Salon[]> {
-    const params = new HttpParams().set('featured', 'true');
-    return this.http.get<Salon[]>('/api/salons', { params });
+    return this.http.get<Salon[]>('/api/salons/featured').pipe(
+      map((salons) => salons.map(normSalonId)),
+    );
   }
 
   /**

@@ -7,6 +7,7 @@ import { ReviewController } from './review.controller';
 import { ReviewService } from './review.service';
 import { Review, ReviewSchema } from './schemas/review.schema';
 import { JwtStrategy, JwtAuthGuard, RolesGuard } from '@org/shared-auth';
+import { AdminReviewsController } from '../admin/admin-reviews.controller';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { JwtStrategy, JwtAuthGuard, RolesGuard } from '@org/shared-auth';
     MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
     HttpModule,
   ],
-  controllers: [ReviewController],
+  controllers: [ReviewController, AdminReviewsController],
   providers: [ReviewService, JwtStrategy, JwtAuthGuard, RolesGuard],
   exports: [ReviewService],
 })

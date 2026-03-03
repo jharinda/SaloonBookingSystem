@@ -19,4 +19,15 @@ Content-Type: application/json
   "password": "Test@1234"
 }
 
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Admin@1234",
+  "firstName": "Super",
+  "lastName": "Admin",
+  "role": "admin"
+}
+
 

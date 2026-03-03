@@ -19,9 +19,14 @@ export default () => ({
     refreshExpiresIn: process.env['JWT_REFRESH_EXPIRES_IN'] ?? '7d',
   },
   google: {
-    clientId:    process.env['AUTH_GOOGLE_CLIENT_ID'],
-    clientSecret: process.env['AUTH_GOOGLE_CLIENT_SECRET'],
-    callbackUrl: process.env['AUTH_GOOGLE_CALLBACK_URL'] ??
-                   'http://localhost:3003/api/auth/google/callback',
+    clientId:     process.env['AUTH_GOOGLE_CLIENT_ID']     ?? '',
+    clientSecret: process.env['AUTH_GOOGLE_CLIENT_SECRET'] ?? '',
+    callbackUrl:  process.env['AUTH_GOOGLE_CALLBACK_URL']  ??
+                    'http://localhost:3003/api/auth/google/callback',
+  },
+  cloudinary: {
+    cloudName: process.env['CLOUDINARY_CLOUD_NAME'] ?? '',
+    apiKey:    process.env['CLOUDINARY_API_KEY']    ?? '',
+    apiSecret: process.env['CLOUDINARY_API_SECRET'] ?? '',
   },
 });

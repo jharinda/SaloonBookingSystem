@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   Res,
@@ -77,6 +78,14 @@ export class AuthController {
   ): Promise<void> {
     await this.authService.logout(req.user.sub);
     res.clearCookie(REFRESH_COOKIE, { path: '/api/auth' });
+  }
+
+  // ── Internal user lookup (consumed by other microservices) ─────────────────
+
+  @Get('users/:id')
+  @UseGuards(JwtAuthGuard)
+  async getUser(@Param('id') id: string): Promise<UserResponseDto> {
+    return this.authService.findUserById(id);
   }
 
   // ── Google OAuth ───────────────────────────────────────────────────────────

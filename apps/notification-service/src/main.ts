@@ -1,17 +1,28 @@
 /**
- * Notification Service — headless Bull queue consumer.
- * No HTTP interface; all work is driven by Redis queue events.
+ * Notification Service — HTTP + Bull queue consumer.
+ * Exposes HTTP endpoints for receiving events from booking-service
+ * and processes notification jobs via Redis queues.
  */
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app/app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
-  // Disable graceful shutdown timeout so queue workers drain cleanly
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
+  );
+  const globalPrefix = 'api';
+  app.setGlobalPrefix(globalPrefix);
   app.enableShutdownHooks();
-  await app.init();
-  Logger.log('Notification service is running and consuming queue events');
+
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('app.port') ?? 3004;
+  await app.listen(port);
+  Logger.log(
+    `🚀 Notification service is running on: http://localhost:${port}/${globalPrefix}`,
+  );
 }
 
 bootstrap();

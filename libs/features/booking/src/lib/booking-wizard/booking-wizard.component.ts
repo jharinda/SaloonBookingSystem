@@ -64,7 +64,7 @@ import { BookingConfirmComponent } from '../booking-confirm/booking-confirm.comp
         <div class="wizard-salon-bar">
           <img
             class="salon-bar-img"
-            [src]="salon()!.images?.[0] ?? 'assets/images/salon-placeholder.jpg'"
+            [src]="salon()!.images?.[0] ?? 'assets/images/salon-placeholder.svg'"
             [alt]="salon()!.name"
             (error)="onImgError($event)"
           />
@@ -321,6 +321,6 @@ export class BookingWizardComponent {
   }
 
   onImgError(event: Event): void {
-    (event.target as HTMLImageElement).src = 'assets/images/salon-placeholder.jpg';
+    (event.target as HTMLImageElement).src = 'assets/images/salon-placeholder.svg';
   }
 }

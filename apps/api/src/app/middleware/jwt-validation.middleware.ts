@@ -12,16 +12,9 @@ interface JwtPayload {
   exp?: number;
 }
 
-/**
- * Determines which routes require a valid JWT.
- *
- * Public routes:
- *   - ALL  /api/auth/**
- *   - GET  /api/salons/**
- *   - GET  /api/reviews/**
- *
- * Everything else requires authentication.
- */
+// Determines which routes require a valid JWT.
+// Public: ALL /api/auth/**, GET /api/salons/**, GET /api/reviews/**
+// Everything else requires authentication.
 function requiresAuth(path: string, method: string): boolean {
   // Admin routes always require auth + role check done downstream
   if (path.startsWith('/api/admin')) return true;
@@ -29,8 +22,8 @@ function requiresAuth(path: string, method: string): boolean {
   // --- Always public ---
   if (path.startsWith('/api/auth')) return false;
 
-  // Salon reads are public; mutations are protected
-  if (path.startsWith('/api/salons') && method === 'GET') return false;
+  // Salon reads are public; mutations and owner-specific routes are protected
+  if (path.startsWith('/api/salons') && method === 'GET' && !path.startsWith('/api/salons/owner')) return false;
 
   // Review reads are public; mutations are protected
   if (path.startsWith('/api/reviews') && method === 'GET') return false;
@@ -46,7 +39,10 @@ export class JwtValidationMiddleware implements NestMiddleware {
   ) {}
 
   use(req: Request, res: Response, next: NextFunction): void {
-    if (!requiresAuth(req.path, req.method)) {
+    // Use originalUrl — Express 5 (NestJS 11) may set req.path relative
+    // to the middleware mount point rather than the full request URL.
+    const fullPath = req.originalUrl.split('?')[0];
+    if (!requiresAuth(fullPath, req.method)) {
       return next();
     }
 

@@ -9,7 +9,11 @@ import { Router } from '@angular/router';
 import { catchError, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 
-/** Routes that must not receive an Authorization header or trigger a token refresh. */
+/**
+ * Routes that must not receive an Authorization header or trigger a token
+ * refresh.  NOTE: /api/auth/logout is intentionally excluded — it requires a
+ * valid Bearer token so the server can invalidate the refresh token.
+ */
 const AUTH_PASSTHROUGH_PATHS = [
   '/api/auth/login',
   '/api/auth/register',
@@ -51,17 +55,21 @@ export const authInterceptor: HttpInterceptorFn = (
       }
 
       // ── 401 — try a silent token refresh ────────────────────────────────
-      return authService.refreshToken().pipe(
+      // ensureFreshToken() is shared: if multiple requests get 401 at the
+      // same time (e.g. two parallel calls on page init), only ONE refresh
+      // HTTP request is issued and all retries receive the same new token.
+      return authService.ensureFreshToken().pipe(
         switchMap((res) => {
           // Retry original request with the fresh token
           return next(attachToken(req, res.accessToken));
         }),
         catchError((refreshError: unknown) => {
-          // Refresh failed — log the user out and redirect
-          authService.logout().subscribe({
-            complete: () => void router.navigate(['/auth', 'login']),
-            error: () => void router.navigate(['/auth', 'login']),
-          });
+          // Refresh failed — clear the token locally and redirect to login.
+          // We deliberately avoid calling authService.logout() here because
+          // that would send a new HTTP request which would also get a 401,
+          // creating a circular request loop.
+          authService.clearToken();
+          void router.navigate(['/auth', 'login']);
           return throwError(() => refreshError);
         }),
       );

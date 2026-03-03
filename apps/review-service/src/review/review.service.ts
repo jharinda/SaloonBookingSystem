@@ -20,6 +20,23 @@ import {
   ReviewResponseDto,
 } from './dto/review-response.dto';
 
+export interface AdminReviewDto {
+  _id:        string;
+  salonName:  string;
+  clientName: string;
+  rating:     number;
+  comment:    string;
+  isVisible:  boolean;
+  createdAt:  Date;
+}
+
+export interface AdminReviewsPageDto {
+  data:  AdminReviewDto[];
+  total: number;
+  page:  number;
+  limit: number;
+}
+
 /** Minimal booking shape returned by booking-service GET /api/bookings/:id */
 interface BookingStub {
   id: string;
@@ -45,8 +62,8 @@ export class ReviewService {
   ): Promise<ReviewResponseDto> {
     // 1. Verify booking exists and is COMPLETED
     const bookingServiceUrl = this.config.get<string>(
-      'BOOKING_SERVICE_URL',
-      'http://booking-service',
+      'services.bookingUrl',
+      'http://localhost:3002',
     );
 
     let booking: BookingStub;
@@ -136,6 +153,36 @@ export class ReviewService {
     return this.toResponse(review);
   }
 
+  async adminListReviews(params: {
+    page?:  number;
+    limit?: number;
+  }): Promise<AdminReviewsPageDto> {
+    const page  = params.page  ?? 1;
+    const limit = Math.min(params.limit ?? 10, 100);
+    const skip  = (page - 1) * limit;
+
+    const [reviews, total] = await Promise.all([
+      this.reviewModel.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec(),
+      this.reviewModel.countDocuments({}),
+    ]);
+
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: reviews.map((r: any) => ({
+        _id:        r._id?.toString(),
+        salonName:  r.salonId,   // Enrichment with actual names can be added later
+        clientName: r.clientId,
+        rating:     r.rating,
+        comment:    r.comment ?? '',
+        isVisible:  r.isVisible,
+        createdAt:  r.createdAt,
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   private async paginate(
@@ -170,8 +217,8 @@ export class ReviewService {
    */
   private async syncSalonRating(salonId: string): Promise<void> {
     const salonServiceUrl = this.config.get<string>(
-      'SALON_SERVICE_URL',
-      'http://salon-service',
+      'services.salonUrl',
+      'http://localhost:3001',
     );
     try {
       const agg = await this.reviewModel

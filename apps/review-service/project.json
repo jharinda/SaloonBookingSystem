@@ -61,5 +61,5 @@
       }
     }
   },
-  "tags": []
+  "tags": ["scope:api", "type:service"]
 }

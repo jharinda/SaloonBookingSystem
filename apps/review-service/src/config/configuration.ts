@@ -13,4 +13,8 @@ export default () => ({
   jwt: {
     accessSecret: process.env['JWT_ACCESS_SECRET'],
   },
+  services: {
+    bookingUrl: process.env['BOOKING_SERVICE_URL'] ?? 'http://localhost:3002',
+    salonUrl:   process.env['SALON_SERVICE_URL']   ?? 'http://localhost:3001',
+  },
 });

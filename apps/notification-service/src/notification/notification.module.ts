@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
+import { HttpModule } from '@nestjs/axios';
 
 import {
   BOOKING_QUEUE,
@@ -20,9 +21,11 @@ import { SmsService } from './providers/sms.service';
 import { WhatsAppService } from './providers/whatsapp.service';
 import { BookingNotificationProcessor } from './processors/booking-notification.processor';
 import { ReminderNotificationProcessor } from './processors/reminder-notification.processor';
+import { NotificationController } from './notification.controller';
 
 @Module({
   imports: [
+    HttpModule,
     MongooseModule.forFeature([
       { name: NotificationTemplate.name, schema: NotificationTemplateSchema },
       { name: NotificationLog.name, schema: NotificationLogSchema },
@@ -32,6 +35,7 @@ import { ReminderNotificationProcessor } from './processors/reminder-notificatio
     // Consume reminder events from a scheduler
     BullModule.registerQueue({ name: NOTIFICATION_QUEUE }),
   ],
+  controllers: [NotificationController],
   providers: [
     TemplateService,
     EmailService,

@@ -4,7 +4,12 @@
  */
 export default () => ({
   app: {
+    port: parseInt(process.env['NOTIFICATION_PORT'] ?? '3004', 10),
     env: process.env['NODE_ENV'] ?? 'development',
+  },
+  services: {
+    authUrl:  process.env['AUTH_SERVICE_URL']  ?? 'http://localhost:3003',
+    salonUrl: process.env['SALON_SERVICE_URL'] ?? 'http://localhost:3001',
   },
   db: {
     uri: process.env['MONGODB_URI'],

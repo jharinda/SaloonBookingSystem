@@ -23,7 +23,10 @@ export const validationSchema = Joi.object({
   }),
 
   // Upstream services
-  SALON_SERVICE_URL: Joi.string().uri().default('http://salon-service:3001').messages({
+  AUTH_SERVICE_URL:  Joi.string().uri().default('http://localhost:3003'),
+  SALON_SERVICE_URL: Joi.string().uri().default('http://localhost:3001').messages({
     'string.uri': 'SALON_SERVICE_URL must be a valid URL',
   }),
+  NOTIFICATION_SERVICE_URL: Joi.string().uri().default('http://localhost:3004'),
+  CALENDAR_SERVICE_URL:     Joi.string().uri().default('http://localhost:3005'),
 });

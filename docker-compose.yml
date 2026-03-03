@@ -51,7 +51,7 @@ services:
       - '3000:3000'
     environment:
       PORT: '3000'
-      JWT_SECRET: '${JWT_SECRET:-change-me-in-production}'
+      JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
       CORS_ORIGIN: '${CORS_ORIGIN:-http://localhost:4200}'
       AUTH_SERVICE_URL: 'http://auth-service:3003'
       SALON_SERVICE_URL: 'http://salon-service:3001'
@@ -77,10 +77,12 @@ services:
       - '3003:3003'
     environment:
       AUTH_PORT: '3003'
-      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-auth'
+      MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-auth'
       REDIS_URL: 'redis://redis:6379'
       JWT_SECRET: '${JWT_SECRET:-change-me-in-production}'
       JWT_EXPIRES_IN: '${JWT_EXPIRES_IN:-7d}'
+      JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
+      JWT_REFRESH_SECRET: '${JWT_REFRESH_SECRET}'
     networks:
       - snapsalon
     depends_on:
@@ -99,8 +101,9 @@ services:
       - '3001:3001'
     environment:
       SALON_PORT: '3001'
-      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-salons'
+      SALON_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-salons'
       REDIS_URL: 'redis://redis:6379'
+      JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
       CLOUDINARY_CLOUD_NAME: '${CLOUDINARY_CLOUD_NAME:-}'
       CLOUDINARY_API_KEY: '${CLOUDINARY_API_KEY:-}'
       CLOUDINARY_API_SECRET: '${CLOUDINARY_API_SECRET:-}'
@@ -122,8 +125,12 @@ services:
       - '3002:3002'
     environment:
       BOOKING_PORT: '3002'
-      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-bookings'
+      BOOKING_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-bookings'
       REDIS_URL: 'redis://redis:6379'
+      JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
+      AUTH_SERVICE_URL: 'http://auth-service:3003'
+      NOTIFICATION_SERVICE_URL: 'http://notification-service:3004'
+      CALENDAR_SERVICE_URL: 'http://calendar-service:3005'
     networks:
       - snapsalon
     depends_on:
@@ -142,8 +149,11 @@ services:
       - '3005:3005'
     environment:
       CALENDAR_PORT: '3005'
-      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-calendar'
+      MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-calendar'
       REDIS_URL: 'redis://redis:6379'
+      JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
+      GOOGLE_CLIENT_ID: '${GOOGLE_CLIENT_ID}'
+      GOOGLE_CLIENT_SECRET: '${GOOGLE_CLIENT_SECRET}'
     networks:
       - snapsalon
     depends_on:
@@ -162,8 +172,11 @@ services:
       - '3006:3006'
     environment:
       REVIEW_PORT: '3006'
-      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-reviews'
+      REVIEW_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-reviews'
       REDIS_URL: 'redis://redis:6379'
+      JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
+      BOOKING_SERVICE_URL: 'http://booking-service:3002'
+      SALON_SERVICE_URL: 'http://salon-service:3001'
     networks:
       - snapsalon
     depends_on:
@@ -182,7 +195,7 @@ services:
       - '3007:3007'
     environment:
       SUBSCRIPTION_PORT: '3007'
-      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-subscriptions'
+      MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-subscriptions'
       REDIS_URL: 'redis://redis:6379'
     networks:
       - snapsalon
@@ -192,15 +205,20 @@ services:
       redis:
         condition: service_healthy
 
-  # ─── Notification Service (queue consumer — no HTTP port) ───────────────────
+  # ─── Notification Service ───────────────────────────────────────────────────
   notification-service:
     build:
       context: .
       dockerfile: apps/notification-service/Dockerfile
     restart: unless-stopped
+    ports:
+      - '3004:3004'
     environment:
+      NOTIFICATION_PORT: '3004'
       REDIS_URL: 'redis://redis:6379'
-      MONGO_URI: 'mongodb://mongodb:27017/snapsalon-notifications'
+      MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-notifications'
+      AUTH_SERVICE_URL: 'http://auth-service:3003'
+      SALON_SERVICE_URL: 'http://salon-service:3001'
     networks:
       - snapsalon
     depends_on:

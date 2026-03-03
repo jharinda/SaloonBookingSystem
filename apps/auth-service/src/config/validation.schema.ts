@@ -27,12 +27,17 @@ export const validationSchema = Joi.object({
   JWT_ACCESS_EXPIRES_IN:  Joi.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
 
-  // Google OAuth
-  AUTH_GOOGLE_CLIENT_ID: Joi.string().required().messages({
-    'any.required': 'AUTH_GOOGLE_CLIENT_ID is required for Google OAuth',
+  // Cloudinary — optional; avatar uploads are disabled without these
+  CLOUDINARY_CLOUD_NAME: Joi.string().optional().default(''),
+  CLOUDINARY_API_KEY:    Joi.string().optional().default(''),
+  CLOUDINARY_API_SECRET: Joi.string().optional().default(''),
+
+  // Google OAuth — optional; service starts without them but /auth/google routes will be disabled
+  AUTH_GOOGLE_CLIENT_ID: Joi.string().optional().default('').messages({
+    'string.empty': 'AUTH_GOOGLE_CLIENT_ID not set — Google OAuth login will be disabled',
   }),
-  AUTH_GOOGLE_CLIENT_SECRET: Joi.string().required().messages({
-    'any.required': 'AUTH_GOOGLE_CLIENT_SECRET is required for Google OAuth',
+  AUTH_GOOGLE_CLIENT_SECRET: Joi.string().optional().default('').messages({
+    'string.empty': 'AUTH_GOOGLE_CLIENT_SECRET not set — Google OAuth login will be disabled',
   }),
   AUTH_GOOGLE_CALLBACK_URL: Joi.string().uri()
     .default('http://localhost:3003/api/auth/google/callback'),

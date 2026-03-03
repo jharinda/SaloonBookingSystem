@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { Booking, Salon, SalonServiceItem, SalonWorkingHours } from '@org/models';
 
@@ -38,9 +39,16 @@ export interface CreateSalonDto {
 export class SalonAdminService {
   private readonly http = inject(HttpClient);
 
-  /** GET /api/salons/mine — returns the authenticated owner's salon */
+  /** GET /api/salons/owner/me — returns the authenticated owner's first salon */
   getOwnSalon(): Observable<Salon> {
-    return this.http.get<Salon>('/api/salons/mine');
+    return this.http.get<Salon[]>('/api/salons/owner/me').pipe(
+      map((salons) => {
+        if (!salons.length) {
+          throw new HttpErrorResponse({ status: 404, statusText: 'Not Found' });
+        }
+        return salons[0];
+      }),
+    );
   }
 
   /** POST /api/salons — creates a new salon for the authenticated owner */

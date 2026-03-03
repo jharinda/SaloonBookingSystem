@@ -36,3 +36,23 @@ body {
   height: 100%;
 }
 /* You can add global styles to this file, and also import other style files */
+
+/* ── Fix: Angular Material 3 overlay panels (select, autocomplete, menu) ──── */
+/* In M3, overlay panels can inherit a transparent surface. Force white bg.   */
+.mat-mdc-select-panel,
+.mat-mdc-autocomplete-panel,
+.mat-mdc-menu-panel,
+.mat-mdc-menu-content {
+  background-color: #ffffff !important;
+}
+
+.mat-mdc-option {
+  background-color: #ffffff;
+  &:hover,
+  &.mat-mdc-option-active {
+    background-color: #f3f4f6 !important;
+  }
+  &.mdc-list-item--selected:not(.mat-mdc-option-multiple) {
+    background-color: #ede9fe !important;
+  }
+}

@@ -21,25 +21,15 @@
         "bundle": false,
         "main": "apps/api/src/main.ts",
         "tsConfig": "apps/api/tsconfig.app.json",
+        "esbuildConfig": "apps/api/esbuild.config.js",
         "assets": ["apps/api/src/assets"],
-        "generatePackageJson": true,
-        "esbuildOptions": {
-          "sourcemap": true,
-          "outExtension": {
-            ".js": ".js"
-          }
-        }
+        "generatePackageJson": true
       },
       "configurations": {
         "development": {},
         "production": {
           "generateLockfile": true,
-          "esbuildOptions": {
-            "sourcemap": false,
-            "outExtension": {
-              ".js": ".js"
-            }
-          }
+          "esbuildConfig": "apps/api/esbuild.prod.config.js"
         }
       }
     },

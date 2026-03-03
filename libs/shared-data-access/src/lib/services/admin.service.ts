@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 // ── DTOs / response shapes ────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export interface AdminStats {
 
 export interface AdminSalon {
   _id:             string;
+  /** Alias returned by some backend versions */
+  id?:             string;
   name:            string;
   ownerName:       string;
   ownerEmail:      string;
@@ -42,6 +45,7 @@ export interface AdminSalonsPage {
 
 export interface AdminUser {
   _id:       string;
+  id?:       string;
   firstName: string;
   lastName:  string;
   email:     string;
@@ -59,6 +63,7 @@ export interface AdminUsersPage {
 
 export interface AdminReview {
   _id:        string;
+  id?:        string;
   salonName:  string;
   clientName: string;
   rating:     number;
@@ -76,6 +81,13 @@ export interface AdminReviewsPage {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── ID normalisation ────────────────────────────────────────────────────────
+// The backend may return either `id` (SalonResponseDto) or `_id` (AdminSalonDto).
+// Normalise to `_id` so the rest of the frontend is consistent.
+function normId<T extends { _id?: string; id?: string }>(item: T): T {
+  return { ...item, _id: item._id || item.id || '' };
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminService {
   private readonly http = inject(HttpClient);
@@ -87,7 +99,9 @@ export class AdminService {
 
   // ── Salon approvals ───────────────────────────────────────────────────────
   getPendingSalons(): Observable<AdminSalon[]> {
-    return this.http.get<AdminSalon[]>('/api/salons?pending=true');
+    return this.http.get<AdminSalonsPage>('/api/admin/salons', {
+      params: { status: 'pending', limit: '100' },
+    }).pipe(map((page) => page.data.map(normId)));
   }
 
   approveSalon(id: string): Observable<void> {
@@ -110,7 +124,9 @@ export class AdminService {
     if (params.limit !== undefined) q = q.set('limit',  params.limit.toString());
     if (params.search)              q = q.set('search', params.search);
     if (params.status && params.status !== 'all') q = q.set('status', params.status);
-    return this.http.get<AdminSalonsPage>('/api/admin/salons', { params: q });
+    return this.http.get<AdminSalonsPage>('/api/admin/salons', { params: q }).pipe(
+      map((page) => ({ ...page, data: page.data.map(normId) })),
+    );
   }
 
   suspendSalon(id: string): Observable<void> {
@@ -127,7 +143,9 @@ export class AdminService {
     if (params.page  !== undefined) q = q.set('page',  params.page.toString());
     if (params.limit !== undefined) q = q.set('limit', params.limit.toString());
     if (params.role && params.role !== 'all') q = q.set('role', params.role);
-    return this.http.get<AdminUsersPage>('/api/admin/users', { params: q });
+    return this.http.get<AdminUsersPage>('/api/admin/users', { params: q }).pipe(
+      map((page) => ({ ...page, data: page.data.map(normId) })),
+    );
   }
 
   suspendUser(id: string): Observable<void> {
@@ -142,7 +160,9 @@ export class AdminService {
     let q = new HttpParams();
     if (params.page  !== undefined) q = q.set('page',  params.page.toString());
     if (params.limit !== undefined) q = q.set('limit', params.limit.toString());
-    return this.http.get<AdminReviewsPage>('/api/admin/reviews', { params: q });
+    return this.http.get<AdminReviewsPage>('/api/admin/reviews', { params: q }).pipe(
+      map((page) => ({ ...page, data: page.data.map(normId) })),
+    );
   }
 
   removeReview(id: string): Observable<void> {

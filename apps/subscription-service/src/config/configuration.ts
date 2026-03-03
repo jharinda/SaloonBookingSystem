@@ -10,4 +10,14 @@ export default () => ({
   db: {
     uri: process.env['SUBSCRIPTION_MONGODB_URI'],
   },
+  jwt: {
+    accessSecret: process.env['JWT_ACCESS_SECRET'],
+  },
+  payhere: {
+    merchantId: process.env['PAYHERE_MERCHANT_ID'],
+    secret:     process.env['PAYHERE_SECRET'],
+    returnUrl:  process.env['PAYHERE_RETURN_URL'] ?? 'http://localhost:4200/subscription/success',
+    cancelUrl:  process.env['PAYHERE_CANCEL_URL'] ?? 'http://localhost:4200/subscription/cancel',
+    notifyUrl:  process.env['PAYHERE_NOTIFY_URL']  ?? 'http://localhost:3007/api/subscriptions/webhook',
+  },
 });

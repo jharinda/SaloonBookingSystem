@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, catchError, map, of, tap } from 'rxjs';
+import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 import { jwtDecode } from 'jwt-decode';
 
 export interface JwtPayload {
@@ -37,8 +37,18 @@ export class AuthService {
   // ── State ──────────────────────────────────────────────────────────────────
   private readonly accessToken = signal<string | null>(null);
 
+  /** Shared in-flight refresh observable — prevents concurrent refresh races. */
+  private refreshInProgress$: Observable<AuthResponse> | null = null;
+
   // ── Public derived state ───────────────────────────────────────────────────
   readonly isLoggedIn = computed(() => !!this.accessToken());
+
+  /** True when the in-memory JWT exists but its exp claim is in the past. */
+  readonly isTokenExpired = computed<boolean>(() => {
+    const user = this.currentUser();
+    if (!user) return true;
+    return user.exp * 1000 < Date.now();
+  });
 
   readonly currentUser = computed<JwtPayload | null>(() => {
     const token = this.accessToken();
@@ -79,6 +89,15 @@ export class AuthService {
       );
   }
 
+  /**
+   * Clears the in-memory access token immediately without making any HTTP
+   * request.  Used by the auth interceptor when a token refresh fails so we
+   * do not create a circular request loop (logout → 401 → refresh → logout).
+   */
+  clearToken(): void {
+    this.accessToken.set(null);
+  }
+
   refreshToken(): Observable<AuthResponse> {
     return this.http
       .post<AuthResponse>('/api/auth/refresh', {}, { withCredentials: true })
@@ -88,12 +107,33 @@ export class AuthService {
   }
 
   /**
+   * Ensures a single refresh request is in flight at any time.
+   * If multiple callers (e.g. parallel 401 retries) invoke this concurrently,
+   * they all subscribe to the same shared observable and receive the same
+   * new access token without issuing duplicate refresh HTTP requests.
+   */
+  ensureFreshToken(): Observable<AuthResponse> {
+    if (!this.refreshInProgress$) {
+      this.refreshInProgress$ = this.http
+        .post<AuthResponse>('/api/auth/refresh', {}, { withCredentials: true })
+        .pipe(
+          tap((res) => this.accessToken.set(res.accessToken)),
+          // finalize BEFORE shareReplay so it runs once when the HTTP source
+          // completes/errors, not once per subscriber unsubscription.
+          finalize(() => { this.refreshInProgress$ = null; }),
+          shareReplay(1),
+        );
+    }
+    return this.refreshInProgress$;
+  }
+
+  /**
    * Called once at app startup to silently restore a session from the
    * HttpOnly refresh-token cookie. Errors are swallowed — the user simply
    * remains unauthenticated if no valid cookie is present.
    */
   initAuth(): Observable<void> {
-    return this.refreshToken().pipe(
+    return this.ensureFreshToken().pipe(
       catchError(() => of(null)),
       map(() => void 0),
     );

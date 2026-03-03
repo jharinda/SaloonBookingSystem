@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { SubscriptionModule } from '../subscription/subscription.module';
 import configuration from '../config/configuration';
 import { validationSchema } from '../config/validation.schema';
 
@@ -14,6 +17,14 @@ import { validationSchema } from '../config/validation.schema';
       validationSchema,
       validationOptions: { abortEarly: false },
     }),
+    MongooseModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        uri: config.get<string>('db.uri'),
+      }),
+    }),
+    ScheduleModule.forRoot(),
+    SubscriptionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

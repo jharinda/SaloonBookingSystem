@@ -68,7 +68,7 @@ export class SalonController {
     @Body() dto: CreateSalonDto,
     @CurrentUser() user: JwtUser,
   ): Promise<SalonResponseDto> {
-    return this.salonService.createSalon(dto, user.sub);
+    return this.salonService.createSalon(dto, user.sub, user.email);
   }
 
   @Patch(':id')

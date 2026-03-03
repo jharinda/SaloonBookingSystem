@@ -76,11 +76,12 @@ export const appRoutes: Route[] = [
       import('@org/admin').then((m) => m.ADMIN_ROUTES),
   },
 
-  // Reviews — public read
+  // Reviews — auth required (submit review)
   {
     path: 'reviews',
-    loadComponent: () =>
-      import('@org/reviews').then((m) => m.Reviews),
+    canActivate: [authGuard],
+    loadChildren: () =>
+      import('@org/reviews').then((m) => m.REVIEWS_ROUTES),
   },
 
   // Wildcard fallback

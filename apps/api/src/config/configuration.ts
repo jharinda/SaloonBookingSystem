@@ -9,14 +9,14 @@ export default () => ({
     corsOrigin: process.env['CORS_ORIGIN']   ?? 'http://localhost:4200',
   },
   jwt: {
-    secret: process.env['JWT_SECRET'],
+    secret: process.env['JWT_ACCESS_SECRET'],
   },
   services: {
-    authUrl:         process.env['AUTH_SERVICE_URL'],
-    salonUrl:        process.env['SALON_SERVICE_URL'],
-    bookingUrl:      process.env['BOOKING_SERVICE_URL'],
-    reviewUrl:       process.env['REVIEW_SERVICE_URL'],
-    calendarUrl:     process.env['CALENDAR_SERVICE_URL'],
-    subscriptionUrl: process.env['SUBSCRIPTION_SERVICE_URL'],
+    authUrl:         process.env['AUTH_SERVICE_URL']         ?? 'http://localhost:3003',
+    salonUrl:        process.env['SALON_SERVICE_URL']        ?? 'http://localhost:3001',
+    bookingUrl:      process.env['BOOKING_SERVICE_URL']      ?? 'http://localhost:3002',
+    reviewUrl:       process.env['REVIEW_SERVICE_URL']       ?? 'http://localhost:3006',
+    calendarUrl:     process.env['CALENDAR_SERVICE_URL']     ?? 'http://localhost:3005',
+    subscriptionUrl: process.env['SUBSCRIPTION_SERVICE_URL'] ?? 'http://localhost:3007',
   },
 });

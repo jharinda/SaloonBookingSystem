@@ -30,6 +30,26 @@ export class User extends Document {
   @Prop({ type: String, default: null })
   googleId: string | null;
 
+  @Prop({ type: String, default: null })
+  phone: string | null;
+
+  @Prop({ type: String, default: null })
+  avatarUrl: string | null;
+
+  @Prop({ default: true })
+  isActive: boolean;
+
+  @Prop({
+    type: Object,
+    default: { email: true, sms: false, whatsapp: false, push: false },
+  })
+  notificationPreferences: {
+    email: boolean;
+    sms: boolean;
+    whatsapp: boolean;
+    push: boolean;
+  };
+
   createdAt: Date;
   updatedAt: Date;
 }

@@ -18,6 +18,8 @@ import { JwtStrategy, JwtAuthGuard, RolesGuard } from '@org/shared-auth';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     MongooseModule.forFeature([{ name: Booking.name, schema: BookingSchema }]),
     BullModule.registerQueue({ name: BOOKING_QUEUE }),
+    BullModule.registerQueue({ name: 'notifications' }),
+    BullModule.registerQueue({ name: 'calendar' }),
     HttpModule,
   ],
   controllers: [BookingController],
@@ -32,8 +34,8 @@ import { JwtStrategy, JwtAuthGuard, RolesGuard } from '@org/shared-auth';
       inject: [ConfigService],
       useFactory: (config: ConfigService) =>
         new Redis({
-          host: config.get<string>('REDIS_HOST', 'localhost'),
-          port: config.get<number>('REDIS_PORT', 6379),
+          host: config.get<string>('redis.host', 'localhost'),
+          port: config.get<number>('redis.port', 6379),
           lazyConnect: true,
         }),
     },

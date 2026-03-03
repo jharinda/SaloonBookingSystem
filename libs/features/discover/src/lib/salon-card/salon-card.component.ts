@@ -38,7 +38,7 @@ type StarType = 'full' | 'half' | 'empty';
           [ngSrc]="coverImage()"
           [alt]="salon().name"
           fill
-          sizes="(max-width: 640px) 100vw, 320px"
+          sizes="(max-width: 640px) 100vw, 33vw"
           (error)="onImgError($event)"
         />
         @if (!salon().isActive || !salon().isApproved) {
@@ -275,7 +275,7 @@ export class SalonCardComponent {
 
   /** First image URL or a fallback placeholder */
   readonly coverImage = computed(
-    () => this.salon().images?.[0] ?? 'assets/images/salon-placeholder.jpg',
+    () => this.salon().images?.[0] ?? 'assets/images/salon-placeholder.svg',
   );
 
   /** Top 3 services by price (ascending) */
@@ -298,13 +298,13 @@ export class SalonCardComponent {
   }
 
   onBookNow(): void {
-    // Stop the card-click event from also firing
-    void this.router.navigate(['/booking'], { queryParams: { salonId: this.salon()._id } });
+    // Navigate to the salon detail page where the user can book
+    void this.router.navigate(['/discover', this.salon()._id]);
     this.bookNow.emit(this.salon());
   }
 
   /** Replace broken image with placeholder */
   onImgError(event: Event): void {
-    (event.target as HTMLImageElement).src = 'assets/images/salon-placeholder.jpg';
+    (event.target as HTMLImageElement).src = 'assets/images/salon-placeholder.svg';
   }
 }

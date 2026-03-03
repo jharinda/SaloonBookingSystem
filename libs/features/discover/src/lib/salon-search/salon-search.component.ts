@@ -163,12 +163,12 @@ interface SearchFilters {
         }
       </div>
 
-      <!-- ── Featured Salons ────────────────────────────────────────────────── -->
-      @if (!hasActiveFilters() && !hasSearched() && !isLoading() && featuredSalons().length > 0) {
-        <section class="featured-section" aria-label="Featured salons">
+      <!-- ── All Salons (initial load) ───────────────────────────────────────── -->
+      @if (!hasActiveFilters() && !hasSearched() && !isLoading()) {
+        <section class="featured-section" aria-label="All salons">
           <h2 class="section-heading">
-            <mat-icon class="section-icon">star</mat-icon>
-            Featured Salons
+            <mat-icon class="section-icon">storefront</mat-icon>
+            All Salons
           </h2>
           <div class="results-grid">
             @for (salon of featuredSalons(); track salon._id) {
@@ -240,15 +240,7 @@ interface SearchFilters {
         </div>
       }
 
-      <!-- ── Initial / idle state ───────────────────────────────────────────── -->
-      @if (!isLoading() && !hasSearched() && !error()) {
-        <div class="state-panel state-panel--idle" aria-hidden="true">
-          <mat-icon class="state-icon">content_cut</mat-icon>
-          <p class="state-message">
-            Start typing or choose a filter to discover salons near you
-          </p>
-        </div>
-      }
+
 
     </div>
   `,
@@ -470,7 +462,7 @@ interface SearchFilters {
     }
 
     .section-icon {
-      color: #f59e0b;
+      color: var(--mat-sys-primary, #6750A4);
     }
 
     /* ── Responsive ──────────────────────────────────────────────────────────── */
@@ -546,7 +538,7 @@ export class SalonSearchComponent {
         this.hasSearched.set(true);
       });
 
-    this.loadFeaturedSalons();
+    this.loadAllSalons();
   }
 
   // ── Event handlers ────────────────────────────────────────────────────────────
@@ -574,6 +566,7 @@ export class SalonSearchComponent {
     this.results.set([]);
     this.hasSearched.set(false);
     this.error.set(null);
+    this.loadAllSalons();
   }
 
   retrySearch(): void {
@@ -607,10 +600,16 @@ export class SalonSearchComponent {
     );
   }
 
-  private loadFeaturedSalons(): void {
+  private loadAllSalons(): void {
+    this.isLoading.set(true);
     this.salonService.getFeaturedSalons().subscribe({
-      next: (salons) => this.featuredSalons.set(salons),
-      error: () => { /* silently ignore — featured salons are non-critical */ },
+      next: (salons) => {
+        this.featuredSalons.set(salons);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.isLoading.set(false);
+      },
     });
   }
 

@@ -12,6 +12,10 @@ export const validationSchema = Joi.object({
     'any.required': 'REVIEW_MONGODB_URI is required (e.g. mongodb://localhost:27017/snapsalon-reviews)',
   }),
 
+  // Inter-service URLs
+  BOOKING_SERVICE_URL: Joi.string().uri().default('http://localhost:3002'),
+  SALON_SERVICE_URL:   Joi.string().uri().default('http://localhost:3001'),
+
   // JWT
   JWT_ACCESS_SECRET: Joi.string().min(32).required().messages({
     'any.required': 'JWT_ACCESS_SECRET is required and must be at least 32 characters',

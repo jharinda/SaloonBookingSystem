@@ -4,7 +4,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 
 /**
  * Temporary home-page component.
@@ -14,54 +14,8 @@ import { Router, RouterLink } from '@angular/router';
 @Component({
   selector: 'app-home',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [],
   template: `
-    <!-- ── Navbar ── -->
-    <header style="
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 32px;
-      height: 64px;
-      background: #ffffff;
-      border-bottom: 1px solid #e5e7eb;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    ">
-      <span style="font-size: 1.25rem; font-weight: 800; color: #1f2937;
-                   letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px;">
-        ✂️ SnapSalon
-      </span>
-
-      <div style="display: flex; gap: 12px; align-items: center;">
-        <a routerLink="/auth/login" style="
-          padding: 8px 20px;
-          border: 1.5px solid #6750a4;
-          border-radius: 24px;
-          color: #6750a4;
-          font-weight: 600;
-          font-size: 0.875rem;
-          text-decoration: none;
-          background: transparent;
-          cursor: pointer;
-          transition: background 0.2s;
-        ">Log in</a>
-
-        <a routerLink="/auth/register" style="
-          padding: 8px 20px;
-          border: 1.5px solid #6750a4;
-          border-radius: 24px;
-          color: #ffffff;
-          font-weight: 600;
-          font-size: 0.875rem;
-          text-decoration: none;
-          background: #6750a4;
-          cursor: pointer;
-        ">Register</a>
-      </div>
-    </header>
-
     <!-- ── Hero ── -->
     <section style="
       display: flex;

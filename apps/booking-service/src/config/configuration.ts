@@ -18,6 +18,9 @@ export default () => ({
     accessSecret: process.env['JWT_ACCESS_SECRET'],
   },
   services: {
-    salonUrl: process.env['SALON_SERVICE_URL'] ?? 'http://salon-service:3001',
+    authUrl:         process.env['AUTH_SERVICE_URL']          ?? 'http://localhost:3003',
+    salonUrl:        process.env['SALON_SERVICE_URL']        ?? 'http://localhost:3001',
+    notificationUrl: process.env['NOTIFICATION_SERVICE_URL'] ?? 'http://localhost:3004',
+    calendarUrl:     process.env['CALENDAR_SERVICE_URL']     ?? 'http://localhost:3005',
   },
 });

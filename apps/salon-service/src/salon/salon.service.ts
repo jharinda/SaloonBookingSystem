@@ -18,6 +18,19 @@ import {
   SalonServiceItemDto,
 } from './dto/salon-response.dto';
 
+export interface AdminSalonDto {
+  _id:              string;
+  name:             string;
+  ownerName:        string;
+  ownerEmail:       string;
+  city:             string;
+  submittedAt:      string;
+  isApproved:       boolean;
+  isActive:         boolean;
+  rating:           number;
+  subscriptionPlan?: string;
+}
+
 @Injectable()
 export class SalonService {
   constructor(
@@ -27,10 +40,12 @@ export class SalonService {
   async createSalon(
     dto: CreateSalonDto,
     ownerId: string,
+    ownerEmail = '',
   ): Promise<SalonResponseDto> {
     const salon = await this.salonModel.create({
       ...dto,
       ownerId: new Types.ObjectId(ownerId),
+      ownerEmail,
       franchiseId: dto.franchiseId
         ? new Types.ObjectId(dto.franchiseId)
         : null,
@@ -168,7 +183,7 @@ export class SalonService {
     }
 
     const updated = await this.salonModel
-      .findByIdAndUpdate(id, { $set: updatePayload }, { new: true })
+      .findByIdAndUpdate(id, { $set: updatePayload }, { returnDocument: 'after' })
       .lean()
       .exec();
 
@@ -180,7 +195,7 @@ export class SalonService {
       .findByIdAndUpdate(
         id,
         { isApproved: true, isActive: true, subscriptionStatus: 'trial', rejectionReason: null },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean()
       .exec();
@@ -197,7 +212,7 @@ export class SalonService {
       .findByIdAndUpdate(
         id,
         { isApproved: false, isActive: false, rejectionReason: reason },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean()
       .exec();
@@ -226,7 +241,7 @@ export class SalonService {
       .findByIdAndUpdate(
         salonId,
         { $push: { services: { ...dto, _id: new Types.ObjectId() } } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean()
       .exec();
@@ -251,7 +266,7 @@ export class SalonService {
       .findByIdAndUpdate(
         salonId,
         { $pull: { services: { _id: new Types.ObjectId(serviceId) } } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean()
       .exec();
@@ -276,7 +291,7 @@ export class SalonService {
       .findByIdAndUpdate(
         salonId,
         { $set: { operatingHours: hours } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean()
       .exec();
@@ -316,7 +331,7 @@ export class SalonService {
       .findByIdAndUpdate(
         salonId,
         { $push: { images: { cloudinaryId: imageData.cloudinaryId, url: imageData.url, isPrimary: false } } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean()
       .exec();
@@ -342,7 +357,7 @@ export class SalonService {
       .findByIdAndUpdate(
         salonId,
         { $pull: { images: { cloudinaryId } } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean()
       .exec();
@@ -525,7 +540,7 @@ export class SalonService {
       .findByIdAndUpdate(
         salonId,
         { $addToSet: { staff: new Types.ObjectId(stylistId) } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean()
       .exec();
@@ -535,6 +550,71 @@ export class SalonService {
     }
 
     return this.toResponse(salon as unknown as SalonDocument);
+  }
+
+  // ── Admin methods ────────────────────────────────────────────────────────
+
+  async adminGetStats(): Promise<{ totalSalons: number; pendingApproval: number; activeSalons: number }> {
+    const [totalSalons, pendingApproval, activeSalons] = await Promise.all([
+      this.salonModel.countDocuments({}),
+      this.salonModel.countDocuments({ isApproved: false }),
+      this.salonModel.countDocuments({ isApproved: true, isActive: true }),
+    ]);
+    return { totalSalons, pendingApproval, activeSalons };
+  }
+
+  async adminFindAll(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }): Promise<{ data: AdminSalonDto[]; total: number; page: number; limit: number }> {
+    const page  = params.page  ?? 1;
+    const limit = Math.min(params.limit ?? 10, 100);
+    const skip  = (page - 1) * limit;
+
+    const filter: Record<string, unknown> = {};
+
+    if (params.status === 'pending') {
+      filter['isApproved'] = false;
+    } else if (params.status === 'active') {
+      filter['isApproved'] = true;
+      filter['isActive']   = true;
+    } else if (params.status === 'suspended') {
+      filter['isActive'] = false;
+    }
+
+    if (params.search) {
+      filter['$or'] = [
+        { name:           { $regex: params.search, $options: 'i' } },
+        { 'address.city': { $regex: params.search, $options: 'i' } },
+        { email:          { $regex: params.search, $options: 'i' } },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.salonModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec(),
+      this.salonModel.countDocuments(filter),
+    ]);
+
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: data.map((s: any): AdminSalonDto => ({
+        _id:              s._id?.toString(),
+        name:             s.name,
+        ownerName:        (s as any).ownerEmail || s.email || '',
+        ownerEmail:       (s as any).ownerEmail || s.email || '',
+        city:             s.address?.city ?? '',
+        submittedAt:      s.createdAt?.toISOString?.() ?? String(s.createdAt),
+        isApproved:       s.isApproved,
+        isActive:         s.isActive ?? true,
+        rating:           s.rating ?? 0,
+        subscriptionPlan: s.subscriptionStatus,
+      })),
+      total,
+      page,
+      limit,
+    };
   }
 
   // ── Private helpers ──────────────────────────────────────────────────────

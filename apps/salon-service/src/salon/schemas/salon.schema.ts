@@ -85,6 +85,10 @@ export class Salon extends Document {
   @Prop({ type: [SalonImage], default: [] })
   images: SalonImage[];
 
+  /** Denormalised from the JWT at creation time — avoids inter-service calls */
+  @Prop({ default: '' })
+  ownerEmail: string;
+
   @Prop({ default: false })
   isApproved: boolean;
 

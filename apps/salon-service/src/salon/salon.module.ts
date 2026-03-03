@@ -8,6 +8,7 @@ import { Salon, SalonSchema } from './schemas/salon.schema';
 import { JwtStrategy, JwtAuthGuard, RolesGuard } from '@org/shared-auth';
 import { UploadModule } from '../upload/upload.module';
 import { UploadController } from '../upload/upload.controller';
+import { AdminController } from '../admin/admin.controller';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { UploadController } from '../upload/upload.controller';
     MongooseModule.forFeature([{ name: Salon.name, schema: SalonSchema }]),
     UploadModule,
   ],
-  controllers: [SalonController, UploadController],
+  controllers: [SalonController, UploadController, AdminController],
   providers: [SalonService, JwtStrategy, JwtAuthGuard, RolesGuard],
   exports: [SalonService],
 })

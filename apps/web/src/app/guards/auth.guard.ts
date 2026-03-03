@@ -6,14 +6,11 @@ import { AuthService } from '@org/shared-data-access';
 /**
  * Protects routes that require authentication.
  *
- * If the in-memory access token is already present the guard passes
- * immediately (synchronous fast path).
+ * Fast path: token present AND not yet expired — pass immediately.
  *
- * Otherwise it attempts a silent token refresh using the HttpOnly
- * refresh-token cookie.  This handles page refreshes and server-side
- * renders where the in-memory token has been lost but the cookie is
- * still valid.  Only if the refresh also fails does the guard redirect
- * to /auth/login.
+ * Refresh path: token absent OR expired — attempt a silent token refresh
+ * using the HttpOnly refresh-token cookie before proceeding.
+ * Only if the refresh also fails does the guard redirect to /auth/login.
  */
 export const authGuard: CanActivateFn = (
   _route,
@@ -22,11 +19,11 @@ export const authGuard: CanActivateFn = (
   const router = inject(Router);
   const authService = inject(AuthService);
 
-  // Fast path — token already in memory
-  if (authService.isLoggedIn()) return true;
+  // Fast path — token present and still valid
+  if (authService.isLoggedIn() && !authService.isTokenExpired()) return true;
 
-  // Slow path — try to restore session from the HttpOnly cookie
-  return authService.refreshToken().pipe(
+  // Slow path — no token or token expired: refresh before proceeding
+  return authService.ensureFreshToken().pipe(
     map(() => true as boolean | UrlTree),
     catchError(() =>
       of(
