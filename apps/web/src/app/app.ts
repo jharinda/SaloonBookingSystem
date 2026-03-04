@@ -6,6 +6,7 @@ import {
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
+import { ToastModule } from 'primeng/toast';
 import { NavbarComponent } from './components/navbar/navbar.component';
 import { PwaInstallBannerComponent } from './components/pwa-install-banner/pwa-install-banner.component';
 import { PwaInstallService } from './shared/services/pwa-install.service';
@@ -13,7 +14,7 @@ import { PwaInstallService } from './shared/services/pwa-install.service';
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, NavbarComponent, PwaInstallBannerComponent],
+  imports: [RouterOutlet, NavbarComponent, PwaInstallBannerComponent, ToastModule],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

@@ -1,1 +1,145 @@
-<p>Discover works!</p>
+<!-- ── Hero ────────────────────────────────────────────────────────────────── -->
+<section class="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white py-20 px-6 text-center">
+  <h1 class="text-4xl font-bold mb-3">Find Your Perfect Salon</h1>
+  <p class="text-emerald-100 text-lg mb-8">
+    Discover top-rated salons and book appointments instantly
+  </p>
+
+  <div class="flex justify-center">
+    <p-iconfield class="w-full max-w-xl">
+      <p-inputicon styleClass="pi pi-search" />
+      <input
+        pInputText
+        type="text"
+        placeholder="Search by salon name or location..."
+        class="w-full"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearchInput()"
+      />
+    </p-iconfield>
+  </div>
+</section>
+
+<!-- ── Filter bar ───────────────────────────────────────────────────────────── -->
+<div class="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700 py-4 px-6 flex overflow-x-auto gap-4 items-center">
+
+  <p-select
+    [options]="serviceTypeOptions"
+    [(ngModel)]="serviceType"
+    (ngModelChange)="onFilterChange()"
+    optionLabel="label"
+    optionValue="value"
+    placeholder="Service Type"
+    class="w-48 flex-shrink-0"
+  />
+
+  <p-select
+    [options]="cityOptions"
+    [(ngModel)]="city"
+    (ngModelChange)="onFilterChange()"
+    optionLabel="label"
+    optionValue="value"
+    placeholder="City"
+    class="w-48 flex-shrink-0"
+  />
+
+  <p-select
+    [options]="sortByOptions"
+    [(ngModel)]="sortBy"
+    (ngModelChange)="onFilterChange()"
+    optionLabel="label"
+    optionValue="value"
+    placeholder="Sort By"
+    class="w-48 flex-shrink-0"
+  />
+
+</div>
+
+<!-- ── Salon grid ────────────────────────────────────────────────────────────── -->
+<div class="px-6 py-8">
+
+  <!-- Skeleton cards -->
+  @if (loading()) {
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      @for (sk of [1,2,3,4,5,6]; track sk) {
+        <p-card styleClass="overflow-hidden h-full">
+          <ng-template #header>
+            <p-skeleton height="192px" styleClass="w-full" />
+          </ng-template>
+          <div class="flex flex-col gap-2">
+            <p-skeleton width="70%" height="1.2rem" styleClass="mt-3" />
+            <p-skeleton width="40%" height="1rem" styleClass="mt-2" />
+          </div>
+          <ng-template #footer>
+            <p-skeleton width="100%" height="2.5rem" styleClass="mt-3" />
+          </ng-template>
+        </p-card>
+      }
+    </div>
+  }
+
+  <!-- Empty state -->
+  @else if (salons().length === 0) {
+    <div class="flex flex-col items-center justify-center py-24 text-zinc-400 gap-3">
+      <i class="pi pi-search text-5xl"></i>
+      <p class="text-lg font-medium">No salons found</p>
+      <p class="text-sm">Try adjusting your search or filters</p>
+    </div>
+  }
+
+  <!-- Grid -->
+  @else {
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      @for (salon of salons(); track salon._id) {
+        <p-card styleClass="overflow-hidden h-full">
+
+          <!-- Cover image -->
+          <ng-template #header>
+            <img
+              [src]="coverImage(salon)"
+              [alt]="salon.name"
+              class="w-full h-48 object-cover"
+            />
+          </ng-template>
+
+          <!-- Body -->
+          <div class="flex flex-col gap-2">
+
+            <!-- Name -->
+            <h3 class="font-semibold text-zinc-900 dark:text-zinc-100 text-base leading-tight m-0">
+              {{ salon.name }}
+            </h3>
+
+            <!-- Location -->
+            <p class="text-sm text-zinc-500 flex items-center gap-1 m-0">
+              <i class="pi pi-map-marker text-xs"></i>
+              {{ salon.address.city }}
+              @if (salon.address.state) {
+                <span>, {{ salon.address.state }}</span>
+              }
+            </p>
+
+            <!-- Rating -->
+            <div class="flex items-center gap-2">
+              <p-rating [(ngModel)]="salon.rating" [readonly]="true" />
+              <span class="text-zinc-400 text-xs">({{ salon.reviewCount }} reviews)</span>
+            </div>
+
+          </div>
+
+          <!-- Footer: Book Now -->
+          <ng-template #footer>
+            <p-button
+              label="Book Now"
+              severity="success"
+              styleClass="w-full mt-3"
+              (onClick)="onBookNow(salon)"
+            />
+          </ng-template>
+
+        </p-card>
+      }
+    </div>
+  }
+
+</div>

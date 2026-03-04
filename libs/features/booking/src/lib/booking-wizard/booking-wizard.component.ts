@@ -1,135 +1,68 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
-  computed,
   inject,
   signal,
-  viewChild,
 } from '@angular/core';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { catchError, filter, of, switchMap } from 'rxjs';
+import { catchError, filter, of, Subject, switchMap, tap } from 'rxjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs/operators';
 
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatStepper, MatStepperModule } from '@angular/material/stepper';
+import { Button } from 'primeng/button';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { MessageService } from 'primeng/api';
+import { Stepper, StepList, Step, StepPanels, StepPanel } from 'primeng/stepper';
+import { DatePicker } from 'primeng/datepicker';
+import { SelectButton } from 'primeng/selectbutton';
+import { InputText } from 'primeng/inputtext';
+import { Textarea } from 'primeng/textarea';
+import { Checkbox } from 'primeng/checkbox';
+import { Card } from 'primeng/card';
+import { Message } from 'primeng/message';
+import { FloatLabel } from 'primeng/floatlabel';
+import { Divider } from 'primeng/divider';
 
-import { Booking, BookingDraft, Salon, SalonServiceItem } from '@org/models';
-import { SalonService } from '@org/shared-data-access';
-import { BookingService } from '../services/booking.service';
-import { ServiceSelectorComponent } from '../service-selector/service-selector.component';
-import { SlotPickerComponent } from '../slot-picker/slot-picker.component';
-import { BookingConfirmComponent } from '../booking-confirm/booking-confirm.component';
+import { Booking, BookingSlot, Salon, SalonServiceItem } from '@org/models';
+import { BookingService, SalonService, UserService } from '@org/shared-data-access';
+
+/** Display option for the time-slot SelectButton */
+interface TimeSlotOption {
+  label: string;
+  value: string;
+}
 
 @Component({
   selector: 'lib-booking-wizard',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatStepperModule,
-    ServiceSelectorComponent,
-    SlotPickerComponent,
-    BookingConfirmComponent,
+    FormsModule,
+    DatePipe,
+    DecimalPipe,
+    Button,
+    ProgressSpinner,
+    Stepper,
+    StepList,
+    Step,
+    StepPanels,
+    StepPanel,
+    DatePicker,
+    SelectButton,
+    InputText,
+    Textarea,
+    Checkbox,
+    Card,
+    Message,
+    FloatLabel,
+    Divider,
   ],
-  template: `
-    <div class="wizard-container">
-
-      <!-- ── Loading salon ─────────────────────────────────────── -->
-      @if (isSalonLoading()) {
-        <div class="wizard-state">
-          <mat-spinner diameter="48" />
-          <p>Loading salon details…</p>
-        </div>
-      }
-
-      <!-- ── Failed to load salon ──────────────────────────────── -->
-      @if (!isSalonLoading() && salonError()) {
-        <div class="wizard-state wizard-state--error">
-          <mat-icon color="warn">error_outline</mat-icon>
-          <p>{{ salonError() }}</p>
-          <button mat-raised-button color="primary" (click)="goToDiscover()">
-            <mat-icon>search</mat-icon> Back to Discover
-          </button>
-        </div>
-      }
-
-      <!-- ── Wizard ────────────────────────────────────────────── -->
-      @if (!isSalonLoading() && salon()) {
-        <!-- Salon identity bar -->
-        <div class="wizard-salon-bar">
-          <img
-            class="salon-bar-img"
-            [src]="salon()!.images?.[0] ?? 'assets/images/salon-placeholder.svg'"
-            [alt]="salon()!.name"
-            (error)="onImgError($event)"
-          />
-          <div class="salon-bar-info">
-            <div class="salon-bar-name">{{ salon()!.name }}</div>
-            <div class="salon-bar-city">
-              <mat-icon class="inline-icon">location_on</mat-icon>
-              {{ salon()!.address.city }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Stepper -->
-        <mat-stepper
-          #stepper
-          [linear]="true"
-          animationDuration="300ms"
-          class="wizard-stepper"
-        >
-          <!-- ════════════ STEP 1 — Service ════════════ -->
-          <mat-step [completed]="!!selectedService()">
-            <ng-template matStepLabel>Service</ng-template>
-
-            <lib-service-selector
-              [salon]="salon()!"
-              (serviceSelected)="onServiceSelected($event)"
-            />
-          </mat-step>
-
-          <!-- ════════════ STEP 2 — Date & Time ════════════ -->
-          <mat-step [completed]="!!selectedDate() && !!selectedSlot()">
-            <ng-template matStepLabel>Date &amp; Time</ng-template>
-
-            @if (selectedService()) {
-              <lib-slot-picker
-                [salonId]="salon()!._id"
-                [duration]="selectedService()!.duration"
-                [serviceLabel]="selectedService()!.name"
-                (slotSelected)="onSlotSelected($event)"
-                (back)="onBack()"
-              />
-            }
-          </mat-step>
-
-          <!-- ════════════ STEP 3 — Confirm ════════════ -->
-          <mat-step>
-            <ng-template matStepLabel>Confirm</ng-template>
-
-            @if (draft()) {
-              <lib-booking-confirm
-                [draft]="draft()!"
-                [isSubmitting]="isSubmitting()"
-                (confirm)="onConfirm($event)"
-                (back)="onBack()"
-              />
-            }
-          </mat-step>
-        </mat-stepper>
-      }
-
-    </div>
-  `,
+  templateUrl: './booking-wizard.component.html',
   styles: [`
     .wizard-container {
-      max-width: 700px;
+      max-width: 780px;
       margin: 0 auto;
       padding: 32px 24px 64px;
     }
@@ -145,10 +78,9 @@ import { BookingConfirmComponent } from '../booking-confirm/booking-confirm.comp
       color: #6b7280;
       font-size: 0.95rem;
     }
-
     .wizard-state--error { color: #ef4444; }
 
-    /* ── Salon bar ── */
+    /* ── Salon identity bar ── */
     .wizard-salon-bar {
       display: flex;
       align-items: center;
@@ -159,18 +91,14 @@ import { BookingConfirmComponent } from '../booking-confirm/booking-confirm.comp
       border-radius: 12px;
       margin-bottom: 28px;
     }
-
     .salon-bar-img {
-      width: 54px;
-      height: 54px;
+      width: 54px; height: 54px;
       border-radius: 8px;
       object-fit: cover;
       flex-shrink: 0;
       background: #f0f0f0;
     }
-
     .salon-bar-info { min-width: 0; }
-
     .salon-bar-name {
       font-weight: 700;
       font-size: 1rem;
@@ -179,7 +107,6 @@ import { BookingConfirmComponent } from '../booking-confirm/booking-confirm.comp
       overflow: hidden;
       text-overflow: ellipsis;
     }
-
     .salon-bar-city {
       display: flex;
       align-items: center;
@@ -188,23 +115,37 @@ import { BookingConfirmComponent } from '../booking-confirm/booking-confirm.comp
       color: #6b7280;
       margin-top: 2px;
     }
-
     .inline-icon {
       font-size: 0.9rem;
-      width: 0.9rem;
-      height: 0.9rem;
-      color: var(--mat-sys-primary, #6750A4);
+      color: var(--p-primary-500, #7c3aed);
     }
 
-    /* ── Stepper ── */
-    .wizard-stepper {
-      background: transparent;
-    }
+    /* ── Datepicker fills its column ── */
+    :host ::ng-deep .fill-calendar { width: 100%; }
+    :host ::ng-deep .fill-calendar .p-datepicker { width: 100%; }
 
-    /* Override default mat-step body padding  */
-    ::ng-deep .wizard-stepper .mat-step-body-active {
-      padding: 20px 0 0;
+    /* ── Time-slot SelectButton wrapping ── */
+    :host ::ng-deep .time-slot-select .p-togglebutton { min-width: 72px; font-size: 0.85rem; }
+
+    /* ── Summary rows ── */
+    .summary-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 10px 0;
     }
+    .summary-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: #f3f0ff;
+      color: var(--p-primary-600, #7c3aed);
+      flex-shrink: 0;
+    }
+    .summary-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.07em; color: #9ca3af; font-weight: 500; }
+    .summary-value { font-weight: 600; color: #111827; margin-top: 1px; }
 
     @media (max-width: 480px) {
       .wizard-container { padding: 16px; }
@@ -212,42 +153,79 @@ import { BookingConfirmComponent } from '../booking-confirm/booking-confirm.comp
   `],
 })
 export class BookingWizardComponent {
-  // ── Services ────────────────────────────────────────────────────────────────
+  // ── Injections ────────────────────────────────────────────────────────────────
   private readonly route          = inject(ActivatedRoute);
   private readonly router         = inject(Router);
   private readonly salonService   = inject(SalonService);
   private readonly bookingService = inject(BookingService);
-  private readonly snackBar       = inject(MatSnackBar);
+  private readonly userService    = inject(UserService);
+  private readonly msgSvc         = inject(MessageService);
+  private readonly cdr            = inject(ChangeDetectorRef);
 
-  // ── ViewChild (signal-based) ─────────────────────────────────────────────────
-  readonly stepper = viewChild.required<MatStepper>('stepper');
+  // ── Async / loaded state (signals) ────────────────────────────────────────────
+  readonly today = new Date();
 
-  // ── Route param → salon load ──────────────────────────────────────────────────
+  readonly salon          = signal<Salon | null>(null);
+  readonly isSalonLoading = signal(true);
+  readonly salonError     = signal<string | null>(null);
+
+  readonly selectedService = signal<SalonServiceItem | null>(null);
+  readonly stylistId       = signal<string>('');
+  readonly stylistName     = signal<string>('');
+
+  readonly isSlotsLoading = signal(false);
+  readonly slotsError     = signal<string | null>(null);
+  readonly isSubmitting   = signal(false);
+
+  // ── Form / UI state (plain properties — two-way [(ngModel)] friendly) ─────────
+  activeStep    = 0;
+  selectedDate: Date | null = null;
+  selectedTime: string | null = null;
+  timeSlots: TimeSlotOption[] = [];
+
+  fullName        = '';
+  email           = '';
+  phone           = '';
+  specialRequests = '';
+  agreeTerms      = false;
+
+  // ── Getters ───────────────────────────────────────────────────────────────────
+  get step1Valid(): boolean {
+    return !!this.selectedDate && !!this.selectedTime;
+  }
+
+  get step2Valid(): boolean {
+    return (
+      this.fullName.trim().length > 0 &&
+      this.email.trim().length > 0 &&
+      this.phone.trim().length > 0 &&
+      this.agreeTerms
+    );
+  }
+
+  get selectedDateStr(): string | null {
+    return this.selectedDate ? BookingWizardComponent._fmtDate(this.selectedDate) : null;
+  }
+
+  // ── RxJS pipeline for slot fetching ──────────────────────────────────────────
+  private readonly dateTrigger$ = new Subject<string>();
+  private lastDateStr = '';
+
+  // ── Route param signal ────────────────────────────────────────────────────────
   private readonly salonId = toSignal(
     this.route.paramMap.pipe(map((p) => p.get('salonId') ?? '')),
     { initialValue: '' },
   );
 
-  readonly salon          = signal<Salon | null>(null);
-  readonly isSalonLoading = signal(true);
-  readonly salonError    = signal<string | null>(null);
-
-  // ── Wizard draft state ────────────────────────────────────────────────────────
-  readonly selectedService = signal<SalonServiceItem | null>(null);
-  readonly selectedDate    = signal<string | null>(null);  // "YYYY-MM-DD"
-  readonly selectedSlot    = signal<string | null>(null);  // "HH:mm"
-  readonly isSubmitting    = signal(false);
-
-  readonly draft = computed<BookingDraft | null>(() => {
-    const salon   = this.salon();
-    const service = this.selectedService();
-    const dateStr = this.selectedDate();
-    const slot    = this.selectedSlot();
-    if (!salon || !service || !dateStr || !slot) return null;
-    return { salon, service, date: new Date(dateStr + 'T00:00:00'), slot, notes: '' };
-  });
-
   constructor() {
+    // Read stylist info from query params synchronously
+    const qp = this.route.snapshot.queryParamMap;
+    const stylistIdParam   = qp.get('stylistId');
+    const stylistNameParam = qp.get('stylistName');
+    if (stylistIdParam)   this.stylistId.set(stylistIdParam);
+    if (stylistNameParam) this.stylistName.set(stylistNameParam);
+
+    // ── Salon load pipeline ──────────────────────────────────────────────────────
     toObservable(this.salonId)
       .pipe(
         filter((id) => !!id),
@@ -264,42 +242,115 @@ export class BookingWizardComponent {
       .subscribe((salon) => {
         this.salon.set(salon);
         this.isSalonLoading.set(false);
+        if (salon) this._resolveService(salon);
+      });
+
+    // ── Slot-fetch pipeline (switchMap cancels in-flight requests on new date) ───
+    this.dateTrigger$
+      .pipe(
+        tap(() => {
+          this.isSlotsLoading.set(true);
+          this.slotsError.set(null);
+          this.timeSlots = [];
+          this.selectedTime = null;
+        }),
+        switchMap((dateStr) => {
+          const salon   = this.salon();
+          const service = this.selectedService();
+          if (!salon || !service) return of({ date: dateStr, slots: [] as BookingSlot[] });
+          return this.bookingService
+            .getAvailableSlots(salon._id, dateStr, service.duration, this.stylistId() || undefined)
+            .pipe(
+              catchError(() => {
+                this.slotsError.set('Could not load available slots. Please try another date.');
+                return of({ date: dateStr, slots: [] as BookingSlot[] });
+              }),
+            );
+        }),
+        takeUntilDestroyed(),
+      )
+      .subscribe((resp) => {
+        this.timeSlots = resp.slots
+          .filter((s: BookingSlot) => s.available)
+          .map((s: BookingSlot) => ({ label: s.time, value: s.time }));
+        this.isSlotsLoading.set(false);
+        this.cdr.markForCheck();
+      });
+
+    // ── Pre-fill user details ────────────────────────────────────────────────────
+    this.userService
+      .getProfile()
+      .pipe(takeUntilDestroyed())
+      .subscribe({
+        next: (p) => {
+          this.fullName = `${p.firstName} ${p.lastName}`.trim();
+          this.email    = p.email;
+          this.phone    = p.phone ?? '';
+          this.cdr.markForCheck();
+        },
+        error: () => { /* silent — user can type manually */ },
       });
   }
 
-  // ── Step handlers ─────────────────────────────────────────────────────────────
+  // ── Event handlers ────────────────────────────────────────────────────────────
 
-  onServiceSelected(service: SalonServiceItem): void {
-    this.selectedService.set(service);
-    this.stepper().next();
+  onDateChange(date: Date | null): void {
+    // selectedDate already updated by [(ngModel)]; only handle side effects here
+    this.selectedTime = null;
+    if (!date) {
+      this.timeSlots = [];
+      this.cdr.markForCheck();
+      return;
+    }
+    const dateStr = BookingWizardComponent._fmtDate(date);
+    this.lastDateStr = dateStr;
+    this.dateTrigger$.next(dateStr);
   }
 
-  onSlotSelected(selection: { date: string; slot: string }): void {
-    this.selectedDate.set(selection.date);
-    this.selectedSlot.set(selection.slot);
-    this.stepper().next();
+  retrySlots(): void {
+    if (this.lastDateStr) this.dateTrigger$.next(this.lastDateStr);
   }
 
-  onBack(): void {
-    this.stepper().previous();
+  // ── Step navigation ───────────────────────────────────────────────────────────
+
+  goToStep2(): void {
+    if (!this.step1Valid) {
+      this.msgSvc.add({ severity: 'warn', summary: 'Incomplete', detail: 'Please choose a date and a time slot.', life: 3000 });
+      return;
+    }
+    this.activeStep = 1;
   }
 
-  onConfirm(notes: string): void {
+  goToStep3(): void {
+    if (!this.step2Valid) {
+      this.msgSvc.add({ severity: 'warn', summary: 'Incomplete', detail: 'Please fill all required fields and accept the cancellation policy.', life: 3000 });
+      return;
+    }
+    this.activeStep = 2;
+  }
+
+  goBack(): void {
+    this.activeStep = Math.max(0, this.activeStep - 1);
+  }
+
+  // ── Booking submission ────────────────────────────────────────────────────────
+
+  confirmBooking(): void {
     const salon   = this.salon();
     const service = this.selectedService();
-    const date    = this.selectedDate();
-    const slot    = this.selectedSlot();
-    if (!salon || !service || !date || !slot) return;
+    const dateStr = this.selectedDateStr;
+    const time    = this.selectedTime;
+    if (!salon || !service || !dateStr || !time) return;
 
     this.isSubmitting.set(true);
-
     this.bookingService
       .createBooking({
         salonId:         salon._id,
         serviceId:       service._id,
-        appointmentDate: date,
-        startTime:       slot,
-        notes:           notes || undefined,
+        appointmentDate: dateStr,
+        startTime:       time,
+        stylistId:       this.stylistId() || undefined,
+        notes:           this.specialRequests.trim() || undefined,
       })
       .subscribe({
         next: (booking: Booking) => {
@@ -307,11 +358,7 @@ export class BookingWizardComponent {
         },
         error: () => {
           this.isSubmitting.set(false);
-          this.snackBar.open(
-            'Could not create booking. Please try again.',
-            'Dismiss',
-            { duration: 4000 },
-          );
+          this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Could not create booking. Please try again.', life: 4000 });
         },
       });
   }
@@ -322,5 +369,24 @@ export class BookingWizardComponent {
 
   onImgError(event: Event): void {
     (event.target as HTMLImageElement).src = 'assets/images/salon-placeholder.svg';
+  }
+
+  // ── Private helpers ───────────────────────────────────────────────────────────
+
+  private _resolveService(salon: Salon): void {
+    const serviceId = this.route.snapshot.queryParamMap.get('serviceId');
+    if (serviceId) {
+      const match = salon.services.find((s) => s._id === serviceId);
+      if (match) { this.selectedService.set(match); return; }
+    }
+    // Fall back to the first service listed on the salon
+    if (salon.services.length > 0) this.selectedService.set(salon.services[0]);
+  }
+
+  private static _fmtDate(d: Date): string {
+    const y   = d.getFullYear();
+    const m   = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 }

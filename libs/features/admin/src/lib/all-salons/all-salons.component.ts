@@ -10,19 +10,14 @@ import { DecimalPipe } from '@angular/common';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatSortModule } from '@angular/material/sort';
-import { MatTableModule } from '@angular/material/table';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { Button } from 'primeng/button';
+import { InputText } from 'primeng/inputtext';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { Select } from 'primeng/select';
+import { TableModule, TableLazyLoadEvent } from 'primeng/table';
+
+import { MessageService } from 'primeng/api';
+import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
 
 import { AdminService, AdminSalon } from '@org/shared-data-access';
 import { ConfirmDialogComponent } from '../shared/confirm-dialog.component';
@@ -34,27 +29,22 @@ import { ConfirmDialogComponent } from '../shared/confirm-dialog.component';
   imports: [
     DecimalPipe,
     FormsModule,
-    MatButtonModule,
-    MatChipsModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatPaginatorModule,
-    MatProgressSpinnerModule,
-    MatSelectModule,
-    MatSortModule,
-    MatTableModule,
-    MatTooltipModule,
+    Button,
+    InputText,
+    ProgressSpinner,
+    Select,
+    TableModule,
   ],
   templateUrl: './all-salons.component.html',
   styleUrl:    './all-salons.component.scss',
 })
 export class AllSalonsComponent implements OnInit, OnDestroy {
   private readonly adminService = inject(AdminService);
-  private readonly dialog       = inject(MatDialog);
-  private readonly snack        = inject(MatSnackBar);
-  private readonly destroy$     = new Subject<void>();
-  private readonly search$      = new Subject<string>();
+  private readonly dialogService = inject(DialogService);
+  private readonly msgSvc        = inject(MessageService);
+
+  private readonly destroy$      = new Subject<void>();
+  private readonly search$       = new Subject<string>();
 
   readonly loading     = signal(true);
   readonly error       = signal<string | null>(null);
@@ -103,9 +93,9 @@ export class AllSalonsComponent implements OnInit, OnDestroy {
     this.loadSalons();
   }
 
-  onPage(e: PageEvent): void {
-    this.page.set(e.pageIndex);
-    this.pageSize.set(e.pageSize);
+  onPage(e: TableLazyLoadEvent): void {
+    this.page.set(Math.floor((e.first ?? 0) / (e.rows ?? 10)));
+    this.pageSize.set(e.rows ?? 10);
     this.loadSalons();
   }
 
@@ -135,17 +125,19 @@ export class AllSalonsComponent implements OnInit, OnDestroy {
   }
 
   suspend(salon: AdminSalon): void {
-    const ref = this.dialog.open(ConfirmDialogComponent, {
+    const ref = this.dialogService.open(ConfirmDialogComponent, {
+      header: 'Suspend Salon',
+      width: '440px',
+      closable: true,
       data: {
         title:        'Suspend Salon',
         message:      `Suspend "${salon.name}"? It will be hidden from the public and the owner will lose access.`,
         confirmLabel: 'Suspend',
         danger:       true,
       },
-      width: '440px',
     });
 
-    ref.afterClosed().subscribe((ok: boolean) => {
+    ref?.onClose.subscribe((ok: boolean) => {
       if (!ok) return;
       this.actionId.set(salon._id);
       this.adminService.suspendSalon(salon._id).subscribe({
@@ -154,11 +146,11 @@ export class AllSalonsComponent implements OnInit, OnDestroy {
             list.map((s) => s._id === salon._id ? { ...s, isActive: false } : s)
           );
           this.actionId.set(null);
-          this.snack.open(`"${salon.name}" suspended`, undefined, { duration: 3000 });
+          this.msgSvc.add({ severity: 'warn', summary: 'Suspended', detail: `"${salon.name}" suspended`, life: 3000 });
         },
         error: () => {
           this.actionId.set(null);
-          this.snack.open('Failed to suspend salon', 'Dismiss', { duration: 4000 });
+          this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Failed to suspend salon', life: 4000 });
         },
       });
     });

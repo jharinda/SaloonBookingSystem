@@ -1,0 +1,195 @@
+<p-toast />
+<p-confirmDialog />
+
+<!-- ── Toolbar ─────────────────────────────────────────────────────────── -->
+<p-toolbar styleClass="mb-4">
+  <ng-template pTemplate="start">
+    <span class="text-xl font-semibold text-gray-900 dark:text-zinc-100">Services</span>
+  </ng-template>
+  <ng-template pTemplate="end">
+    <p-button
+      label="Add Service"
+      icon="pi pi-plus"
+      severity="success"
+      (onClick)="openDialog()"
+    />
+  </ng-template>
+</p-toolbar>
+
+<!-- ── Loading spinner ────────────────────────────────────────────────── -->
+@if (isLoading()) {
+  <div class="flex items-center justify-center h-40 text-gray-400">
+    <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+    <span class="ml-3">Loading services…</span>
+  </div>
+} @else {
+
+  <!-- ── Table ──────────────────────────────────────────────────────────── -->
+  <p-table
+    [value]="services()"
+    [rowHover]="true"
+    dataKey="_id"
+    styleClass="p-datatable-sm"
+    [responsiveLayout]="'scroll'"
+  >
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="name">Name <p-sortIcon field="name" /></th>
+        <th pSortableColumn="category">Category <p-sortIcon field="category" /></th>
+        <th pSortableColumn="duration" class="text-right">Duration <p-sortIcon field="duration" /></th>
+        <th pSortableColumn="price" class="text-right">Price <p-sortIcon field="price" /></th>
+        <th class="text-center" style="width: 6rem">Active</th>
+        <th class="text-center" style="width: 8rem">Actions</th>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="body" let-svc>
+      <tr>
+        <td class="font-medium text-gray-900">{{ svc.name }}</td>
+        <td class="text-gray-600">{{ svc.category }}</td>
+        <td class="text-right text-gray-600">{{ svc.duration }} mins</td>
+        <td class="text-right font-semibold text-gray-900">£ {{ svc.price | number: '1.2-2' }}</td>
+
+        <!-- Active toggle -->
+        <td class="text-center">
+          <p-toggleSwitch
+            [ngModel]="svc.active ?? true"
+            (ngModelChange)="toggleActive(svc)"
+          />
+        </td>
+
+        <!-- Actions -->
+        <td class="text-center">
+          <div class="flex items-center justify-center gap-1">
+            <p-button
+              icon="pi pi-pencil"
+              [rounded]="true"
+              [text]="true"
+              severity="info"
+              size="small"
+              pTooltip="Edit"
+              tooltipPosition="top"
+              (onClick)="openDialog(svc)"
+              aria-label="Edit service"
+            />
+            <p-button
+              icon="pi pi-trash"
+              [rounded]="true"
+              [text]="true"
+              severity="danger"
+              size="small"
+              pTooltip="Delete"
+              tooltipPosition="top"
+              [loading]="deletingId() === svc._id"
+              (onClick)="confirmDelete(svc)"
+              aria-label="Delete service"
+            />
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="6" class="text-center text-gray-400 py-10">
+          No services yet. Click <strong>Add Service</strong> to get started.
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+}
+
+<!-- ── Add / Edit Dialog ─────────────────────────────────────────────── -->
+<p-dialog
+  [(visible)]="dialogVisible"
+  [header]="dialogTitle()"
+  [modal]="true"
+  [style]="{ width: '480px' }"
+  [closable]="!isSaving()"
+>
+  <form [formGroup]="form" p-fluid class="flex flex-col gap-5 pt-2" novalidate>
+
+    <!-- Name -->
+    <p-floatLabel>
+      <input
+        id="svc-name"
+        pInputText
+        formControlName="name"
+        class="w-full"
+        autocomplete="off"
+      />
+      <label for="svc-name">Name</label>
+    </p-floatLabel>
+    @if (form.controls.name.invalid && form.controls.name.touched) {
+      <small class="text-red-500 -mt-4">Service name is required.</small>
+    }
+
+    <!-- Category -->
+    <p-floatLabel>
+      <p-select
+        inputId="svc-category"
+        formControlName="category"
+        [options]="categoryOptions"
+        optionLabel="label"
+        optionValue="value"
+        styleClass="w-full"
+      />
+      <label for="svc-category">Category</label>
+    </p-floatLabel>
+    @if (form.controls.category.invalid && form.controls.category.touched) {
+      <small class="text-red-500 -mt-4">Category is required.</small>
+    }
+
+    <!-- Duration -->
+    <p-floatLabel>
+      <p-inputNumber
+        inputId="svc-duration"
+        formControlName="duration"
+        [min]="5"
+        [step]="5"
+        suffix=" mins"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+      />
+      <label for="svc-duration">Duration</label>
+    </p-floatLabel>
+    @if (form.controls.duration.invalid && form.controls.duration.touched) {
+      <small class="text-red-500 -mt-4">Minimum 5 minutes.</small>
+    }
+
+    <!-- Price -->
+    <p-floatLabel>
+      <p-inputNumber
+        inputId="svc-price"
+        formControlName="price"
+        [min]="0"
+        prefix="£ "
+        [minFractionDigits]="2"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+      />
+      <label for="svc-price">Price</label>
+    </p-floatLabel>
+    @if (form.controls.price.invalid && form.controls.price.touched) {
+      <small class="text-red-500 -mt-4">Enter a valid price.</small>
+    }
+
+  </form>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      severity="secondary"
+      [text]="true"
+      (onClick)="dialogVisible = false"
+      [disabled]="isSaving()"
+    />
+    <p-button
+      label="Save"
+      severity="success"
+      icon="pi pi-check"
+      (onClick)="saveService()"
+      [loading]="isSaving()"
+    />
+  </ng-template>
+</p-dialog>

@@ -1,88 +1,114 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  OnDestroy,
-  OnInit,
   computed,
   inject,
+  OnDestroy,
+  OnInit,
+  PLATFORM_ID,
   signal,
 } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, NavigationEnd } from '@angular/router';
+import { isPlatformBrowser, DOCUMENT } from '@angular/common';
+import { Router, RouterLink } from '@angular/router';
 import { filter, Subscription } from 'rxjs';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
+import { MenuItem } from 'primeng/api';
+import { Menubar } from 'primeng/menubar';
+import { Button } from 'primeng/button';
+import { Menu } from 'primeng/menu';
+
 import { AuthService } from '@org/shared-data-access';
+
+const THEME_KEY = 'snapsalon-theme';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    RouterLink,
-    RouterLinkActive,
-    MatToolbarModule,
-    MatButtonModule,
-    MatIconModule,
-    MatMenuModule,
-  ],
+  imports: [RouterLink, Menubar, Button, Menu],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.scss',
 })
 export class NavbarComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
-  private readonly router = inject(Router);
+  protected readonly router = inject(Router);
+  private readonly doc = inject(DOCUMENT);
+  private readonly platformId = inject(PLATFORM_ID);
   private routerSub?: Subscription;
 
-  /** Whether the user is authenticated. */
+  readonly isDark = signal(false);
+
   readonly isLoggedIn = this.authService.isLoggedIn;
 
-  /**
-   * Derived user info for the navbar.
-   * Note: the JWT payload does not include `firstName`, so we derive a display
-   * name from the email prefix. Extend JwtPayload and the token claims to add
-   * firstName if needed.
-   */
   readonly currentUser = computed(() => {
     const user = this.authService.currentUser();
     if (!user) return null;
-    return {
-      firstName: user.email.split('@')[0],
-      role: user.role,
-    };
+    return { displayName: user.email.split('@')[0], role: user.role };
   });
 
-  /** First letter of the user's email to display in the avatar circle. */
   readonly userInitial = computed(() => {
     const user = this.authService.currentUser();
     return user ? user.email.charAt(0).toUpperCase() : '';
   });
 
-  /** Controls the mobile side drawer. */
-  readonly drawerOpen = signal(false);
+  /** Main nav items — rebuilt whenever auth state changes */
+  readonly menuItems = computed<MenuItem[]>(() => {
+    const user = this.currentUser();
+    const items: MenuItem[] = [
+      { label: 'Discover', icon: 'pi pi-search', routerLink: '/discover' },
+    ];
+
+    if (user?.role === 'client') {
+      items.push({ label: 'My Bookings', icon: 'pi pi-calendar', routerLink: '/my-appointments' });
+    }
+
+    if (user?.role === 'salon_owner' || user?.role === 'franchise_owner') {
+      items.push({ label: 'Dashboard', icon: 'pi pi-gauge', routerLink: '/salon-dashboard' });
+    }
+
+    if (user?.role === 'admin') {
+      items.push({ label: 'Admin', icon: 'pi pi-shield', routerLink: '/admin' });
+    }
+
+    return items;
+  });
+
+  /** User dropdown items */
+  readonly userMenuItems = computed<MenuItem[]>(() => [
+    { label: 'My Profile', icon: 'pi pi-user', routerLink: '/account' },
+    { separator: true },
+    { label: 'Logout', icon: 'pi pi-sign-out', command: () => this.logout() },
+  ]);
 
   ngOnInit(): void {
-    // Close the mobile drawer whenever the route changes.
     this.routerSub = this.router.events
-      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe(() => this.drawerOpen.set(false));
+      .pipe(filter((e) => e.constructor.name === 'NavigationEnd'))
+      .subscribe(() => { /* menus auto-close on nav */ });
+
+    if (isPlatformBrowser(this.platformId)) {
+      const saved = localStorage.getItem(THEME_KEY);
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const dark = saved ? saved === 'dark' : prefersDark;
+      this.isDark.set(dark);
+      this.doc.documentElement.classList.toggle('dark', dark);
+      this.doc.documentElement.classList.toggle('app-dark', dark);
+    }
+  }
+
+  toggleDarkMode(): void {
+    const next = !this.isDark();
+    this.isDark.set(next);
+    this.doc.documentElement.classList.toggle('dark', next);
+    this.doc.documentElement.classList.toggle('app-dark', next);
+    if (isPlatformBrowser(this.platformId)) {
+      localStorage.setItem(THEME_KEY, next ? 'dark' : 'light');
+    }
   }
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
   }
 
-  toggleDrawer(): void {
-    this.drawerOpen.update((v) => !v);
-  }
-
-  closeDrawer(): void {
-    this.drawerOpen.set(false);
-  }
-
   logout(): void {
-    this.closeDrawer();
     this.authService.logout().subscribe({
       complete: () => void this.router.navigate(['/discover']),
       error: () => void this.router.navigate(['/discover']),

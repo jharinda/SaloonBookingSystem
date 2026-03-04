@@ -1,96 +1,83 @@
-<!-- ═══════════════════════════════════════════════════════════════
-     LOADING SKELETON
-     ═══════════════════════════════════════════════════════════════ -->
+﻿<!-- 
+     LOADING
+      -->
 @if (loading()) {
-  <div class="skeleton-wrap" aria-busy="true" aria-label="Loading salon details">
-    <div class="skeleton skeleton--breadcrumb"></div>
-    <div class="skeleton skeleton--hero"></div>
-    <div class="skeleton-thumbs">
-      <div class="skeleton skeleton--thumb"></div>
-      <div class="skeleton skeleton--thumb"></div>
-      <div class="skeleton skeleton--thumb"></div>
-    </div>
-    <div class="skeleton skeleton--title"></div>
-    <div class="skeleton skeleton--subtitle"></div>
-    <div class="skeleton skeleton--body"></div>
+  <div class="flex flex-col items-center justify-center gap-4 py-20 text-gray-400" aria-busy="true">
+    <p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '48px', height: '48px' }" />
+    <span>Loading salon</span>
   </div>
 }
 
-<!-- ═══════════════════════════════════════════════════════════════
-     ERROR STATE
-     ═══════════════════════════════════════════════════════════════ -->
+<!-- 
+     ERROR
+      -->
 @if (!loading() && error()) {
-  <div class="error-state" role="alert">
-    <mat-icon class="error-icon">location_off</mat-icon>
-    <h2>{{ error() }}</h2>
-    <p>The salon you're looking for may have moved or been removed.</p>
-    <a mat-flat-button routerLink="/discover">← Back to Discover</a>
+  <div class="flex flex-col items-center justify-center gap-4 py-20 text-center" role="alert">
+    <i class="pi pi-map-marker-slash text-5xl text-gray-300"></i>
+    <h2 class="text-xl font-semibold text-gray-700 m-0">{{ error() }}</h2>
+    <p class="text-gray-500 m-0">The salon you&apos;re looking for may have moved or been removed.</p>
+    <p-button label="Back to Discover" icon="pi pi-arrow-left" variant="outlined" routerLink="/discover" />
   </div>
 }
 
-<!-- ═══════════════════════════════════════════════════════════════
+<!-- 
      MAIN CONTENT
-     ═══════════════════════════════════════════════════════════════ -->
+      -->
 @if (!loading() && !error() && salon(); as s) {
+  <div class="max-w-5xl mx-auto px-4 py-6 pb-24">
 
-  <div class="detail-page">
-
-    <!-- ── a) BREADCRUMB ──────────────────────────────────────── -->
-    <nav class="breadcrumb" aria-label="Breadcrumb">
-      <a routerLink="/discover" class="breadcrumb__link">Discover</a>
-      <span class="breadcrumb__sep" aria-hidden="true">›</span>
-      <span class="breadcrumb__current" aria-current="page">{{ s.name }}</span>
-
-      <div class="breadcrumb__actions">
-        <button
-          mat-icon-button
-          class="share-btn"
-          (click)="share()"
-          matTooltip="Share salon"
-          aria-label="Share this salon"
-        >
-          <mat-icon>share</mat-icon>
-        </button>
-      </div>
+    <!--  Breadcrumb  -->
+    <nav class="flex items-center gap-2 text-sm text-gray-500 mb-4" aria-label="Breadcrumb">
+      <a routerLink="/discover" class="hover:text-purple-600 transition-colors">Discover</a>
+      <i class="pi pi-chevron-right text-xs text-gray-300"></i>
+      <span class="text-gray-900 font-medium truncate" aria-current="page">{{ s.name }}</span>
+      <button
+        class="ml-auto p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-purple-600"
+        (click)="share()"
+        aria-label="Share salon"
+      >
+        <i class="pi pi-share-alt"></i>
+      </button>
     </nav>
 
-    <!-- ── b) IMAGE GALLERY ───────────────────────────────────── -->
-    <section class="gallery" aria-label="Salon photos">
-      <div class="gallery__main">
+    <!--  Gallery  -->
+    <section class="mb-6" aria-label="Salon photos">
+      <div class="relative w-full rounded-2xl overflow-hidden bg-gray-100" style="aspect-ratio:16/7">
         @if (coverImage()) {
           <img
-            class="gallery__hero"
+            class="w-full h-full object-cover"
             [ngSrc]="coverImage()!"
-            [alt]="s.name + ' — photo ' + (activeImageIdx() + 1)"
+            [alt]="s.name + '  photo ' + (activeImageIdx() + 1)"
             fill
-            sizes="(max-width: 768px) 100vw, 1200px"
+            sizes="(max-width: 768px) 100vw, 1000px"
             priority
           />
         } @else {
-          <div class="gallery__placeholder" aria-label="No photos available">
-            <mat-icon class="gallery__placeholder-icon">content_cut</mat-icon>
-            <span>No photos yet</span>
+          <div class="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
+            <i class="pi pi-image text-5xl"></i>
+            <span class="text-sm">No photos yet</span>
           </div>
         }
       </div>
 
       @if (thumbnails().length > 1) {
-        <div class="gallery__thumbs" role="list" aria-label="Photo thumbnails">
+        <div class="flex gap-2 mt-2 overflow-x-auto pb-1" role="list" aria-label="Photo thumbnails">
           @for (img of thumbnails(); track $index) {
             <button
-              class="gallery__thumb-btn"
+              class="flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all"
+              [class.border-purple-500]="activeImageIdx() === $index"
+              [class.border-transparent]="activeImageIdx() !== $index"
               role="listitem"
-              [class.gallery__thumb-btn--active]="activeImageIdx() === $index"
               (click)="selectImage($index)"
               [attr.aria-label]="'View photo ' + ($index + 1)"
               [attr.aria-pressed]="activeImageIdx() === $index"
             >
               <img
-                class="gallery__thumb-img"
                 [ngSrc]="img"
                 [alt]="s.name + ' thumbnail ' + ($index + 1)"
                 width="80"
                 height="60"
+                class="object-cover"
               />
             </button>
           }
@@ -98,303 +85,240 @@
       }
     </section>
 
-    <!-- ── c) HEADER ROW ─────────────────────────────────────── -->
-    <section class="salon-header">
-      <div class="salon-header__info">
-        <h1 class="salon-header__name">{{ s.name }}</h1>
+    <!--  Header row  -->
+    <section class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
+      <div class="flex flex-col gap-1.5">
+        <h1 class="text-3xl font-bold text-gray-900 m-0">{{ s.name }}</h1>
 
-        <address class="salon-header__address">
-          <mat-icon class="inline-icon" aria-hidden="true">location_on</mat-icon>
-          <span>{{ s.address.street }}, {{ s.address.city }}</span>
+        <address class="not-italic flex items-center gap-1.5 text-gray-500 text-sm">
+          <i class="pi pi-map-marker text-purple-500 text-xs"></i>
+          {{ s.address.street }}, {{ s.address.city }}
         </address>
 
         @if (s.phone) {
-          <a class="salon-header__phone" [href]="'tel:' + s.phone" aria-label="Call salon">
-            <mat-icon class="inline-icon" aria-hidden="true">phone</mat-icon>
-            {{ s.phone }}
+          <a class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-purple-600" [href]="'tel:' + s.phone">
+            <i class="pi pi-phone text-xs"></i>{{ s.phone }}
           </a>
         }
 
         <!-- Rating row -->
-        <div
-          class="rating-row"
-          [attr.aria-label]="'Rated ' + s.rating + ' out of 5 based on ' + s.reviewCount + ' reviews'"
-        >
-          @for (star of salonStars(); track $index) {
-            <mat-icon
-              class="star-icon"
-              [class.star--full]="star === 'full'"
-              [class.star--half]="star === 'half'"
-              [class.star--empty]="star === 'empty'"
-              aria-hidden="true"
-            >
-              {{ star === 'full' ? 'star' : star === 'half' ? 'star_half' : 'star_border' }}
-            </mat-icon>
-          }
-          <span class="rating-value">{{ s.rating | number: '1.1-1' }}</span>
-          <span class="review-count">· {{ s.reviewCount }} reviews</span>
-
-          <!-- Open/Closed badge -->
+        <div class="flex items-center gap-2 mt-1">
+          <p-rating [ngModel]="s.rating" [readonly]="true" />
+          <span class="font-semibold text-gray-700 text-sm">{{ s.rating | number: '1.1-1' }}</span>
+          <span class="text-gray-400 text-sm"> {{ s.reviewCount }} reviews</span>
           @if (openNowStatus() === 'open') {
-            <span class="status-badge status-badge--open" role="status">Open Now</span>
+            <p-tag value="Open Now" severity="success" />
           } @else if (openNowStatus() === 'closed') {
-            <span class="status-badge status-badge--closed" role="status">Closed Now</span>
+            <p-tag value="Closed" severity="danger" />
           }
         </div>
       </div>
 
-      <div class="salon-header__cta">
-        <button
-          mat-flat-button
-          class="book-btn"
-          (click)="bookSalon()"
-          aria-label="Book an appointment at {{ s.name }}"
-        >
-          <mat-icon>calendar_today</mat-icon>
-          Book an Appointment
-        </button>
-      </div>
+      <p-button
+        label="Book an Appointment"
+        icon="pi pi-calendar"
+        size="large"
+        class="sm:flex-shrink-0"
+        (onClick)="bookSalon()"
+        [attr.aria-label]="'Book an appointment at ' + s.name"
+      />
     </section>
 
-    <mat-divider />
+    <!--  Tab View: About / Services / Reviews  -->
+    <p-tabs value="0">
+      <p-tablist>
+        <p-tab value="0">About</p-tab>
+        <p-tab value="1">Services</p-tab>
+        <p-tab value="2">Reviews ({{ s.reviewCount }})</p-tab>
+      </p-tablist>
 
-    <!-- ── d) SERVICES SECTION ────────────────────────────────── -->
-    <section class="services-section" id="services-section" aria-labelledby="services-heading">
-      <h2 id="services-heading" class="section-title">Services &amp; Prices</h2>
+      <p-tabpanels>
 
-      @if (s.services.length === 0) {
-        <p class="empty-state-text">No services listed yet.</p>
-      }
+        <!--  TAB 1  About  -->
+        <p-tabpanel value="0">
+          <div class="py-4 flex flex-col gap-6">
 
-      @for (category of serviceCategories(); track category) {
-        <div class="service-category">
-          <h3 class="service-category__title">{{ category }}</h3>
-          <div class="service-grid">
-            @for (svc of groupedServices()[category]; track svc._id) {
-              <div class="service-card" role="article">
-                <div class="service-card__header">
-                  <span class="service-card__name">{{ svc.name }}</span>
-                  <span class="service-card__badge">{{ svc.category }}</span>
-                </div>
-                @if (svc.description) {
-                  <p class="service-card__desc">{{ svc.description }}</p>
-                }
-                <div class="service-card__meta">
-                  <span class="service-card__duration">
-                    <mat-icon class="inline-icon-sm" aria-hidden="true">schedule</mat-icon>
-                    {{ svc.duration }} min
-                  </span>
-                  <span class="service-card__price">
-                    LKR {{ svc.price | number }}
-                  </span>
-                </div>
-                <button
-                  mat-stroked-button
-                  class="service-card__book-btn"
-                  (click)="bookService(svc._id)"
-                  [attr.aria-label]="'Book ' + svc.name + ' at LKR ' + svc.price"
-                >
-                  Book This Service
-                </button>
+            <!-- Description -->
+            @if (s.description) {
+              <div>
+                <h3 class="text-base font-semibold text-gray-900 mb-2">About</h3>
+                <p class="text-gray-600 text-sm leading-relaxed m-0">{{ s.description }}</p>
               </div>
             }
-          </div>
-        </div>
-      }
-    </section>
 
-    <mat-divider />
-
-    <!-- ── e) OPERATING HOURS ─────────────────────────────────── -->
-    <section class="hours-section" aria-labelledby="hours-heading">
-      <h2 id="hours-heading" class="section-title">Opening Hours</h2>
-
-      <table class="hours-table" role="table">
-        <thead class="sr-only">
-          <tr>
-            <th scope="col">Day</th>
-            <th scope="col">Hours</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of operatingHours(); track row.key) {
-            <tr
-              class="hours-row"
-              [class.hours-row--today]="row.isToday"
-              [attr.aria-current]="row.isToday ? 'date' : null"
-            >
-              <td class="hours-cell hours-cell--day">
-                {{ row.label }}
-                @if (row.isToday) {
-                  <span class="today-chip">Today</span>
-                }
-              </td>
-              <td class="hours-cell hours-cell--time">
-                @if (row.hours?.isOpen) {
-                  {{ formatTime(row.hours!.open) }} – {{ formatTime(row.hours!.close) }}
-                } @else {
-                  <span class="closed-text">Closed</span>
-                }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
-
-    <!-- ── f) STAFF SECTION ───────────────────────────────────── -->
-    <!-- Staff is rendered only when the salon model includes a `staff` array.
-         The current Salon model doesn't expose staff, so this section is
-         intentionally left as a placeholder that renders nothing until the
-         field is added to the model. -->
-
-    <mat-divider />
-
-    <!-- ── g) REVIEWS SECTION ────────────────────────────────── -->
-    <section class="reviews-section" aria-labelledby="reviews-heading">
-      <h2 id="reviews-heading" class="section-title">Guest Reviews</h2>
-
-      <!-- Overall rating display -->
-      <div class="reviews-summary">
-        <div class="reviews-summary__score" aria-label="{{ s.rating }} out of 5 stars">
-          <span class="reviews-summary__big">{{ s.rating | number: '1.1-1' }}</span>
-          <span class="reviews-summary__outof">/ 5</span>
-          <div class="reviews-summary__stars" aria-hidden="true">
-            @for (star of salonStars(); track $index) {
-              <mat-icon
-                class="star-icon star-icon--lg"
-                [class.star--full]="star === 'full'"
-                [class.star--half]="star === 'half'"
-                [class.star--empty]="star === 'empty'"
-              >
-                {{ star === 'full' ? 'star' : star === 'half' ? 'star_half' : 'star_border' }}
-              </mat-icon>
-            }
-          </div>
-          <span class="reviews-summary__count">{{ s.reviewCount }} reviews</span>
-        </div>
-
-        <!-- Breakdown bars -->
-        <div class="reviews-breakdown" aria-label="Rating breakdown">
-          @for (row of ratingBreakdown(); track row.star) {
-            <div class="breakdown-row">
-              <span class="breakdown-label">{{ row.star }}★</span>
-              <mat-progress-bar
-                class="breakdown-bar"
-                mode="determinate"
-                [value]="row.pct"
-                [attr.aria-label]="row.star + ' star: ' + row.pct + '%'"
-              />
-              <span class="breakdown-pct">{{ row.pct }}%</span>
-            </div>
-          }
-        </div>
-      </div>
-
-      <mat-divider />
-
-      <!-- Review list -->
-      <ul class="review-list" aria-label="Customer reviews">
-        @for (review of reviews(); track review._id) {
-          <li class="review-item">
-            <div class="review-item__header">
-              <!-- Avatar -->
-              <div class="review-avatar" aria-hidden="true">
-                @if (review.clientAvatar) {
-                  <img
-                    class="review-avatar__img"
-                    [ngSrc]="review.clientAvatar"
-                    [alt]="review.clientName"
-                    width="40"
-                    height="40"
-                  />
-                } @else {
-                  <span class="review-avatar__initials">
-                    {{ review.clientName.charAt(0).toUpperCase() }}
-                  </span>
-                }
-              </div>
-              <div class="review-item__meta">
-                <span class="review-item__name">{{ review.clientName }}</span>
-                <time
-                  class="review-item__date"
-                  [attr.datetime]="review.createdAt"
-                >
-                  {{ review.createdAt | date: 'MMM d, y' }}
-                </time>
-              </div>
-              <!-- Stars -->
-              <div class="review-item__stars" [attr.aria-label]="review.rating + ' stars'">
-                @for (star of toStars(review.rating); track $index) {
-                  <mat-icon
-                    class="star-icon star-icon--sm"
-                    [class.star--full]="star === 'full'"
-                    [class.star--half]="star === 'half'"
-                    [class.star--empty]="star === 'empty'"
-                    aria-hidden="true"
-                  >
-                    {{ star === 'full' ? 'star' : star === 'half' ? 'star_half' : 'star_border' }}
-                  </mat-icon>
-                }
-              </div>
+            <!-- Opening Hours -->
+            <div>
+              <h3 class="text-base font-semibold text-gray-900 mb-3">Opening Hours</h3>
+              <table class="w-full text-sm" role="table">
+                <tbody>
+                  @for (row of operatingHours(); track row.key) {
+                    <tr
+                      class="border-b border-gray-100 last:border-0"
+                      [class.bg-purple-50]="row.isToday"
+                      [attr.aria-current]="row.isToday ? 'date' : null"
+                    >
+                      <td class="py-2.5 pr-4 font-medium text-gray-700 w-32">
+                        {{ row.label }}
+                        @if (row.isToday) {
+                          <span class="ml-2 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-semibold">Today</span>
+                        }
+                      </td>
+                      <td class="py-2.5 text-gray-600">
+                        @if (row.hours?.isOpen) {
+                          {{ formatTime(row.hours!.open) }}  {{ formatTime(row.hours!.close) }}
+                        } @else {
+                          <span class="text-gray-400">Closed</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
             </div>
 
-            <p class="review-item__comment">{{ review.comment }}</p>
+          </div>
+        </p-tabpanel>
 
-            <!-- Owner reply -->
-            @if (review.ownerReply) {
-              <div class="owner-reply" role="note" aria-label="Owner reply">
-                <mat-icon class="owner-reply__icon" aria-hidden="true">storefront</mat-icon>
-                <div>
-                  <span class="owner-reply__label">Response from owner</span>
-                  <p class="owner-reply__text">{{ review.ownerReply }}</p>
-                </div>
-              </div>
-            }
-          </li>
-        }
-
-        @if (reviews().length === 0 && !reviewsLoading()) {
-          <li class="empty-state-text">No reviews yet. Be the first to review!</li>
-        }
-      </ul>
-
-      <!-- Load More -->
-      @if (hasMoreReviews()) {
-        <div class="load-more-row">
-          <button
-            mat-stroked-button
-            class="load-more-btn"
-            (click)="loadMoreReviews()"
-            [disabled]="reviewsLoading()"
-            aria-label="Load more reviews"
-          >
-            @if (reviewsLoading()) {
-              <mat-spinner diameter="18" strokeWidth="2" />
+        <!--  TAB 2  Services  -->
+        <p-tabpanel value="1">
+          <div class="py-4">
+            @if (s.services.length === 0) {
+              <p class="text-gray-400 text-sm py-8 text-center">No services listed yet.</p>
             } @else {
-              Load More Reviews
+              <p-table
+                [value]="s.services"
+                styleClass="p-datatable-sm p-datatable-striped"
+                [paginator]="s.services.length > 10"
+                [rows]="10"
+              >
+                <ng-template #header>
+                  <tr>
+                    <th>Service Name</th>
+                    <th class="w-24 text-center">Duration</th>
+                    <th class="w-28 text-right">Price</th>
+                    <th class="w-28"></th>
+                  </tr>
+                </ng-template>
+                <ng-template #body let-svc>
+                  <tr>
+                    <td>
+                      <div class="font-medium text-gray-900">{{ svc.name }}</div>
+                      @if (svc.description) {
+                        <div class="text-xs text-gray-500 mt-0.5">{{ svc.description }}</div>
+                      }
+                      <p-tag [value]="svc.category" severity="secondary" class="mt-1" />
+                    </td>
+                    <td class="text-center text-gray-600">{{ svc.duration }} min</td>
+                    <td class="text-right font-semibold text-purple-600">LKR {{ svc.price | number }}</td>
+                    <td class="text-right">
+                      <p-button
+                        label="Book"
+                        icon="pi pi-calendar"
+                        size="small"
+                        (onClick)="bookService(svc._id)"
+                        [attr.aria-label]="'Book ' + svc.name"
+                      />
+                    </td>
+                  </tr>
+                </ng-template>
+                <ng-template #emptymessage>
+                  <tr><td colspan="4" class="text-center text-gray-400 py-8">No services available.</td></tr>
+                </ng-template>
+              </p-table>
             }
-          </button>
-        </div>
-      }
-    </section>
+          </div>
+        </p-tabpanel>
 
-  </div><!-- /.detail-page -->
+        <!--  TAB 3  Reviews  -->
+        <p-tabpanel value="2">
+          <div class="py-4 flex flex-col gap-4">
 
-  <!-- ── h) STICKY MOBILE CTA ──────────────────────────────── -->
-  <div class="mobile-cta" aria-label="Book appointment">
-    <button
-      mat-flat-button
-      class="mobile-cta__btn"
-      (click)="bookSalon()"
-    >
-      <mat-icon>calendar_today</mat-icon>
-      @if (lowestPrice() > 0) {
-        Book Appointment — From LKR {{ lowestPrice() | number }}
-      } @else {
-        Book Appointment
-      }
-    </button>
+            <!-- Summary row -->
+            <div class="flex items-center gap-4 bg-gray-50 rounded-xl p-4 mb-2">
+              <div class="text-center">
+                <div class="text-4xl font-bold text-gray-900">{{ s.rating | number: '1.1-1' }}</div>
+                <p-rating [ngModel]="s.rating" [readonly]="true" />
+                <div class="text-xs text-gray-400 mt-1">{{ s.reviewCount }} reviews</div>
+              </div>
+              <div class="flex-1 flex flex-col gap-1.5">
+                @for (row of ratingBreakdown(); track row.star) {
+                  <div class="flex items-center gap-2 text-xs">
+                    <span class="w-8 text-right text-gray-500">{{ row.star }}</span>
+                    <div class="flex-1 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                      <div class="bg-amber-400 h-full rounded-full transition-all" [style.width.%]="row.pct"></div>
+                    </div>
+                    <span class="w-8 text-gray-400">{{ row.pct }}%</span>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Review list -->
+            @for (review of reviews(); track review._id) {
+              <p-panel styleClass="review-panel">
+                <ng-template #header>
+                  <div class="flex items-center gap-3 flex-wrap">
+                    <div class="flex items-center justify-center w-9 h-9 rounded-full bg-purple-100 text-purple-600 font-bold text-sm flex-shrink-0">
+                      @if (review.clientAvatar) {
+                        <img [ngSrc]="review.clientAvatar" [alt]="review.clientName" width="36" height="36" class="rounded-full object-cover" />
+                      } @else {
+                        {{ review.clientName.charAt(0).toUpperCase() }}
+                      }
+                    </div>
+                    <div>
+                      <div class="font-semibold text-gray-800 text-sm">{{ review.clientName }}</div>
+                      <time class="text-xs text-gray-400" [attr.datetime]="review.createdAt">{{ review.createdAt | date: 'MMM d, y' }}</time>
+                    </div>
+                    <div class="ml-auto">
+                      <p-rating [ngModel]="review.rating" [readonly]="true" />
+                    </div>
+                  </div>
+                </ng-template>
+
+                <p class="text-gray-700 text-sm leading-relaxed m-0">{{ review.comment }}</p>
+
+                @if (review.ownerReply) {
+                  <div class="mt-3 pl-3 border-l-2 border-purple-200 bg-purple-50 rounded-r-lg py-2 pr-2">
+                    <div class="text-xs font-semibold text-purple-700 mb-1 flex items-center gap-1">
+                      <i class="pi pi-reply text-xs"></i> Response from owner
+                    </div>
+                    <p class="text-gray-600 text-xs m-0">{{ review.ownerReply }}</p>
+                  </div>
+                }
+              </p-panel>
+            }
+
+            @if (reviews().length === 0 && !reviewsLoading()) {
+              <p class="text-gray-400 text-sm text-center py-8">No reviews yet. Be the first to review!</p>
+            }
+
+            @if (hasMoreReviews()) {
+              <div class="flex justify-center mt-2">
+                <p-button
+                  label="Load More Reviews"
+                  variant="outlined"
+                  [loading]="reviewsLoading()"
+                  (onClick)="loadMoreReviews()"
+                  aria-label="Load more reviews"
+                />
+              </div>
+            }
+          </div>
+        </p-tabpanel>
+
+      </p-tabpanels>
+    </p-tabs>
+
+  </div><!-- /.max-w-5xl -->
+
+  <!--  Sticky Mobile CTA  -->
+  <div class="fixed bottom-0 left-0 right-0 sm:hidden p-4 bg-white border-t border-gray-200 shadow-lg z-30">
+    <p-button
+      [label]="lowestPrice() > 0 ? 'Book  From LKR ' + (lowestPrice() | number) : 'Book Appointment'"
+      icon="pi pi-calendar"
+      styleClass="w-full justify-center"
+      (onClick)="bookSalon()"
+    />
   </div>
 
 }<!-- /@if salon -->

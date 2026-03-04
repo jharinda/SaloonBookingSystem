@@ -1,0 +1,336 @@
+<div class="wizard-container">
+
+  <!-- ── Loading salon ──────────────────────────────────────────────────────── -->
+  @if (isSalonLoading()) {
+    <div class="wizard-state">
+      <p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '48px', height: '48px' }" />
+      <p>Loading salon details…</p>
+    </div>
+  }
+
+  <!-- ── Failed to load salon ───────────────────────────────────────────────── -->
+  @if (!isSalonLoading() && salonError()) {
+    <div class="wizard-state wizard-state--error">
+      <i class="pi pi-exclamation-circle" style="font-size:2rem;color:#ef4444"></i>
+      <p>{{ salonError() }}</p>
+      <p-button icon="pi pi-search" label="Back to Discover" (onClick)="goToDiscover()" />
+    </div>
+  }
+
+  <!-- ── Wizard ─────────────────────────────────────────────────────────────── -->
+  @if (!isSalonLoading() && salon()) {
+
+    <!-- Salon identity bar -->
+    <div class="wizard-salon-bar">
+      <img
+        class="salon-bar-img"
+        [src]="salon()!.images?.[0] ?? 'assets/images/salon-placeholder.svg'"
+        [alt]="salon()!.name"
+        (error)="onImgError($event)"
+      />
+      <div class="salon-bar-info">
+        <div class="salon-bar-name">{{ salon()!.name }}</div>
+        <div class="salon-bar-city">
+          <i class="pi pi-map-marker inline-icon"></i>
+          {{ salon()!.address.city }}
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ STEPPER ══════════════════════ -->
+    <p-stepper [value]="activeStep" [linear]="true">
+      <p-step-list>
+        <p-step [value]="0">Date &amp; Time</p-step>
+        <p-step [value]="1">Your Details</p-step>
+        <p-step [value]="2">Confirmation</p-step>
+      </p-step-list>
+
+      <p-step-panels>
+
+        <!-- ══════════════ STEP 1 — Date & Time ══════════════ -->
+        <p-step-panel [value]="0">
+          <ng-template #content>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+
+              <!-- Left column: inline calendar -->
+              <div class="fill-calendar">
+                <p-datepicker
+                  [(ngModel)]="selectedDate"
+                  (ngModelChange)="onDateChange($event)"
+                  [inline]="true"
+                  [minDate]="today"
+                  dateFormat="yy-mm-dd"
+                />
+              </div>
+
+              <!-- Right column: available times -->
+              <div class="flex flex-col gap-4">
+                <h3 class="font-semibold text-gray-800 m-0">Available Times</h3>
+
+                @if (!selectedDate) {
+                  <p-message severity="info" text="Please select a date first." />
+                } @else if (isSlotsLoading()) {
+                  <div class="flex items-center gap-3 text-gray-500 text-sm py-4">
+                    <i class="pi pi-spin pi-spinner text-purple-500"></i>
+                    Checking availability…
+                  </div>
+                } @else if (slotsError()) {
+                  <div class="flex flex-col gap-3">
+                    <div class="flex items-center gap-2 text-red-500 text-sm">
+                      <i class="pi pi-exclamation-circle"></i>
+                      <span>{{ slotsError() }}</span>
+                    </div>
+                    <p-button
+                      label="Retry"
+                      icon="pi pi-refresh"
+                      size="small"
+                      variant="outlined"
+                      (onClick)="retrySlots()"
+                    />
+                  </div>
+                } @else if (timeSlots.length === 0) {
+                  <p class="text-gray-400 text-sm m-0">
+                    No slots available for this date. Please try another day.
+                  </p>
+                } @else {
+                  <p-selectbutton
+                    [(ngModel)]="selectedTime"
+                    [options]="timeSlots"
+                    [optionLabel]="'label'"
+                    [optionValue]="'value'"
+                    class="time-slot-select flex flex-wrap gap-2"
+                    aria-label="Available time slots"
+                  />
+                }
+              </div>
+
+            </div><!-- /grid -->
+
+            <!-- Step navigation -->
+            <div class="flex justify-end mt-8 pt-4 border-t border-gray-100">
+              <p-button
+                label="Next: Your Details"
+                icon="pi pi-arrow-right"
+                iconPos="right"
+                [disabled]="!step1Valid"
+                (onClick)="goToStep2()"
+              />
+            </div>
+
+          </ng-template>
+        </p-step-panel>
+
+        <!-- ══════════════ STEP 2 — Your Details ══════════════ -->
+        <p-step-panel [value]="1">
+          <ng-template #content>
+
+            <div class="flex flex-col gap-8 max-w-md">
+
+              <!-- Full Name -->
+              <p-floatlabel class="w-full">
+                <input
+                  pInputText
+                  id="wiz-name"
+                  [(ngModel)]="fullName"
+                  autocomplete="name"
+                  class="w-full"
+                />
+                <label for="wiz-name">Full Name <span class="text-red-500">*</span></label>
+              </p-floatlabel>
+
+              <!-- Email -->
+              <p-floatlabel class="w-full">
+                <input
+                  pInputText
+                  id="wiz-email"
+                  type="email"
+                  [(ngModel)]="email"
+                  autocomplete="email"
+                  class="w-full"
+                />
+                <label for="wiz-email">Email <span class="text-red-500">*</span></label>
+              </p-floatlabel>
+
+              <!-- Phone -->
+              <p-floatlabel class="w-full">
+                <input
+                  pInputText
+                  id="wiz-phone"
+                  type="tel"
+                  [(ngModel)]="phone"
+                  autocomplete="tel"
+                  placeholder="+94XXXXXXXXX"
+                  class="w-full"
+                />
+                <label for="wiz-phone">Phone <span class="text-red-500">*</span></label>
+              </p-floatlabel>
+
+              <!-- Special Requests -->
+              <div class="flex flex-col gap-2">
+                <label class="text-sm font-medium text-gray-700" for="wiz-notes">
+                  Special Requests
+                  <span class="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  pTextarea
+                  id="wiz-notes"
+                  rows="4"
+                  maxlength="500"
+                  placeholder="Any special requests, allergies, or information for the stylist…"
+                  class="w-full"
+                  [(ngModel)]="specialRequests"
+                ></textarea>
+                <div class="text-xs text-gray-400 text-right">{{ specialRequests.length }}/500</div>
+              </div>
+
+              <!-- Cancellation policy checkbox -->
+              <div class="flex items-start gap-3">
+                <p-checkbox
+                  [(ngModel)]="agreeTerms"
+                  [binary]="true"
+                  inputId="wiz-terms"
+                  label="I agree to the cancellation policy"
+                />
+              </div>
+
+            </div><!-- /form -->
+
+            <!-- Step navigation -->
+            <div class="flex justify-between mt-8 pt-4 border-t border-gray-100">
+              <p-button
+                label="Back"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                variant="outlined"
+                (onClick)="goBack()"
+              />
+              <p-button
+                label="Next: Review"
+                icon="pi pi-arrow-right"
+                iconPos="right"
+                [disabled]="!step2Valid"
+                (onClick)="goToStep3()"
+              />
+            </div>
+
+          </ng-template>
+        </p-step-panel>
+
+        <!-- ══════════════ STEP 3 — Confirmation ══════════════ -->
+        <p-step-panel [value]="2">
+          <ng-template #content>
+
+            <p-card styleClass="mb-6">
+              <ng-template #header>
+                <div class="px-5 pt-5">
+                  <h2 class="text-lg font-bold text-gray-900 m-0">Booking Summary</h2>
+                  <p class="text-sm text-gray-500 m-0 mt-1">Please review your booking before confirming.</p>
+                </div>
+              </ng-template>
+
+              <!-- Salon -->
+              <div class="summary-row">
+                <div class="summary-icon"><i class="pi pi-shop text-sm"></i></div>
+                <div>
+                  <div class="summary-label">Salon</div>
+                  <div class="summary-value">{{ salon()!.name }}</div>
+                  <div class="text-sm text-gray-400">{{ salon()!.address.city }}</div>
+                </div>
+              </div>
+
+              <p-divider />
+
+              <!-- Service -->
+              @if (selectedService()) {
+                <div class="summary-row">
+                  <div class="summary-icon"><i class="pi pi-sparkles text-sm"></i></div>
+                  <div>
+                    <div class="summary-label">Service</div>
+                    <div class="summary-value">{{ selectedService()!.name }}</div>
+                    <div class="text-sm text-gray-400">
+                      {{ selectedService()!.category }} &bull; {{ selectedService()!.duration }} min
+                    </div>
+                  </div>
+                </div>
+                <p-divider />
+              }
+
+              <!-- Stylist -->
+              <div class="summary-row">
+                <div class="summary-icon"><i class="pi pi-user text-sm"></i></div>
+                <div>
+                  <div class="summary-label">Stylist</div>
+                  <div class="summary-value">{{ stylistName() || 'Any available' }}</div>
+                </div>
+              </div>
+
+              <p-divider />
+
+              <!-- Date -->
+              <div class="summary-row">
+                <div class="summary-icon"><i class="pi pi-calendar text-sm"></i></div>
+                <div>
+                  <div class="summary-label">Date</div>
+                  <div class="summary-value">
+                    {{ selectedDate | date: 'EEEE, MMMM d, y' }}
+                  </div>
+                </div>
+              </div>
+
+              <p-divider />
+
+              <!-- Time -->
+              <div class="summary-row">
+                <div class="summary-icon"><i class="pi pi-clock text-sm"></i></div>
+                <div>
+                  <div class="summary-label">Time</div>
+                  <div class="summary-value">{{ selectedTime }}</div>
+                </div>
+              </div>
+
+              <p-divider />
+
+              <!-- Total Price -->
+              @if (selectedService()) {
+                <div class="summary-row">
+                  <div class="summary-icon"><i class="pi pi-tag text-sm"></i></div>
+                  <div>
+                    <div class="summary-label">Total</div>
+                    <div class="summary-value text-purple-700 text-lg">
+                      LKR {{ selectedService()!.price | number: '1.2-2' }}
+                    </div>
+                  </div>
+                </div>
+              }
+
+            </p-card>
+
+            <!-- Step navigation -->
+            <div class="flex justify-between gap-3">
+              <p-button
+                label="Go Back"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                [disabled]="isSubmitting()"
+                (onClick)="goBack()"
+              />
+              <p-button
+                label="Confirm Booking"
+                icon="pi pi-check-circle"
+                iconPos="right"
+                severity="success"
+                [loading]="isSubmitting()"
+                (onClick)="confirmBooking()"
+              />
+            </div>
+
+          </ng-template>
+        </p-step-panel>
+
+      </p-step-panels>
+    </p-stepper>
+
+  }<!-- /if salon loaded -->
+
+</div><!-- /wizard-container -->

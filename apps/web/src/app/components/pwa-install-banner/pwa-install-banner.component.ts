@@ -1,22 +1,19 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
+import { Button } from 'primeng/button';
 import { PwaInstallService } from '../../shared/services/pwa-install.service';
 
 @Component({
   selector: 'app-pwa-install-banner',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatButtonModule, MatIconModule],
+  imports: [Button],
   template: `
     @if (pwaInstall.canInstall()) {
       <div class="pwa-banner" role="banner">
-        <mat-icon class="pwa-banner__icon">install_mobile</mat-icon>
+        <i class="pi pi-download pwa-banner__icon"></i>
         <span class="pwa-banner__text">Install SnapSalon for a faster experience!</span>
         <div class="pwa-banner__actions">
-          <button mat-flat-button color="primary" (click)="install()">Install</button>
-          <button mat-icon-button aria-label="Dismiss" (click)="dismiss()">
-            <mat-icon>close</mat-icon>
-          </button>
+          <p-button label="Install" (onClick)="install()" />
+          <p-button icon="pi pi-times" [rounded]="true" [text]="true" severity="secondary" aria-label="Dismiss" (onClick)="dismiss()" />
         </div>
       </div>
     }
@@ -27,11 +24,11 @@ import { PwaInstallService } from '../../shared/services/pwa-install.service';
       align-items: center;
       gap: 12px;
       padding: 10px 16px;
-      background: var(--mat-sys-primary-container, #e8def8);
-      color: var(--mat-sys-on-primary-container, #21005d);
+      background: var(--p-primary-50, #f5f3ff);
+      color: var(--p-primary-900, #4c1d95);
       font-size: 14px;
     }
-    .pwa-banner__icon { flex-shrink: 0; }
+    .pwa-banner__icon { flex-shrink: 0; font-size: 1.25rem; }
     .pwa-banner__text { flex: 1; }
     .pwa-banner__actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
   `],

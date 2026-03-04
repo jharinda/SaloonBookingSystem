@@ -5,12 +5,11 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { Button } from 'primeng/button';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { MessageService } from 'primeng/api';
 
 import { ReviewService, SalonAdminService } from '@org/shared-data-access';
 import { Review } from '@org/models';
@@ -21,10 +20,10 @@ import { Review } from '@org/models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
+    NgClass,
     FormsModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
+    Button,
+    ProgressSpinner,
   ],
   template: `
     <div class="page-header">
@@ -33,10 +32,10 @@ import { Review } from '@org/models';
     </div>
 
     @if (isLoading() && reviews().length === 0) {
-      <div class="state-center"><mat-spinner diameter="36" /></div>
+      <div class="state-center"><p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '36px', height: '36px' }" /></div>
     } @else if (reviews().length === 0) {
       <div class="state-center state--empty">
-        <mat-icon>star_border</mat-icon>
+        <i class="pi pi-star" style="font-size:2.5rem;color:#d1d5db"></i>
         <p>No reviews yet.</p>
       </div>
     } @else {
@@ -50,7 +49,7 @@ import { Review } from '@org/models';
                 @if (review.clientAvatar) {
                   <img [src]="review.clientAvatar" [alt]="review.clientName" class="avatar-img" />
                 } @else {
-                  <mat-icon class="avatar-icon">account_circle</mat-icon>
+                  <i class="pi pi-user avatar-icon"></i>
                 }
               </div>
               <div class="reviewer-info">
@@ -59,7 +58,8 @@ import { Review } from '@org/models';
               </div>
               <div class="review-stars" [attr.aria-label]="review.rating + ' out of 5 stars'">
                 @for (star of starsFor(review.rating); track $index) {
-                  <mat-icon class="star" [class.star--filled]="star">star{{ star ? '' : '_border' }}</mat-icon>
+                  <i class="pi star" [class.star--filled]="star"
+                     [ngClass]="star ? 'pi-star-fill' : 'pi-star'"></i>
                 }
               </div>
             </div>
@@ -70,7 +70,7 @@ import { Review } from '@org/models';
             <!-- Existing reply -->
             @if (review.ownerReply) {
               <div class="owner-reply">
-                <mat-icon class="reply-icon">reply</mat-icon>
+                <i class="pi pi-reply reply-icon"></i>
                 <div>
                   <div class="reply-label">Your reply</div>
                   <p class="reply-text">{{ review.ownerReply }}</p>
@@ -80,10 +80,7 @@ import { Review } from '@org/models';
 
             <!-- Reply form toggle -->
             @if (!review.ownerReply && replyOpenFor() !== review._id) {
-              <button mat-stroked-button class="reply-btn" (click)="openReply(review._id)">
-                <mat-icon>reply</mat-icon>
-                Reply
-              </button>
+              <p-button label="Reply" icon="pi pi-reply" [outlined]="true" size="small" styleClass="reply-btn" (onClick)="openReply(review._id)" />
             }
 
             @if (replyOpenFor() === review._id) {
@@ -96,16 +93,13 @@ import { Review } from '@org/models';
                   [ngModelOptions]="{ standalone: true }"
                 ></textarea>
                 <div class="reply-actions">
-                  <button mat-stroked-button (click)="closeReply()">Cancel</button>
-                  <button
-                    mat-flat-button
-                    color="primary"
+                  <p-button label="Cancel" [outlined]="true" severity="secondary" (onClick)="closeReply()" />
+                  <p-button
+                    label="Submit"
                     [disabled]="!replyText.trim() || isReplying()"
-                    (click)="submitReply(review)"
-                  >
-                    @if (isReplying()) { <mat-spinner diameter="16" /> }
-                    @else { Submit }
-                  </button>
+                    [loading]="isReplying()"
+                    (onClick)="submitReply(review)"
+                  />
                 </div>
               </div>
             }
@@ -117,14 +111,13 @@ import { Review } from '@org/models';
       <!-- Pagination -->
       @if (hasMore()) {
         <div class="load-more">
-          <button
-            mat-stroked-button
+          <p-button
+            label="Load more"
+            [outlined]="true"
             [disabled]="isLoading()"
-            (click)="loadMore()"
-          >
-            @if (isLoading()) { <mat-spinner diameter="18" /> }
-            @else { Load more }
-          </button>
+            [loading]="isLoading()"
+            (onClick)="loadMore()"
+          />
         </div>
       }
     }
@@ -225,12 +218,26 @@ import { Review } from '@org/models';
     .reply-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 
     .load-more { display: flex; justify-content: center; margin-top: 24px; }
+
+    :host-context(.dark) {
+      .page-title    { color: #f4f4f5; }
+      .page-subtitle { color: #a1a1aa; }
+      .review-card   { background: #18181b; border-color: #3f3f46; }
+      .reviewer-avatar { background: #3f3f46; }
+      .reviewer-name { color: #f4f4f5; }
+      .review-date   { color: #71717a; }
+      .review-comment { color: #d4d4d8; }
+      .owner-reply   { background: #27272a; }
+      .reply-text    { color: #d4d4d8; }
+      .reply-label   { color: #71717a; }
+      .reply-textarea { background: #27272a; border-color: #52525b; color: #f4f4f5; color-scheme: dark; }
+    }
   `],
 })
 export class SalonReviewsComponent implements OnInit {
   private readonly reviewService = inject(ReviewService);
   private readonly adminService  = inject(SalonAdminService);
-  private readonly snack         = inject(MatSnackBar);
+  private readonly msgSvc        = inject(MessageService);
 
   readonly reviews     = signal<Review[]>([]);
   readonly total       = signal(0);
@@ -281,11 +288,11 @@ export class SalonReviewsComponent implements OnInit {
         );
         this.isReplying.set(false);
         this.closeReply();
-        this.snack.open('Reply posted!', 'OK', { duration: 3000 });
+        this.msgSvc.add({ severity: 'success', summary: 'Done', detail: 'Reply posted!', life: 3000 });
       },
       error: () => {
         this.isReplying.set(false);
-        this.snack.open('Failed to post reply.', 'Dismiss', { duration: 4000 });
+        this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Failed to post reply.', life: 4000 });
       },
     });
   }

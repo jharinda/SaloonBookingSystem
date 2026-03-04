@@ -9,16 +9,13 @@ import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, debounceTime, Observable, of, Subject, switchMap } from 'rxjs';
 
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { Button } from 'primeng/button';
+import { InputText } from 'primeng/inputtext';
+import { Select } from 'primeng/select';
 
 import { Salon, SalonSearchResponse } from '@org/models';
 import { SalonService, SearchParams } from '../services/salon.service';
 import { SalonCardComponent } from '../salon-card/salon-card.component';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // ─── Static filter options ────────────────────────────────────────────────────
 
@@ -64,12 +61,9 @@ interface SearchFilters {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     FormsModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatSelectModule,
-    MatProgressSpinnerModule,
+    Button,
+    InputText,
+    Select,
     SalonCardComponent,
   ],
   template: `
@@ -81,96 +75,91 @@ interface SearchFilters {
         <p class="discover-subtitle">
           Discover top-rated salons and book appointments instantly
         </p>
-        <div class="hero-search-bar">
-          <mat-icon class="hero-search-icon">search</mat-icon>
-          <input
-            class="hero-search-input"
-            type="search"
-            placeholder="Search salons or services…"
-            autocomplete="off"
-            [ngModel]="searchTerm()"
-            (ngModelChange)="onSearchInput($event)"
-            (keydown.enter)="triggerSearchImmediate()"
-            aria-label="Search salons or services"
+        <!-- PrimeNG search + filter toolbar -->
+        <div class="flex flex-wrap items-center gap-4 mt-7 w-full max-w-3xl mx-auto">
+          <span class="p-input-icon-left flex-1 min-w-[200px]">
+            <i class="pi pi-search"></i>
+            <input
+              pInputText
+              type="search"
+              placeholder="Search salons or services…"
+              autocomplete="off"
+              class="w-full"
+              [ngModel]="searchTerm()"
+              (ngModelChange)="onSearchInput($event)"
+              (keydown.enter)="triggerSearchImmediate()"
+              aria-label="Search salons or services"
+            />
+          </span>
+          <p-select
+            [options]="serviceTypeOptions"
+            [ngModel]="filters().serviceType"
+            (ngModelChange)="onServiceTypeChange($event)"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Service type"
+            class="min-w-[180px]"
+            styleClass="w-full"
           />
-          <button
-            mat-flat-button
-            color="primary"
-            class="hero-search-btn"
-            (click)="triggerSearchImmediate()"
+          <p-button
+            label="Search"
+            icon="pi pi-search"
+            (onClick)="triggerSearchImmediate()"
             [disabled]="isLoading()"
-          >
-            Find a Salon
-          </button>
+          />
         </div>
       </header>
 
-      <!-- ── Filter row ────────────────────────────────────────────────────── -->
-      <div class="filter-bar">
-        <mat-form-field appearance="outline" class="filter-field">
-          <mat-label>Service type</mat-label>
-          <mat-select
-            [ngModel]="filters().serviceType"
-            (ngModelChange)="onServiceTypeChange($event)"
-          >
-            <mat-option value="">All services</mat-option>
-            @for (type of serviceTypes; track type) {
-              <mat-option [value]="type">{{ type }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="filter-field">
-          <mat-label>City</mat-label>
-          <mat-select
-            [ngModel]="filters().city"
-            (ngModelChange)="onCityChange($event)"
-          >
-            <mat-option value="">All cities</mat-option>
-            @for (city of cities; track city) {
-              <mat-option [value]="city">{{ city }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <button
-          mat-stroked-button
-          class="near-me-btn"
+      <!-- ── Filter & search toolbar ─────────────────────────────────────── -->
+      <div class="flex flex-wrap items-center gap-4 bg-gray-50 rounded-xl px-5 py-4 mb-8">
+        <p-select
+          [options]="serviceTypeOptions"
+          [ngModel]="filters().serviceType"
+          (ngModelChange)="onServiceTypeChange($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="All service types"
+          styleClass="w-full"
+          class="flex-1 min-w-[160px]"
+        />
+        <p-select
+          [options]="cityOptions"
+          [ngModel]="filters().city"
+          (ngModelChange)="onCityChange($event)"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="All cities"
+          styleClass="w-full"
+          class="flex-1 min-w-[140px]"
+        />
+        <p-button
+          label="Near Me"
+          icon="pi pi-map-marker"
+          variant="outlined"
           [disabled]="geoLoading()"
-          (click)="onNearMe()"
+          (onClick)="onNearMe()"
           aria-label="Search near my location"
-        >
-          @if (geoLoading()) {
-            <mat-spinner diameter="16" />
-          } @else {
-            <ng-container>
-              <mat-icon>my_location</mat-icon>
-              Near Me
-            </ng-container>
-          }
-        </button>
-
+        />
         @if (hasActiveFilters()) {
-          <button
-            mat-stroked-button
-            class="clear-btn"
+          <p-button
+            label="Clear"
+            icon="pi pi-times"
+            variant="outlined"
+            severity="secondary"
+            (onClick)="clearFilters()"
             aria-label="Clear all filters"
-            (click)="clearFilters()"
-          >
-            <mat-icon>close</mat-icon>
-            Clear
-          </button>
+          />
         }
       </div>
 
       <!-- ── All Salons (initial load) ───────────────────────────────────────── -->
       @if (!hasActiveFilters() && !hasSearched() && !isLoading()) {
-        <section class="featured-section" aria-label="All salons">
-          <h2 class="section-heading">
-            <mat-icon class="section-icon">storefront</mat-icon>
+        <section class="mb-10" aria-label="All salons">
+          <h2 class="flex items-center gap-2 text-xl font-bold text-gray-900 mb-5">
+            <i class="pi pi-storefront text-purple-500"></i>
             All Salons
           </h2>
-          <div class="results-grid">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             @for (salon of featuredSalons(); track salon._id) {
               <lib-salon-card [salon]="salon" />
             }
@@ -180,7 +169,7 @@ interface SearchFilters {
 
       <!-- ── Loading — skeleton grid ───────────────────────────────────────── -->
       @if (isLoading()) {
-        <div class="results-grid" aria-label="Loading salons…" aria-busy="true">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" aria-label="Loading salons…" aria-busy="true">
           @for (item of skeletonItems; track item) {
             <div class="skeleton-card" aria-hidden="true">
               <div class="skeleton-block skeleton-image"></div>
@@ -206,7 +195,7 @@ interface SearchFilters {
           </span>
         </div>
 
-        <div class="results-grid">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           @for (salon of results(); track salon._id) {
             <lib-salon-card [salon]="salon" />
           }
@@ -215,28 +204,25 @@ interface SearchFilters {
 
       <!-- ── Empty state ───────────────────────────────────────────────────── -->
       @if (!isLoading() && hasSearched() && results().length === 0 && !error()) {
-        <div class="state-panel state-panel--empty" role="status">
-          <mat-icon class="state-icon">search_off</mat-icon>
-          <h2 class="state-title">No salons found</h2>
-          <p class="state-message">
+        <div class="flex flex-col items-center text-center py-16 gap-4" role="status">
+          <i class="pi pi-search text-5xl text-gray-300"></i>
+          <h2 class="text-xl font-semibold text-gray-700 m-0">No salons found</h2>
+          <p class="max-w-md text-gray-500 text-sm m-0">
             We couldn&apos;t find any salons matching
             <strong>{{ activeQuery() }}</strong>.
             Try a different search term or adjust your filters.
           </p>
-          <button mat-stroked-button (click)="clearFilters()">Clear filters</button>
+          <p-button label="Clear filters" variant="outlined" (onClick)="clearFilters()" />
         </div>
       }
 
       <!-- ── Error state ────────────────────────────────────────────────────── -->
       @if (!isLoading() && error()) {
-        <div class="state-panel state-panel--error" role="alert">
-          <mat-icon class="state-icon state-icon--error">error_outline</mat-icon>
-          <h2 class="state-title">Something went wrong</h2>
-          <p class="state-message">{{ error() }}</p>
-          <button mat-raised-button color="primary" (click)="retrySearch()">
-            <mat-icon>refresh</mat-icon>
-            Try again
-          </button>
+        <div class="flex flex-col items-center text-center py-16 gap-4" role="alert">
+          <i class="pi pi-exclamation-circle text-5xl text-red-400"></i>
+          <h2 class="text-xl font-semibold text-gray-700 m-0">Something went wrong</h2>
+          <p class="max-w-md text-gray-500 text-sm m-0">{{ error() }}</p>
+          <p-button label="Try again" icon="pi pi-refresh" (onClick)="retrySearch()" />
         </div>
       }
 
@@ -510,7 +496,15 @@ export class SalonSearchComponent {
   readonly serviceTypes = SERVICE_TYPES;
   readonly cities = CITIES;
   readonly skeletonItems = Array.from({ length: 6 }, (_, i) => i);
-
+  /** Option arrays for PrimeNG Select */
+  readonly serviceTypeOptions = [
+    { label: 'All service types', value: '' },
+    ...SERVICE_TYPES.map((t) => ({ label: t, value: t })),
+  ];
+  readonly cityOptions = [
+    { label: 'All cities', value: '' },
+    ...CITIES.map((c) => ({ label: c, value: c })),
+  ];
   // ── RxJS pipeline (debounced search) ─────────────────────────────────────────
   private readonly searchTrigger$ = new Subject<SearchParams>();
   private lastQuery: SearchParams = {};

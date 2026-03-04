@@ -2,19 +2,19 @@
   <h1 class="page-title">Dashboard</h1>
 
   @if (loading()) {
-    <div class="center-spin"><mat-spinner diameter="48" /></div>
+    <div class="center-spin"><p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '48px', height: '48px' }" /></div>
   } @else if (error()) {
     <div class="error-card">
-      <mat-icon class="error-icon">error_outline</mat-icon>
+      <i class="pi pi-exclamation-circle error-icon"></i>
       <p>{{ error() }}</p>
-      <button mat-flat-button class="retry-btn" (click)="loadStats()">Retry</button>
+      <p-button label="Retry" (onClick)="loadStats()" styleClass="retry-btn" />
     </div>
   } @else {
     <div class="cards-grid">
       @for (card of cards; track card.key) {
         <div class="stat-card" [class.stat-card--warn]="card.key === 'pendingApproval' && getStatValue(card.key) > 0">
           <div class="stat-card__header">
-            <mat-icon class="stat-icon">{{ card.icon }}</mat-icon>
+            <i class="pi {{ card.icon === 'storefront' ? 'pi-shop' : card.icon === 'pending_actions' ? 'pi-hourglass' : card.icon === 'group' ? 'pi-users' : card.icon === 'event_available' ? 'pi-calendar-plus' : 'pi-money-bill' }} stat-icon"></i>
             <span class="stat-label">{{ card.label }}</span>
           </div>
           <div class="stat-card__body">

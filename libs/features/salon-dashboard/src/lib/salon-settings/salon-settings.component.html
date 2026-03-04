@@ -1,0 +1,289 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="bg-zinc-50 dark:bg-zinc-950 min-h-full py-8 px-4">
+  <div class="max-w-2xl mx-auto">
+
+    <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">Salon Settings</h1>
+
+    @if (loading()) {
+      <div class="flex items-center justify-center gap-3 py-24 text-zinc-400">
+        <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
+        <span>Loading settings…</span>
+      </div>
+    } @else {
+
+      <p-card styleClass="shadow-sm border border-zinc-100 dark:border-zinc-800">
+        <p-tabs value="info">
+
+          <p-tablist>
+            <p-tab value="info">
+              <i class="pi pi-building mr-2"></i>Business Info
+            </p-tab>
+            <p-tab value="hours">
+              <i class="pi pi-clock mr-2"></i>Opening Hours
+            </p-tab>
+            <p-tab value="notif">
+              <i class="pi pi-bell mr-2"></i>Notifications
+            </p-tab>
+            <p-tab value="danger">
+              <i class="pi pi-exclamation-triangle mr-2 text-red-500"></i>
+              <span class="text-red-500">Danger Zone</span>
+            </p-tab>
+          </p-tablist>
+
+          <p-tabpanels>
+
+            <!-- ── TAB 1: BUSINESS INFO ───────────────────────────────── -->
+            <p-tabpanel value="info">
+              <p-fluid>
+                <form [formGroup]="infoForm" (ngSubmit)="saveInfo()" novalidate class="flex flex-col gap-5 pt-4">
+
+                  <!-- Salon Name -->
+                  <p-floatlabel variant="on">
+                    <input pInputText id="s-name" formControlName="name" class="w-full"
+                           [class.ng-invalid]="infoError('name')"
+                           [class.ng-dirty]="infoForm.controls.name.touched" />
+                    <label for="s-name">Salon Name</label>
+                  </p-floatlabel>
+
+                  <!-- Address Line 1 -->
+                  <p-floatlabel variant="on">
+                    <input pInputText id="s-street" formControlName="street" class="w-full" />
+                    <label for="s-street">Address Line 1</label>
+                  </p-floatlabel>
+
+                  <!-- City / Postcode -->
+                  <div class="grid grid-cols-2 gap-4">
+                    <p-floatlabel variant="on">
+                      <input pInputText id="s-city" formControlName="city" class="w-full" />
+                      <label for="s-city">City</label>
+                    </p-floatlabel>
+                    <p-floatlabel variant="on">
+                      <input pInputText id="s-postcode" formControlName="postcode" class="w-full" />
+                      <label for="s-postcode">Postcode</label>
+                    </p-floatlabel>
+                  </div>
+
+                  <!-- Phone / Website -->
+                  <div class="grid grid-cols-2 gap-4">
+                    <p-floatlabel variant="on">
+                      <input pInputText id="s-phone" formControlName="phone" class="w-full"
+                             [class.ng-invalid]="infoError('phone')"
+                             [class.ng-dirty]="infoForm.controls.phone.touched" />
+                      <label for="s-phone">Phone</label>
+                    </p-floatlabel>
+                    <p-floatlabel variant="on">
+                      <input pInputText id="s-website" formControlName="websiteUrl" type="url" class="w-full" />
+                      <label for="s-website">Website URL</label>
+                    </p-floatlabel>
+                  </div>
+
+                  <!-- Bio -->
+                  <p-floatlabel variant="on">
+                    <textarea
+                      pTextarea
+                      id="s-bio"
+                      formControlName="description"
+                      rows="4"
+                      class="w-full resize-none"
+                      [autoResize]="true"
+                    ></textarea>
+                    <label for="s-bio">Bio</label>
+                  </p-floatlabel>
+
+                  <!-- Logo upload -->
+                  <div class="flex flex-col gap-2">
+                    <p class="text-sm font-medium text-zinc-600 dark:text-zinc-400 m-0">Salon Logo</p>
+                    <div class="flex items-center gap-4">
+                      <div class="w-16 h-16 rounded-xl border-2 border-dashed border-zinc-300 dark:border-zinc-600 overflow-hidden bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center shrink-0">
+                        @if (logoPreview()) {
+                          <img [src]="logoPreview()!" alt="Logo" class="w-full h-full object-cover" />
+                        } @else {
+                          <i class="pi pi-image text-zinc-300 text-2xl"></i>
+                        }
+                      </div>
+                      <p-fileupload
+                        mode="basic"
+                        accept="image/*"
+                        [maxFileSize]="2097152"
+                        chooseLabel="Upload Logo"
+                        chooseIcon="pi pi-upload"
+                        [auto]="true"
+                        styleClass="p-button-outlined p-button-sm"
+                        (onSelect)="onLogoSelected($event)"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Save -->
+                  <div class="flex justify-end pt-2">
+                    <p-button
+                      type="submit"
+                      label="Save Changes"
+                      severity="success"
+                      icon="pi pi-save"
+                      [loading]="savingInfo()"
+                    />
+                  </div>
+
+                </form>
+              </p-fluid>
+            </p-tabpanel>
+
+            <!-- ── TAB 2: OPENING HOURS ──────────────────────────────── -->
+            <p-tabpanel value="hours">
+              <div class="flex flex-col gap-4 pt-4">
+
+                <p class="text-sm text-zinc-500 m-0">Set the days and times your salon is open for business.</p>
+
+                <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl overflow-hidden">
+                  @for (day of dayConfigs; track day.key; let i = $index) {
+                    <div
+                      [formGroup]="dayAt(i)"
+                      class="flex items-center gap-4 flex-wrap px-4 py-3"
+                      [class.border-b]="i < 6"
+                      [class.border-zinc-100]="i < 6"
+                      [class.dark:border-zinc-800]="i < 6"
+                    >
+                      <!-- Day label -->
+                      <span class="w-24 font-medium text-sm text-zinc-700 dark:text-zinc-300 shrink-0">
+                        {{ day.label }}
+                      </span>
+
+                      <!-- Open/closed toggle -->
+                      <p-toggleSwitch formControlName="isOpen" />
+
+                      @if (dayAt(i).get('isOpen')?.value) {
+                        <!-- Time pickers -->
+                        <div class="flex items-center gap-2 ml-1">
+                          <p-datepicker
+                            formControlName="open"
+                            [timeOnly]="true"
+                            [showSeconds]="false"
+                            [hourFormat]="'12'"
+                            placeholder="Open"
+                            styleClass="w-28"
+                            inputStyleClass="w-full text-sm"
+                          />
+                          <span class="text-zinc-400 text-sm">–</span>
+                          <p-datepicker
+                            formControlName="close"
+                            [timeOnly]="true"
+                            [showSeconds]="false"
+                            [hourFormat]="'12'"
+                            placeholder="Close"
+                            styleClass="w-28"
+                            inputStyleClass="w-full text-sm"
+                          />
+                        </div>
+                      } @else {
+                        <span class="text-sm text-zinc-400 italic">Closed</span>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <div class="flex justify-end">
+                  <p-button
+                    label="Save Hours"
+                    severity="success"
+                    icon="pi pi-save"
+                    [loading]="savingHours()"
+                    (onClick)="saveHours()"
+                  />
+                </div>
+
+              </div>
+            </p-tabpanel>
+
+            <!-- ── TAB 3: NOTIFICATIONS ──────────────────────────────── -->
+            <p-tabpanel value="notif">
+              <div class="pt-4">
+                <p class="text-sm text-zinc-500 mb-4 m-0">Choose which events send you notifications.</p>
+
+                <p-card styleClass="border border-zinc-200 dark:border-zinc-700 shadow-none">
+
+                  <!-- Header row -->
+                  <div class="flex items-center justify-between px-1 pb-3 border-b border-zinc-100 dark:border-zinc-800 mb-1">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 w-48">Event</span>
+                    <div class="flex gap-8 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                      <span class="w-12 text-center">Email</span>
+                      <span class="w-12 text-center">SMS</span>
+                    </div>
+                  </div>
+
+                  @for (row of notifRows; track row.key) {
+                    <div class="flex items-center justify-between py-3 border-b border-zinc-50 dark:border-zinc-800/50 last:border-0">
+                      <div class="flex-1 min-w-0 pr-4">
+                        <p class="font-medium text-zinc-900 dark:text-zinc-100 text-sm m-0">{{ row.label }}</p>
+                        <p class="text-xs text-zinc-500 m-0 mt-0.5">{{ row.desc }}</p>
+                      </div>
+                      <div class="flex gap-8">
+                        <div class="w-12 flex justify-center">
+                          <p-toggleSwitch
+                            [ngModel]="notif()[row.key].email"
+                            (ngModelChange)="setNotif(row.key, 'email', $event)"
+                          />
+                        </div>
+                        <div class="w-12 flex justify-center">
+                          @if (row.hasSms) {
+                            <p-toggleSwitch
+                              [ngModel]="notif()[row.key].sms"
+                              (ngModelChange)="setNotif(row.key, 'sms', $event)"
+                            />
+                          } @else {
+                            <span class="text-xs text-zinc-300 self-center">—</span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  }
+
+                </p-card>
+              </div>
+            </p-tabpanel>
+
+            <!-- ── TAB 4: DANGER ZONE ────────────────────────────────── -->
+            <p-tabpanel value="danger">
+              <div class="pt-4 flex flex-col gap-4">
+
+                <p-card styleClass="border border-red-200 shadow-none">
+                  <div class="flex flex-col gap-4">
+
+                    <div>
+                      <h3 class="text-base font-semibold text-red-700 m-0">Delete Account</h3>
+                      <p class="text-sm text-zinc-500 mt-1 mb-0">
+                        Once you delete your account, all data including your salon profile, bookings, and staff records will be permanently removed. This action cannot be undone.
+                      </p>
+                    </div>
+
+                    <p-message
+                      severity="warn"
+                      styleClass="w-full"
+                      text="This will permanently delete all data associated with your salon."
+                    />
+
+                    <div class="flex justify-end">
+                      <p-button
+                        label="Delete Account"
+                        severity="danger"
+                        icon="pi pi-trash"
+                        [outlined]="true"
+                        (onClick)="confirmDeleteAccount()"
+                      />
+                    </div>
+
+                  </div>
+                </p-card>
+
+              </div>
+            </p-tabpanel>
+
+          </p-tabpanels>
+        </p-tabs>
+      </p-card>
+
+    }
+  </div>
+</div>

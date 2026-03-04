@@ -5,11 +5,9 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatIconModule } from '@angular/material/icon';
+import { Button } from 'primeng/button';
+import { Textarea } from 'primeng/textarea';
+import { DynamicDialogRef, DynamicDialogConfig } from 'primeng/dynamicdialog';
 
 export interface RejectSalonDialogData {
   salonName: string;
@@ -26,62 +24,47 @@ export interface RejectSalonDialogResult {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     FormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatIconModule,
+    Button,
+    Textarea,
   ],
   template: `
-    <div class="dlg-wrap">
+    <div class="dlg-body">
       <div class="dlg-head">
-        <mat-icon class="warn-icon">block</mat-icon>
-        <h2 mat-dialog-title>Reject Salon</h2>
-      </div>
-
-      <mat-dialog-content>
+        <i class="pi pi-ban warn-icon"></i>
         <p class="dlg-msg">
           You are rejecting <strong>{{ data.salonName }}</strong>.
           Please provide a reason that will be sent to the salon owner.
         </p>
-        <mat-form-field appearance="outline" class="full">
-          <mat-label>Rejection Reason</mat-label>
-          <textarea
-            matInput
-            rows="3"
-            [(ngModel)]="reason"
-            placeholder="e.g. Incomplete information, misleading details…"
-          ></textarea>
-        </mat-form-field>
-      </mat-dialog-content>
-
-      <mat-dialog-actions align="end">
-        <button mat-button (click)="cancel()">Cancel</button>
-        <button
-          mat-flat-button
-          class="reject-btn"
-          [disabled]="!reason().trim()"
-          (click)="confirm()"
-        >Reject Salon</button>
-      </mat-dialog-actions>
+      </div>
+      <textarea
+        pTextarea
+        rows="3"
+        [(ngModel)]="reason"
+        placeholder="e.g. Incomplete information, misleading details…"
+        class="full"
+      ></textarea>
+    </div>
+    <div class="dlg-actions">
+      <p-button label="Cancel" [text]="true" (onClick)="cancel()" />
+      <p-button label="Reject Salon" severity="danger" [disabled]="!reason().trim()" (onClick)="confirm()" />
     </div>
   `,
   styles: [`
-    .dlg-wrap { padding: 8px; min-width: 360px; max-width: 480px; }
-    .dlg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-    .warn-icon { color: #dc2626; font-size: 26px; width: 26px; height: 26px; }
-    h2[mat-dialog-title] { margin: 0; font-size: 1.15rem; font-weight: 700; }
-    .dlg-msg { color: #4b5563; font-size: .9rem; line-height: 1.6; }
-    .full { width: 100%; }
-    .reject-btn { background: #dc2626 !important; color: #fff !important; border-radius: 6px; }
-    button[disabled] { opacity: .45 !important; }
+    .dlg-body { padding: 0; }
+    .dlg-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+    .warn-icon { color: #dc2626; font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+    .dlg-msg { color: #4b5563; font-size: .9rem; line-height: 1.6; margin: 0; }
+    .full { width: 100%; resize: vertical; }
+    .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   `],
 })
 export class RejectSalonDialogComponent {
-  readonly data   = inject<RejectSalonDialogData>(MAT_DIALOG_DATA);
-  readonly reason = signal('');
-  private readonly dialogRef = inject(MatDialogRef<RejectSalonDialogComponent>);
+  private readonly ref    = inject(DynamicDialogRef);
+  private readonly config = inject(DynamicDialogConfig);
 
-  cancel():  void { this.dialogRef.close({ confirmed: false, reason: '' }   satisfies RejectSalonDialogResult); }
-  confirm(): void { this.dialogRef.close({ confirmed: true,  reason: this.reason() } satisfies RejectSalonDialogResult); }
+  readonly data   = this.config.data as RejectSalonDialogData;
+  readonly reason = signal('');
+
+  cancel():  void { this.ref.close({ confirmed: false, reason: '' }           satisfies RejectSalonDialogResult); }
+  confirm(): void { this.ref.close({ confirmed: true,  reason: this.reason() } satisfies RejectSalonDialogResult); }
 }

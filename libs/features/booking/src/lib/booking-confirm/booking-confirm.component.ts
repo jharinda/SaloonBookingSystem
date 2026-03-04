@@ -1,4 +1,4 @@
-import {
+﻿import {
   ChangeDetectionStrategy,
   Component,
   input,
@@ -8,215 +8,153 @@ import {
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
-import { MatButtonModule } from '@angular/material/button';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { Card } from 'primeng/card';
+import { Button } from 'primeng/button';
+import { Dialog } from 'primeng/dialog';
+import { Textarea } from 'primeng/textarea';
+import { Divider } from 'primeng/divider';
 
 import { BookingDraft } from '@org/models';
 
 @Component({
   selector: 'lib-booking-confirm',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    DatePipe,
-    DecimalPipe,
-    FormsModule,
-    MatButtonModule,
-    MatDividerModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
-  ],
+  imports: [DatePipe, DecimalPipe, FormsModule, Card, Button, Dialog, Textarea, Divider],
   template: `
-    <div class="step-header">
-      <h2 class="step-title">Review Your Booking</h2>
-      <p class="step-subtitle">Confirm the details below before booking</p>
+    <!-- Summary Card -->
+    <div class="mb-5">
+      <h2 class="text-xl font-bold text-gray-900 m-0 mb-1">Review Your Booking</h2>
+      <p class="text-sm text-gray-500 m-0">Confirm the details below before booking</p>
     </div>
 
-    <!-- Summary card -->
-    <div class="summary-card">
-
+    <p-card styleClass="confirm-card mb-5">
       <!-- Salon -->
-      <div class="summary-row">
-        <mat-icon class="summary-icon">storefront</mat-icon>
-        <div class="summary-body">
-          <div class="summary-label">Salon</div>
-          <div class="summary-value">{{ draft().salon.name }}</div>
-          <div class="summary-sub">{{ draft().salon.address.city }}</div>
+      <div class="flex items-start gap-4 py-2">
+        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex-shrink-0">
+          <i class="pi pi-shop text-sm"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="text-xs uppercase tracking-widest text-gray-400 font-medium">Salon</div>
+          <div class="font-semibold text-gray-900">{{ draft().salon.name }}</div>
+          <div class="text-sm text-gray-500">{{ draft().salon.address.city }}</div>
         </div>
       </div>
-
-      <mat-divider />
-
+      <p-divider />
       <!-- Service -->
-      <div class="summary-row">
-        <mat-icon class="summary-icon">content_cut</mat-icon>
-        <div class="summary-body">
-          <div class="summary-label">Service</div>
-          <div class="summary-value">{{ draft().service.name }}</div>
-          <div class="summary-sub">{{ draft().service.category }} · {{ draft().service.duration }} min</div>
+      <div class="flex items-start gap-4 py-2">
+        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex-shrink-0">
+          <i class="pi pi-sparkles text-sm"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="text-xs uppercase tracking-widest text-gray-400 font-medium">Service</div>
+          <div class="font-semibold text-gray-900">{{ draft().service.name }}</div>
+          <div class="text-sm text-gray-500">{{ draft().service.category }}  {{ draft().service.duration }} min</div>
         </div>
       </div>
-
-      <mat-divider />
-
+      <p-divider />
       <!-- Date & Time -->
-      <div class="summary-row">
-        <mat-icon class="summary-icon">event</mat-icon>
-        <div class="summary-body">
-          <div class="summary-label">Date & Time</div>
-          <div class="summary-value">
-            {{ draft().date | date: 'EEEE, MMMM d, y' }}
-          </div>
-          <div class="summary-sub">Starting at <strong>{{ draft().slot }}</strong></div>
+      <div class="flex items-start gap-4 py-2">
+        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex-shrink-0">
+          <i class="pi pi-calendar text-sm"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="text-xs uppercase tracking-widest text-gray-400 font-medium">Date &amp; Time</div>
+          <div class="font-semibold text-gray-900">{{ draft().date | date: 'EEEE, MMMM d, y' }}</div>
+          <div class="text-sm text-gray-500">Starting at <strong>{{ draft().slot }}</strong></div>
         </div>
       </div>
-
-      <mat-divider />
-
+      <p-divider />
       <!-- Price -->
-      <div class="summary-row">
-        <mat-icon class="summary-icon">payments</mat-icon>
-        <div class="summary-body">
-          <div class="summary-label">Total</div>
-          <div class="summary-value summary-value--price">
-            LKR {{ draft().service.price | number }}
-          </div>
-          <div class="summary-sub">Pay at salon</div>
+      <div class="flex items-start gap-4 py-2">
+        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-purple-100 text-purple-600 flex-shrink-0">
+          <i class="pi pi-wallet text-sm"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="text-xs uppercase tracking-widest text-gray-400 font-medium">Total</div>
+          <div class="font-bold text-lg text-purple-600">LKR {{ draft().service.price | number }}</div>
+          <div class="text-sm text-gray-500">Pay at salon</div>
         </div>
       </div>
-    </div>
+    </p-card>
 
-    <!-- Notes field -->
-    <mat-form-field appearance="outline" class="notes-field">
-      <mat-label>Notes (optional)</mat-label>
+    <!-- Notes -->
+    <div class="mb-6">
+      <label for="booking-notes" class="block text-sm font-medium text-gray-700 mb-1.5">
+        Notes <span class="text-gray-400 font-normal">(optional)</span>
+      </label>
       <textarea
-        matInput
+        pTextarea
+        id="booking-notes"
         rows="3"
         maxlength="300"
-        placeholder="Any special requests or information for the stylist…"
+        placeholder="Any special requests or information for the stylist..."
+        class="w-full"
         [ngModel]="notes()"
         (ngModelChange)="notes.set($event)"
       ></textarea>
-      <mat-hint align="end">{{ notes().length }}/300</mat-hint>
-    </mat-form-field>
-
-    <!-- Actions -->
-    <div class="step-actions">
-      <button mat-stroked-button [disabled]="isSubmitting()" (click)="back.emit()">
-        <mat-icon>arrow_back</mat-icon> Back
-      </button>
-
-      <button
-        mat-raised-button
-        color="primary"
-        [disabled]="isSubmitting()"
-        (click)="onConfirm()"
-        aria-label="Confirm and create booking"
-      >
-        @if (isSubmitting()) {
-          <mat-spinner diameter="20" class="btn-spinner" />
-        } @else {
-          <mat-icon>check_circle</mat-icon>
-        }
-        {{ isSubmitting() ? 'Confirming…' : 'Confirm Booking' }}
-      </button>
+      <div class="text-xs text-gray-400 text-right mt-1">{{ notes().length }}/300</div>
     </div>
+
+    <!-- Step Actions -->
+    <div class="flex justify-between items-center">
+      <p-button label="Back" icon="pi pi-arrow-left" variant="outlined" [disabled]="isSubmitting()" (onClick)="back.emit()" />
+      <p-button label="Review and Confirm" icon="pi pi-check-circle" [disabled]="isSubmitting()" (onClick)="openConfirmDialog()" />
+    </div>
+
+    <!-- Confirmation Dialog -->
+    <p-dialog
+      header="Confirm Your Booking"
+      [(visible)]="confirmVisible"
+      [modal]="true"
+      [closable]="!isSubmitting()"
+      [style]="{ width: '26rem' }"
+      [draggable]="false"
+      [resizable]="false"
+    >
+      <div class="flex flex-col gap-3 py-2">
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-gray-500">Service</span>
+          <span class="font-semibold text-gray-900">{{ draft().service.name }}</span>
+        </div>
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-gray-500">Date</span>
+          <span class="font-semibold text-gray-900">{{ draft().date | date: 'EEE, MMM d, y' }}</span>
+        </div>
+        <div class="flex justify-between items-center text-sm">
+          <span class="text-gray-500">Time</span>
+          <span class="font-semibold text-gray-900">{{ draft().slot }}</span>
+        </div>
+        <div class="flex justify-between items-center text-sm border-t border-gray-100 pt-2 mt-1">
+          <span class="text-gray-700 font-medium">Total</span>
+          <span class="font-bold text-purple-600 text-base">LKR {{ draft().service.price | number }}</span>
+        </div>
+      </div>
+      <ng-template #footer>
+        <div class="flex gap-3 justify-end">
+          <p-button label="Cancel" variant="outlined" severity="secondary" [disabled]="isSubmitting()" (onClick)="closeConfirmDialog()" />
+          <p-button label="Confirm Booking" icon="pi pi-check" [loading]="isSubmitting()" (onClick)="onConfirm()" />
+        </div>
+      </ng-template>
+    </p-dialog>
   `,
   styles: [`
-    .step-header { margin-bottom: 24px; }
-    .step-title { font-size: 1.35rem; font-weight: 700; margin: 0 0 6px; color: #1a1a2e; }
-    .step-subtitle { font-size: 0.9rem; color: #6b7280; margin: 0; }
-
-    /* ── Summary card ── */
-    .summary-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 24px;
-      background: #fff;
-    }
-
-    .summary-row {
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
-      padding: 18px;
-    }
-
-    .summary-icon {
-      color: var(--mat-sys-primary, #6750A4);
-      font-size: 1.35rem;
-      width: 1.35rem;
-      height: 1.35rem;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-
-    .summary-body { flex: 1; min-width: 0; }
-
-    .summary-label {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #9ca3af;
-      font-weight: 500;
-      margin-bottom: 2px;
-    }
-
-    .summary-value {
-      font-weight: 600;
-      font-size: 0.97rem;
-      color: #111827;
-    }
-
-    .summary-value--price {
-      font-size: 1.15rem;
-      color: var(--mat-sys-primary, #6750A4);
-    }
-
-    .summary-sub {
-      font-size: 0.82rem;
-      color: #6b7280;
-      margin-top: 2px;
-    }
-
-    /* ── Notes ── */
-    .notes-field {
-      width: 100%;
-      margin-bottom: 20px;
-    }
-
-    /* ── Actions ── */
-    .step-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      padding-top: 4px;
-    }
-
-    .btn-spinner {
-      display: inline-block;
-      vertical-align: middle;
-      margin-right: 6px;
-    }
+    :host ::ng-deep .confirm-card .p-card-body { padding: 0.75rem 1.25rem; }
+    :host ::ng-deep .confirm-card .p-card-content { padding: 0; }
+    :host ::ng-deep .p-divider { margin: 0; }
   `],
 })
 export class BookingConfirmComponent {
   readonly draft        = input.required<BookingDraft>();
   readonly isSubmitting = input<boolean>(false);
 
-  readonly confirm = output<string>();  // emits notes text
+  readonly confirm = output<string>();
   readonly back    = output<void>();
 
   readonly notes = signal('');
+  confirmVisible = false;
+
+  openConfirmDialog(): void  { this.confirmVisible = true; }
+  closeConfirmDialog(): void { this.confirmVisible = false; }
 
   onConfirm(): void {
     this.confirm.emit(this.notes());

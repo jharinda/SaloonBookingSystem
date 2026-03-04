@@ -1,0 +1,84 @@
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  DashboardLayoutComponent                                              -->
+<!--  Fixed left sidebar + scrollable main area                             -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
+<!-- ── Fixed sidebar — hidden on mobile, visible lg+ ───────────────── -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-64 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 overflow-y-auto hidden lg:flex flex-col">
+
+  <!-- Salon identity ───────────────────────────────────────────────────── -->
+  <div class="flex items-center gap-3 px-5 py-5 border-b border-zinc-200 dark:border-zinc-800">
+
+    @if (isLoading()) {
+      <!-- Skeleton while loading -->
+      <div class="w-10 h-10 rounded-full bg-zinc-200 dark:bg-zinc-700 animate-pulse flex-shrink-0"></div>
+      <div class="flex-1 min-w-0 space-y-1.5">
+        <div class="h-3.5 w-28 rounded bg-zinc-200 dark:bg-zinc-700 animate-pulse"></div>
+        <div class="h-2.5 w-20 rounded bg-zinc-100 dark:bg-zinc-800 animate-pulse"></div>
+      </div>
+    } @else if (salon()) {
+      <!-- Avatar: image if available, otherwise label initial -->
+      @if (avatarImage()) {
+        <p-avatar
+          [image]="avatarImage()!"
+          size="large"
+          shape="circle"
+          styleClass="flex-shrink-0"
+        />
+      } @else {
+        <p-avatar
+          [label]="avatarLabel()"
+          size="large"
+          shape="circle"
+          styleClass="flex-shrink-0 bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 font-bold"
+        />
+      }
+
+      <div class="min-w-0">
+        <p class="font-semibold text-sm text-zinc-900 dark:text-zinc-100 truncate m-0 leading-snug">
+          {{ salon()!.name }}
+        </p>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 truncate m-0 mt-0.5">
+          {{ salon()!.address.city }}
+        </p>
+      </div>
+    } @else {
+      <!-- Error / no salon fallback -->
+      <p-avatar
+        label="?"
+        size="large"
+        shape="circle"
+        styleClass="flex-shrink-0 bg-zinc-200 dark:bg-zinc-700 text-zinc-500"
+      />
+      <span class="text-sm text-zinc-400 dark:text-zinc-500 truncate">No salon found</span>
+    }
+
+  </div>
+
+  <!-- Navigation ───────────────────────────────────────────────────────── -->
+  <nav class="flex-1 py-3 px-2">
+    <p-panelmenu
+      [model]="menuItems"
+      styleClass="dash-panelmenu"
+    />
+  </nav>
+
+  <!-- Footer: current user ─────────────────────────────────────────────── -->
+  <div class="flex items-center gap-3 px-4 py-4 border-t border-zinc-200 dark:border-zinc-800">
+    <p-avatar
+      [label]="userInitial"
+      shape="circle"
+      size="normal"
+      styleClass="bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 font-semibold text-sm flex-shrink-0"
+    />
+    <span class="text-xs text-zinc-500 dark:text-zinc-400 truncate min-w-0">
+      {{ userDisplayName }}
+    </span>
+  </div>
+
+</aside>
+
+<!-- ── Main content area ──────────────────────────────────────────────── -->
+<main class="lg:ml-64 p-4 lg:p-6 min-h-screen bg-zinc-50 dark:bg-zinc-950">
+  <router-outlet />
+</main>

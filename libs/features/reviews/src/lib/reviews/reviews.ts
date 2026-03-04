@@ -1,12 +1,10 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { Button } from 'primeng/button';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { Textarea } from 'primeng/textarea';
+import { MessageService } from 'primeng/api';
 import { FormsModule } from '@angular/forms';
 
 import { ReviewService } from '../services/review.service';
@@ -27,11 +25,9 @@ const RATING_LABELS: Record<number, string> = {
   imports: [
     DatePipe,
     FormsModule,
-    MatButtonModule,
-    MatIconModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
+    Button,
+    ProgressSpinner,
+    Textarea,
   ],
   template: `
     <div class="review-page">
@@ -39,7 +35,7 @@ const RATING_LABELS: Record<number, string> = {
       <!-- ── Loading ─────────────────────────────────────────────────── -->
       @if (isLoading()) {
         <div class="review-state">
-          <mat-spinner diameter="48" />
+          <p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '48px', height: '48px' }" />
           <p>Loading booking details…</p>
         </div>
       }
@@ -47,18 +43,18 @@ const RATING_LABELS: Record<number, string> = {
       <!-- ── Load error ──────────────────────────────────────────────── -->
       @if (!isLoading() && loadError()) {
         <div class="review-state review-state--error">
-          <mat-icon color="warn">error_outline</mat-icon>
+          <i class="pi pi-exclamation-circle" style="font-size:2rem;color:var(--p-red-500)"></i>
           <p>{{ loadError() }}</p>
-          <button mat-raised-button (click)="goBack()">Go Back</button>
+          <p-button label="Go Back" (onClick)="goBack()" />
         </div>
       }
 
       <!-- ── Booking not completed ────────────────────────────────────── -->
       @if (!isLoading() && !loadError() && booking() && booking()!.status !== 'COMPLETED') {
         <div class="review-state review-state--error">
-          <mat-icon color="warn">info_outline</mat-icon>
+          <i class="pi pi-info-circle" style="font-size:2rem;color:var(--p-red-500)"></i>
           <p>You can only leave a review for completed appointments.</p>
-          <button mat-raised-button (click)="goBack()">Go Back</button>
+          <p-button label="Go Back" (onClick)="goBack()" />
         </div>
       }
 
@@ -80,15 +76,15 @@ const RATING_LABELS: Record<number, string> = {
             <h2>Leave a Review</h2>
             <div class="booking-meta">
               <div class="booking-meta-row">
-                <mat-icon class="meta-icon">store</mat-icon>
+                <i class="pi pi-shop meta-icon"></i>
                 <span>{{ booking()!.salonName }}</span>
               </div>
               <div class="booking-meta-row">
-                <mat-icon class="meta-icon">content_cut</mat-icon>
+                <i class="pi pi-scissors meta-icon"></i>
                 <span>{{ booking()!.serviceName }}</span>
               </div>
               <div class="booking-meta-row">
-                <mat-icon class="meta-icon">calendar_today</mat-icon>
+                <i class="pi pi-calendar meta-icon"></i>
                 <span>{{ booking()!.appointmentDate | date:'mediumDate' }}</span>
               </div>
             </div>
@@ -102,14 +98,14 @@ const RATING_LABELS: Record<number, string> = {
               (mouseleave)="hoveredRating.set(0)"
             >
               @for (star of stars; track star) {
-                <mat-icon
-                  class="star-icon"
+                <i
+                  class="pi star-icon"
+                  [class.pi-star-fill]="star <= (hoveredRating() || selectedRating())"
+                  [class.pi-star]="star > (hoveredRating() || selectedRating())"
                   [class.star-filled]="star <= (hoveredRating() || selectedRating())"
                   (mouseenter)="hoveredRating.set(star)"
                   (click)="selectedRating.set(star)"
-                >
-                  {{ star <= (hoveredRating() || selectedRating()) ? 'star' : 'star_border' }}
-                </mat-icon>
+                ></i>
               }
             </div>
             @if (hoveredRating() || selectedRating()) {
@@ -118,36 +114,31 @@ const RATING_LABELS: Record<number, string> = {
           </div>
 
           <!-- Comment -->
-          <mat-form-field appearance="outline" class="comment-field">
-            <mat-label>Your comments (optional)</mat-label>
+          <div class="comment-field">
+            <label class="comment-label">Your comments (optional)</label>
             <textarea
-              matInput
+              pTextarea
               [(ngModel)]="comment"
               rows="4"
               maxlength="500"
               placeholder="Share your experience…"
+              class="comment-textarea"
             ></textarea>
-            <mat-hint
+            <small
+              class="comment-hint"
               [class.warn-orange]="comment.length >= 400 && comment.length < 480"
               [class.warn-red]="comment.length >= 480"
-              align="end"
-            >{{ comment.length }} / 500</mat-hint>
-          </mat-form-field>
+            >{{ comment.length }} / 500</small>
+          </div>
 
           <!-- Submit -->
-          <button
-            mat-raised-button
-            color="primary"
-            class="submit-btn"
+          <p-button
+            label="Submit Review"
             [disabled]="selectedRating() === 0 || isSubmitting()"
-            (click)="submit()"
-          >
-            @if (isSubmitting()) {
-              <mat-spinner diameter="20" color="accent" />
-            } @else {
-              Submit Review
-            }
-          </button>
+            [loading]="isSubmitting()"
+            (onClick)="submit()"
+            styleClass="submit-btn"
+          />
 
         </div>
       }
@@ -170,7 +161,7 @@ const RATING_LABELS: Record<number, string> = {
       text-align: center;
     }
 
-    .review-state--error p { color: var(--mat-sys-error, #b00020); }
+    .review-state--error p { color: var(--p-red-500, #ef4444); }
     .review-state--success { gap: 12px; }
     .success-emoji { font-size: 48px; }
 
@@ -178,7 +169,7 @@ const RATING_LABELS: Record<number, string> = {
       display: flex;
       flex-direction: column;
       gap: 24px;
-      background: var(--mat-sys-surface, #fff);
+      background: #fff;
       border-radius: 12px;
       padding: 28px 24px;
       box-shadow: 0 2px 8px rgba(0,0,0,.08);
@@ -192,7 +183,7 @@ const RATING_LABELS: Record<number, string> = {
 
     .booking-meta { display: flex; flex-direction: column; gap: 6px; }
     .booking-meta-row { display: flex; align-items: center; gap: 8px; font-size: .95rem; }
-    .meta-icon { font-size: 18px; width: 18px; height: 18px; color: #666; }
+    .meta-icon { font-size: 18px; color: #666; }
 
     .rating-section { display: flex; flex-direction: column; gap: 8px; }
     .rating-label { margin: 0; font-weight: 500; }
@@ -205,29 +196,25 @@ const RATING_LABELS: Record<number, string> = {
 
     .star-icon {
       font-size: 40px;
-      width: 40px;
-      height: 40px;
       color: #ccc;
       transition: color .15s;
       user-select: none;
     }
 
-    .star-filled { color: #f9a825; }
+    .star-filled { color: #f9a825 !important; }
 
     .rating-text { margin: 0; font-size: .95rem; color: #555; }
 
-    .comment-field { width: 100%; }
+    .comment-field { width: 100%; display: flex; flex-direction: column; gap: 4px; }
+    .comment-label { font-weight: 500; font-size: .9rem; color: #374151; }
+    .comment-textarea { width: 100%; resize: vertical; }
+    .comment-hint { font-size: .78rem; color: #9ca3af; text-align: right; }
 
-    ::ng-deep .warn-orange { color: #e65100 !important; }
-    ::ng-deep .warn-red    { color: #b00020 !important; }
+    .warn-orange { color: #e65100 !important; }
+    .warn-red    { color: #b00020 !important; }
 
     .submit-btn {
       align-self: flex-end;
-      min-width: 148px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
     }
   `],
 })
@@ -235,7 +222,7 @@ export class SubmitReviewComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly reviewService = inject(ReviewService);
-  private readonly snackBar = inject(MatSnackBar);
+  private readonly msgSvc  = inject(MessageService);
 
   readonly stars = [1, 2, 3, 4, 5];
 
@@ -299,7 +286,7 @@ export class SubmitReviewComponent implements OnInit {
         error: (err) => {
           this.isSubmitting.set(false);
           const msg = err?.error?.message ?? 'Failed to submit review. Please try again.';
-          this.snackBar.open(msg, 'Close', { duration: 5000 });
+          this.msgSvc.add({ severity: 'error', summary: 'Error', detail: msg, life: 5000 });
         },
       });
   }

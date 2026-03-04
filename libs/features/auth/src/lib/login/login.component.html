@@ -1,0 +1,112 @@
+<div class="min-h-screen flex">
+
+  <!-- ── LEFT PANEL ───────────────────────────────────────────────── -->
+  <div class="hidden lg:flex w-1/2 bg-gradient-to-br from-emerald-600 to-emerald-900 flex-col items-center justify-center p-12 text-white">
+    <span class="text-4xl font-bold tracking-tight">SnapSalon</span>
+    <p class="text-emerald-100 text-xl mt-4">Your beauty, your schedule.</p>
+
+    <ul class="mt-10 flex flex-col gap-5 text-base list-none p-0 m-0">
+      <li class="flex items-center gap-3">
+        <i class="pi pi-check-circle text-emerald-300 text-xl"></i>
+        <span>500+ verified salons</span>
+      </li>
+      <li class="flex items-center gap-3">
+        <i class="pi pi-check-circle text-emerald-300 text-xl"></i>
+        <span>Instant booking</span>
+      </li>
+      <li class="flex items-center gap-3">
+        <i class="pi pi-check-circle text-emerald-300 text-xl"></i>
+        <span>Free cancellation</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ── RIGHT PANEL ──────────────────────────────────────────────── -->
+  <div class="flex-1 flex items-center justify-center p-8 bg-zinc-50 dark:bg-zinc-950">
+    <div class="w-full max-w-md">
+
+      <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 m-0">Welcome back</h2>
+      <p class="text-zinc-500 mt-1 mb-8">Sign in to your account</p>
+
+      <!-- Error banner -->
+      @if (errorMessage()) {
+        <div class="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-6 text-sm" role="alert">
+          <i class="pi pi-exclamation-circle shrink-0"></i>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate class="flex flex-col gap-6">
+
+        <!-- Email -->
+        <p-floatlabel variant="on">
+          <input
+            pInputText
+            id="login-email"
+            type="email"
+            formControlName="email"
+            autocomplete="email"
+            class="w-full"
+            [class.ng-invalid]="email.invalid && email.touched"
+            [class.ng-dirty]="email.touched"
+          />
+          <label for="login-email">Email</label>
+        </p-floatlabel>
+
+        <!-- Password -->
+        <div class="flex flex-col gap-1">
+          <p-floatlabel variant="on">
+            <p-password
+              inputId="login-password"
+              formControlName="password"
+              [feedback]="false"
+              [toggleMask]="true"
+              styleClass="w-full"
+              inputStyleClass="w-full"
+              autocomplete="current-password"
+              [class.ng-invalid]="password.invalid && password.touched"
+              [class.ng-dirty]="password.touched"
+            />
+            <label for="login-password">Password</label>
+          </p-floatlabel>
+          <a routerLink="/auth/forgot-password"
+             class="text-emerald-600 text-sm self-end mt-1 hover:underline cursor-pointer">
+            Forgot password?
+          </a>
+        </div>
+
+        <!-- Submit -->
+        <p-button
+          type="submit"
+          label="Sign In"
+          severity="success"
+          styleClass="w-full justify-center"
+          [loading]="isLoading()"
+        />
+
+      </form>
+
+      <p-divider align="center">
+        <span class="text-zinc-400 text-sm px-2">or</span>
+      </p-divider>
+
+      <!-- Google -->
+      <a href="/api/auth/google" class="no-underline block">
+        <p-button
+          label="Continue with Google"
+          icon="pi pi-google"
+          [outlined]="true"
+          styleClass="w-full justify-center"
+        />
+      </a>
+
+      <!-- Register link -->
+      <p class="text-center text-sm text-zinc-500 mt-8 mb-0">
+        Don't have an account?
+        <a routerLink="/auth/register" class="text-emerald-600 font-semibold hover:underline ml-1">Sign up</a>
+      </p>
+
+    </div>
+  </div>
+
+</div>

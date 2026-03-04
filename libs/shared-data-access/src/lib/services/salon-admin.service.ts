@@ -13,6 +13,7 @@ export interface AddServiceDto {
   category: string;
   price: number;
   duration: number;
+  active?: boolean;
 }
 
 export type UpdateOperatingHoursDto = Record<string, SalonWorkingHours>;
@@ -31,6 +32,20 @@ export interface CreateSalonDto {
   phone: string;
   email: string;
   address: CreateSalonAddressDto;
+}
+
+export interface UpdateSalonInfoDto {
+  name?: string;
+  description?: string;
+  phone?: string;
+  email?: string;
+  address?: {
+    street: string;
+    city: string;
+    province: string;
+    lat?: number;
+    lng?: number;
+  };
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -56,10 +71,22 @@ export class SalonAdminService {
     return this.http.post<Salon>('/api/salons', dto);
   }
 
+  /** PATCH /api/salons/:id — updates basic info (name, description, phone, email, address) */
+  updateSalon(salonId: string, dto: UpdateSalonInfoDto): Observable<Salon> {
+    return this.http.patch<Salon>(`/api/salons/${salonId}`, dto);
+  }
+
   /** GET /api/bookings?salonId=:id&date=today */
   getTodayBookings(salonId: string): Observable<Booking[]> {
     return this.http.get<Booking[]>('/api/bookings', {
       params: { salonId, date: 'today' },
+    });
+  }
+
+  /** GET /api/bookings?salonId=:id&startDate=:start&endDate=:end */
+  getBookingsByRange(salonId: string, startDate: string, endDate: string): Observable<Booking[]> {
+    return this.http.get<Booking[]>('/api/bookings', {
+      params: { salonId, startDate, endDate },
     });
   }
 
@@ -81,6 +108,18 @@ export class SalonAdminService {
   /** POST /api/salons/:id/services */
   addService(salonId: string, dto: AddServiceDto): Observable<SalonServiceItem> {
     return this.http.post<SalonServiceItem>(`/api/salons/${salonId}/services`, dto);
+  }
+
+  /** PATCH /api/salons/:id/services/:serviceId */
+  updateService(
+    salonId: string,
+    serviceId: string,
+    dto: Partial<AddServiceDto>,
+  ): Observable<SalonServiceItem> {
+    return this.http.patch<SalonServiceItem>(
+      `/api/salons/${salonId}/services/${serviceId}`,
+      dto,
+    );
   }
 
   /** DELETE /api/salons/:id/services/:serviceId */

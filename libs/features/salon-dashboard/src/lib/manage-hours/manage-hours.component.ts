@@ -6,13 +6,10 @@ import {
   signal,
 } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, FormGroup } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { Button } from 'primeng/button';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { ToggleSwitch } from 'primeng/toggleswitch';
+import { MessageService } from 'primeng/api';
 
 import { SalonAdminService, UpdateOperatingHoursDto } from '@org/shared-data-access';
 import { SalonWorkingHours } from '@org/models';
@@ -35,12 +32,9 @@ type DayKey = (typeof DAYS)[number]['key'];
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
-    MatSlideToggleModule,
+    Button,
+    ProgressSpinner,
+    ToggleSwitch,
   ],
   template: `
     <div class="page-header">
@@ -49,7 +43,7 @@ type DayKey = (typeof DAYS)[number]['key'];
     </div>
 
     @if (isLoading()) {
-      <div class="state-center"><mat-spinner diameter="36" /></div>
+      <div class="state-center"><p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '36px', height: '36px' }" /></div>
     } @else {
       <form [formGroup]="form" (ngSubmit)="save()" novalidate>
         <div class="hours-card">
@@ -58,20 +52,19 @@ type DayKey = (typeof DAYS)[number]['key'];
               <div class="day-row" [formGroupName]="i">
                 <span class="day-name">{{ day.label }}</span>
 
-                <mat-slide-toggle formControlName="isOpen" color="primary">
-                  {{ form.controls.days.at(i).get('isOpen')?.value ? 'Open' : 'Closed' }}
-                </mat-slide-toggle>
+                <p-toggleSwitch formControlName="isOpen" />
+                <span class="toggle-label">{{ form.controls.days.at(i).get('isOpen')?.value ? 'Open' : 'Closed' }}</span>
 
                 @if (form.controls.days.at(i).get('isOpen')?.value) {
-                  <mat-form-field appearance="outline" class="time-field">
-                    <mat-label>Opens</mat-label>
-                    <input matInput type="time" formControlName="open" />
-                  </mat-form-field>
+                  <div class="time-field">
+                    <label class="time-label">Opens</label>
+                    <input type="time" class="time-input" formControlName="open" />
+                  </div>
 
-                  <mat-form-field appearance="outline" class="time-field">
-                    <mat-label>Closes</mat-label>
-                    <input matInput type="time" formControlName="close" />
-                  </mat-form-field>
+                  <div class="time-field">
+                    <label class="time-label">Closes</label>
+                    <input type="time" class="time-input" formControlName="close" />
+                  </div>
                 } @else {
                   <span class="closed-label">Closed all day</span>
                 }
@@ -85,19 +78,13 @@ type DayKey = (typeof DAYS)[number]['key'];
         </div>
 
         <div class="form-actions">
-          <button
-            mat-flat-button
-            color="primary"
+          <p-button
+            label="Save Hours"
+            icon="pi pi-save"
             type="submit"
             [disabled]="isSaving()"
-          >
-            @if (isSaving()) {
-              <mat-spinner diameter="18" />
-            } @else {
-              <mat-icon>save</mat-icon>
-            }
-            Save Hours
-          </button>
+            [loading]="isSaving()"
+          />
         </div>
       </form>
     }
@@ -140,7 +127,35 @@ type DayKey = (typeof DAYS)[number]['key'];
     }
 
     .time-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
       width: 120px;
+    }
+
+    .time-label {
+      font-size: .75rem;
+      color: #6b7280;
+      font-weight: 500;
+    }
+
+    .time-input {
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: .88rem;
+      outline: none;
+      font-family: inherit;
+    }
+
+    .time-input:focus {
+      border-color: var(--p-primary-500, #7c3aed);
+      box-shadow: 0 0 0 2px var(--p-primary-100, #ede9fe);
+    }
+
+    .toggle-label {
+      font-size: .82rem;
+      color: #6b7280;
     }
 
     .closed-label {
@@ -170,12 +185,25 @@ type DayKey = (typeof DAYS)[number]['key'];
       .day-row { gap: 12px; }
       .time-field { width: 100px; }
     }
+
+    :host-context(.dark) {
+      .page-title   { color: #f4f4f5; }
+      .page-subtitle { color: #a1a1aa; }
+      .hours-card   { background: #18181b; border-color: #3f3f46; }
+      .day-row      { border-color: #3f3f46; }
+      .day-name     { color: #d4d4d8; }
+      .time-label   { color: #a1a1aa; }
+      .time-input   { background: #27272a; border-color: #52525b; color: #f4f4f5; color-scheme: dark; }
+      .toggle-label { color: #a1a1aa; }
+      .closed-label { color: #71717a; }
+      .row-divider  { border-color: #3f3f46; }
+    }
   `],
 })
 export class ManageHoursComponent implements OnInit {
   private readonly adminService = inject(SalonAdminService);
   private readonly fb           = inject(FormBuilder);
-  private readonly snack        = inject(MatSnackBar);
+  private readonly msgSvc       = inject(MessageService);
 
   readonly dayConfigs = DAYS;
   readonly isLoading  = signal(true);
@@ -214,11 +242,11 @@ export class ManageHoursComponent implements OnInit {
     this.adminService.updateOperatingHours(this.salonId, dto).subscribe({
       next: () => {
         this.isSaving.set(false);
-        this.snack.open('Operating hours updated!', 'OK', { duration: 3000 });
+        this.msgSvc.add({ severity: 'success', summary: 'Done', detail: 'Operating hours updated!', life: 3000 });
       },
       error: () => {
         this.isSaving.set(false);
-        this.snack.open('Failed to save hours.', 'Dismiss', { duration: 4000 });
+        this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Failed to save hours.', life: 4000 });
       },
     });
   }

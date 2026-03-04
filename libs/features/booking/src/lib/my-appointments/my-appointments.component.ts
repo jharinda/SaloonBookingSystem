@@ -9,12 +9,11 @@ import {
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTabsModule } from '@angular/material/tabs';
+import { Button } from 'primeng/button';
+import { Skeleton } from 'primeng/skeleton';
+import { MessageService } from 'primeng/api';
+import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
+import { Tabs, TabList, Tab, TabPanels, TabPanel } from 'primeng/tabs';
 
 import { Booking, BookingStatus } from '@org/models';
 import { BookingService } from '@org/shared-data-access';
@@ -64,10 +63,13 @@ function buildCountdown(targetIso: string, startTime: string): string {
   imports: [
     DatePipe,
     RouterLink,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatTabsModule,
+    Button,
+    Skeleton,
+    Tabs,
+    TabList,
+    Tab,
+    TabPanels,
+    TabPanel,
     AppointmentCardComponent,
   ],
   templateUrl: './my-appointments.component.html',
@@ -76,8 +78,10 @@ function buildCountdown(targetIso: string, startTime: string): string {
 export class MyAppointmentsComponent implements OnInit, OnDestroy {
   // ── DI ──────────────────────────────────────────────────────────────────────
   private readonly bookingService = inject(BookingService);
-  private readonly dialog         = inject(MatDialog);
-  private readonly snack          = inject(MatSnackBar);
+  private readonly dialogService  = inject(DialogService);
+  private readonly msgSvc         = inject(MessageService);
+
+  private cancelDialogRef: DynamicDialogRef | null = null;
 
   // ── State ────────────────────────────────────────────────────────────────────
   readonly loading = signal(true);
@@ -155,12 +159,14 @@ export class MyAppointmentsComponent implements OnInit, OnDestroy {
 
   // ── Cancel flow ──────────────────────────────────────────────────────────────
   openCancelDialog(booking: RichBooking): void {
-    const ref = this.dialog.open(CancelBookingDialogComponent, {
+    this.cancelDialogRef = this.dialogService.open(CancelBookingDialogComponent, {
+      header: 'Cancel Appointment',
       width: '420px',
+      closable: true,
       data: { salonName: booking.salonName, serviceName: booking.serviceName },
     });
 
-    ref.afterClosed().subscribe((result: CancelDialogResult | undefined) => {
+    this.cancelDialogRef?.onClose.subscribe((result: CancelDialogResult | undefined) => {
       if (!result?.confirmed) return;
       this.executeCancel(booking._id, result.reason);
     });
@@ -173,11 +179,11 @@ export class MyAppointmentsComponent implements OnInit, OnDestroy {
         this.allBookings.update((list) =>
           list.map((b) => (b._id === updated._id ? { ...b, ...updated } : b)),
         );
-        this.snack.open('Appointment cancelled.', undefined, { duration: 3000 });
+        this.msgSvc.add({ severity: 'success', summary: 'Done', detail: 'Appointment cancelled.', life: 3000 });
         this.startCountdown(); // recalculate next appointment
       },
       error: () => {
-        this.snack.open('Could not cancel — please try again.', undefined, { duration: 4000 });
+        this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Could not cancel — please try again.', life: 4000 });
       },
     });
   }

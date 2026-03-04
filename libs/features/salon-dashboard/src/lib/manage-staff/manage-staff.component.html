@@ -1,0 +1,293 @@
+<p-toast />
+<p-confirmDialog />
+
+<!-- ── Toolbar ─────────────────────────────────────────────────────────── -->
+<p-toolbar styleClass="mb-4">
+  <ng-template pTemplate="start">
+    <span class="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Staff</span>
+  </ng-template>
+  <ng-template pTemplate="end">
+    <div class="flex items-center gap-3">
+      <p-selectButton
+        [(ngModel)]="layout"
+        [options]="layoutOptions"
+        optionValue="value"
+      >
+        <ng-template let-opt pTemplate>
+          <i [class]="opt.icon"></i>
+        </ng-template>
+      </p-selectButton>
+      <p-button
+        label="Add Staff"
+        icon="pi pi-user-plus"
+        severity="success"
+        (onClick)="openDialog()"
+      />
+    </div>
+  </ng-template>
+</p-toolbar>
+
+<!-- ── DataView ─────────────────────────────────────────────────────────── -->
+<p-dataView [value]="staff()" [layout]="layout">
+
+  <!-- ── Grid layout ────────────────────────────────────────────────────── -->
+  <ng-template pTemplate="grid" let-items>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      @for (member of items; track member.id) {
+        <p-card styleClass="text-center h-full">
+
+          <ng-template pTemplate="header">
+            <div class="flex justify-center pt-5">
+              <p-avatar
+                [image]="member.photo || ''"
+                [label]="member.photo ? undefined : getInitials(member.name)"
+                size="xlarge"
+                shape="circle"
+                styleClass="bg-violet-100 text-violet-700 font-bold"
+              />
+            </div>
+          </ng-template>
+
+          <!-- Name -->
+          <div class="font-semibold text-zinc-900 text-base mt-1 leading-snug">
+            {{ member.name }}
+          </div>
+
+          <!-- Role -->
+          <div class="text-emerald-600 text-sm mt-1">{{ member.role }}</div>
+
+          <!-- Specialties -->
+          <div class="flex flex-wrap justify-center gap-1 mt-3">
+            @for (s of member.specialties; track s) {
+              <p-chip [label]="s" styleClass="text-xs" />
+            }
+          </div>
+
+          <!-- Rating -->
+          <div class="flex justify-center mt-2">
+            <p-rating
+              [(ngModel)]="member.rating"
+              [readonly]="true"
+
+            />
+          </div>
+
+          <ng-template pTemplate="footer">
+            <div class="flex justify-center gap-2">
+              <p-button
+                icon="pi pi-pencil"
+                [rounded]="true"
+                [text]="true"
+                severity="secondary"
+                size="small"
+                pTooltip="Edit"
+                tooltipPosition="top"
+                (onClick)="openDialog(member)"
+                aria-label="Edit"
+              />
+              <p-button
+                icon="pi pi-trash"
+                [rounded]="true"
+                [text]="true"
+                severity="danger"
+                size="small"
+                pTooltip="Remove"
+                tooltipPosition="top"
+                (onClick)="confirmRemove(member)"
+                aria-label="Remove"
+              />
+            </div>
+          </ng-template>
+
+        </p-card>
+      }
+    </div>
+  </ng-template>
+
+  <!-- ── List layout ────────────────────────────────────────────────────── -->
+  <ng-template pTemplate="list" let-items>
+    <div class="flex flex-col bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      @for (member of items; track member.id; let last = $last) {
+        <div class="flex items-center gap-4 py-4 px-5">
+
+          <!-- Avatar -->
+          <p-avatar
+            [image]="member.photo || ''"
+            [label]="member.photo ? undefined : getInitials(member.name)"
+            size="xlarge"
+            shape="circle"
+            styleClass="bg-violet-100 text-violet-700 font-bold shrink-0"
+          />
+
+          <!-- Name + role + chips -->
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-zinc-900">{{ member.name }}</div>
+            <div class="text-emerald-600 text-sm">{{ member.role }}</div>
+            <div class="flex flex-wrap gap-1 mt-2">
+              @for (s of member.specialties; track s) {
+                <p-chip [label]="s" styleClass="text-xs" />
+              }
+            </div>
+          </div>
+
+          <!-- Rating + actions -->
+          <div class="flex flex-col items-end gap-3 shrink-0">
+            <p-rating
+              [(ngModel)]="member.rating"
+              [readonly]="true"
+
+            />
+            <div class="flex gap-1">
+              <p-button
+                icon="pi pi-pencil"
+                [rounded]="true"
+                [text]="true"
+                severity="secondary"
+                size="small"
+                pTooltip="Edit"
+                tooltipPosition="top"
+                (onClick)="openDialog(member)"
+                aria-label="Edit"
+              />
+              <p-button
+                icon="pi pi-trash"
+                [rounded]="true"
+                [text]="true"
+                severity="danger"
+                size="small"
+                pTooltip="Remove"
+                tooltipPosition="top"
+                (onClick)="confirmRemove(member)"
+                aria-label="Remove"
+              />
+            </div>
+          </div>
+
+        </div>
+        @if (!last) {
+          <p-divider styleClass="my-0" />
+        }
+      }
+    </div>
+  </ng-template>
+
+</p-dataView>
+
+<!-- ── Add / Edit Dialog ─────────────────────────────────────────────────── -->
+<p-dialog
+  [(visible)]="dialogVisible"
+  [header]="editingMember() ? 'Edit Staff Member' : 'Add Staff Member'"
+  [modal]="true"
+  [style]="{ width: '480px' }"
+  [closable]="!isSaving()"
+>
+
+  <form [formGroup]="form" p-fluid class="flex flex-col gap-5 pt-2" novalidate>
+
+    <!-- Photo upload + preview -->
+    <div class="flex items-center gap-4">
+      <p-avatar
+        [image]="photoPreview() || ''"
+        [label]="photoPreview() ? undefined : (form.controls.name.value ? getInitials(form.controls.name.value) : '?')"
+        size="xlarge"
+        shape="circle"
+        styleClass="bg-violet-100 text-violet-700 font-bold shrink-0"
+      />
+      <p-fileUpload
+        mode="basic"
+        accept="image/*"
+        [auto]="true"
+        chooseLabel="Upload Photo"
+        (onSelect)="onPhotoSelect($event)"
+      />
+    </div>
+
+    <!-- Full Name -->
+    <p-floatLabel>
+      <input
+        id="staff-name"
+        pInputText
+        formControlName="name"
+        class="w-full"
+        autocomplete="off"
+      />
+      <label for="staff-name">Full Name</label>
+    </p-floatLabel>
+    @if (form.controls.name.invalid && form.controls.name.touched) {
+      <small class="text-red-500 -mt-4">Name is required.</small>
+    }
+
+    <!-- Role -->
+    <p-floatLabel>
+      <p-select
+        inputId="staff-role"
+        formControlName="role"
+        [options]="roleOptions"
+        optionLabel="label"
+        optionValue="value"
+        styleClass="w-full"
+      />
+      <label for="staff-role">Role</label>
+    </p-floatLabel>
+    @if (form.controls.role.invalid && form.controls.role.touched) {
+      <small class="text-red-500 -mt-4">Role is required.</small>
+    }
+
+    <!-- Email -->
+    <p-floatLabel>
+      <input
+        id="staff-email"
+        pInputText
+        formControlName="email"
+        type="email"
+        class="w-full"
+        autocomplete="off"
+      />
+      <label for="staff-email">Email</label>
+    </p-floatLabel>
+
+    <!-- Phone -->
+    <p-floatLabel>
+      <input
+        id="staff-phone"
+        pInputText
+        formControlName="phone"
+        type="tel"
+        class="w-full"
+        autocomplete="off"
+      />
+      <label for="staff-phone">Phone</label>
+    </p-floatLabel>
+
+    <!-- Specialties -->
+    <p-floatLabel>
+      <input
+        id="staff-specialties"
+        pInputText
+        formControlName="specialties"
+        class="w-full"
+        autocomplete="off"
+      />
+      <label for="staff-specialties">Specialties (comma-separated)</label>
+    </p-floatLabel>
+
+  </form>
+
+  <ng-template pTemplate="footer">
+    <p-button
+      label="Cancel"
+      severity="secondary"
+      [text]="true"
+      (onClick)="dialogVisible = false"
+      [disabled]="isSaving()"
+    />
+    <p-button
+      label="Save"
+      severity="success"
+      icon="pi pi-check"
+      (onClick)="saveStaff()"
+      [loading]="isSaving()"
+    />
+  </ng-template>
+
+</p-dialog>

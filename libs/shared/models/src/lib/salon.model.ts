@@ -9,6 +9,8 @@ export interface SalonServiceItem {
   /** Price in LKR */
   price: number;
   description?: string;
+  /** Whether the service is currently offered */
+  active?: boolean;
 }
 
 export interface SalonAddress {

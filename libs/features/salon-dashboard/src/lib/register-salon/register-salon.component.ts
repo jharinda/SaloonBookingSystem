@@ -12,12 +12,10 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatStepperModule } from '@angular/material/stepper';
+import { Button } from 'primeng/button';
+import { InputText } from 'primeng/inputtext';
+import { Stepper, StepList, Step, StepPanels, StepPanel } from 'primeng/stepper';
+import { Textarea } from 'primeng/textarea';
 
 import { SalonAdminService } from '@org/shared-data-access';
 
@@ -39,12 +37,14 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
-    MatButtonModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
-    MatStepperModule,
+    Button,
+    InputText,
+    Stepper,
+    StepList,
+    Step,
+    StepPanels,
+    StepPanel,
+    Textarea,
   ],
   template: `
     <div class="register-page">
@@ -52,7 +52,7 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
 
         <!-- Header -->
         <div class="register-header">
-          <mat-icon class="header-icon">store</mat-icon>
+          <i class="pi pi-shop header-icon"></i>
           <div>
             <h1 class="register-title">Register Your Salon</h1>
             <p class="register-subtitle">
@@ -64,201 +64,199 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
         <!-- Success state -->
         @if (submitted()) {
           <div class="success-state">
-            <mat-icon class="success-icon">check_circle</mat-icon>
+            <i class="pi pi-check-circle success-icon"></i>
             <h2>Salon submitted!</h2>
             <p>
               Your salon <strong>{{ submittedName() }}</strong> has been submitted for review.
               An admin will approve it shortly — you'll be able to manage it from your dashboard once approved.
             </p>
-            <button mat-flat-button color="primary" (click)="goToDashboard()">
-              Go to Dashboard
-            </button>
+            <p-button label="Go to Dashboard" (onClick)="goToDashboard()" />
           </div>
         } @else {
           <!-- Error banner -->
           @if (errorMessage()) {
             <div class="error-banner" role="alert">
-              <mat-icon>error_outline</mat-icon>
+              <i class="pi pi-exclamation-circle"></i>
               <span>{{ errorMessage() }}</span>
             </div>
           }
 
           <!-- Stepper form -->
-          <mat-stepper [linear]="true" #stepper orientation="horizontal">
+          <p-stepper [value]="activeStep()">
+            <p-step-list>
+              <p-step [value]="0">Salon Info</p-step>
+              <p-step [value]="1">Location</p-step>
+              <p-step [value]="2">Confirm</p-step>
+            </p-step-list>
 
-            <!-- Step 1: Salon Info -->
-            <mat-step [stepControl]="infoGroup" label="Salon Info">
-              <form [formGroup]="infoGroup" novalidate class="step-form">
+            <p-step-panels>
+              <!-- Step 1: Salon Info -->
+              <p-step-panel [value]="0">
+                <ng-template #content>
+                  <form [formGroup]="infoGroup" novalidate class="step-form">
 
-                <mat-form-field appearance="outline" class="full">
-                  <mat-label>Salon name</mat-label>
-                  <input matInput formControlName="name" maxlength="100" />
-                  @if (infoGroup.controls.name.invalid && infoGroup.controls.name.touched) {
-                    <mat-error>Salon name is required (max 100 chars).</mat-error>
-                  }
-                </mat-form-field>
+                    <div class="field full">
+                      <label for="name">Salon name</label>
+                      <input id="name" pInputText formControlName="name" maxlength="100" class="w-full" />
+                      @if (infoGroup.controls.name.invalid && infoGroup.controls.name.touched) {
+                        <small class="p-error">Salon name is required (max 100 chars).</small>
+                      }
+                    </div>
 
-                <mat-form-field appearance="outline" class="full">
-                  <mat-label>Description (optional)</mat-label>
-                  <textarea matInput formControlName="description" rows="3"
-                    placeholder="Tell clients what makes your salon special…"></textarea>
-                </mat-form-field>
+                    <div class="field full">
+                      <label for="description">Description (optional)</label>
+                      <textarea id="description" pTextarea formControlName="description" rows="3"
+                        placeholder="Tell clients what makes your salon special…" class="w-full"></textarea>
+                    </div>
 
-                <div class="two-col">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Phone number</mat-label>
-                    <mat-icon matPrefix>phone</mat-icon>
-                    <input matInput formControlName="phone" type="tel"
-                      placeholder="+94771234567" />
-                    @if (infoGroup.controls.phone.invalid && infoGroup.controls.phone.touched) {
-                      <mat-error>Phone number is required.</mat-error>
+                    <div class="two-col">
+                      <div class="field">
+                        <label for="phone">Phone number</label>
+                        <div class="p-inputgroup">
+                          <span class="p-inputgroup-addon"><i class="pi pi-phone"></i></span>
+                          <input id="phone" pInputText formControlName="phone" type="tel" placeholder="+94771234567" />
+                        </div>
+                        @if (infoGroup.controls.phone.invalid && infoGroup.controls.phone.touched) {
+                          <small class="p-error">Phone number is required.</small>
+                        }
+                      </div>
+
+                      <div class="field">
+                        <label for="email">Business email</label>
+                        <div class="p-inputgroup">
+                          <span class="p-inputgroup-addon"><i class="pi pi-envelope"></i></span>
+                          <input id="email" pInputText formControlName="email" type="email" placeholder="salon@example.com" />
+                        </div>
+                        @if (infoGroup.controls.email.invalid && infoGroup.controls.email.touched) {
+                          <small class="p-error">A valid email address is required.</small>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="step-actions">
+                      <p-button label="Next" icon="pi pi-arrow-right" iconPos="right" (onClick)="nextFromInfo()" />
+                    </div>
+                  </form>
+                </ng-template>
+              </p-step-panel>
+
+              <!-- Step 2: Location -->
+              <p-step-panel [value]="1">
+                <ng-template #content>
+                  <form [formGroup]="addressGroup" novalidate class="step-form">
+
+                    <div class="field full">
+                      <label for="street">Street address</label>
+                      <div class="p-inputgroup">
+                        <span class="p-inputgroup-addon"><i class="pi pi-map-marker"></i></span>
+                        <input id="street" pInputText formControlName="street" placeholder="123 Main Street" />
+                      </div>
+                      @if (addressGroup.controls.street.invalid && addressGroup.controls.street.touched) {
+                        <small class="p-error">Street address is required.</small>
+                      }
+                    </div>
+
+                    <div class="two-col">
+                      <div class="field">
+                        <label for="city">City</label>
+                        <input id="city" pInputText formControlName="city" class="w-full" />
+                        @if (addressGroup.controls.city.invalid && addressGroup.controls.city.touched) {
+                          <small class="p-error">City is required.</small>
+                        }
+                      </div>
+
+                      <div class="field">
+                        <label for="province">Province / State</label>
+                        <input id="province" pInputText formControlName="province" class="w-full" />
+                        @if (addressGroup.controls.province.invalid && addressGroup.controls.province.touched) {
+                          <small class="p-error">Province is required.</small>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="two-col">
+                      <div class="field">
+                        <label for="lat">Latitude</label>
+                        <input id="lat" pInputText formControlName="lat" type="number" placeholder="6.9271" step="0.0001" class="w-full" />
+                        <small class="hint">e.g. 6.9271</small>
+                        @if (addressGroup.controls.lat.invalid && addressGroup.controls.lat.touched) {
+                          <small class="p-error">Enter a valid latitude (−90 to 90).</small>
+                        }
+                      </div>
+
+                      <div class="field">
+                        <label for="lng">Longitude</label>
+                        <input id="lng" pInputText formControlName="lng" type="number" placeholder="79.8612" step="0.0001" class="w-full" />
+                        <small class="hint">e.g. 79.8612</small>
+                        @if (addressGroup.controls.lng.invalid && addressGroup.controls.lng.touched) {
+                          <small class="p-error">Enter a valid longitude (−180 to 180).</small>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="step-actions">
+                      <p-button label="Back" outlined (onClick)="prevStep()" />
+                      <p-button label="Next" icon="pi pi-arrow-right" iconPos="right" (onClick)="nextFromAddress()" />
+                    </div>
+                  </form>
+                </ng-template>
+              </p-step-panel>
+
+              <!-- Step 3: Confirm -->
+              <p-step-panel [value]="2">
+                <ng-template #content>
+                  <div class="review-step">
+                    <h3 class="review-title">Review your details</h3>
+
+                    <div class="review-section">
+                      <span class="review-label">Salon name</span>
+                      <span class="review-value">{{ infoGroup.value.name }}</span>
+                    </div>
+                    @if (infoGroup.value.description) {
+                      <div class="review-section">
+                        <span class="review-label">Description</span>
+                        <span class="review-value">{{ infoGroup.value.description }}</span>
+                      </div>
                     }
-                  </mat-form-field>
+                    <div class="review-section">
+                      <span class="review-label">Phone</span>
+                      <span class="review-value">{{ infoGroup.value.phone }}</span>
+                    </div>
+                    <div class="review-section">
+                      <span class="review-label">Email</span>
+                      <span class="review-value">{{ infoGroup.value.email }}</span>
+                    </div>
+                    <div class="review-section">
+                      <span class="review-label">Address</span>
+                      <span class="review-value">
+                        {{ addressGroup.value.street }},
+                        {{ addressGroup.value.city }},
+                        {{ addressGroup.value.province }}
+                      </span>
+                    </div>
+                    <div class="review-section">
+                      <span class="review-label">Coordinates</span>
+                      <span class="review-value">
+                        {{ addressGroup.value.lat }}, {{ addressGroup.value.lng }}
+                      </span>
+                    </div>
 
-                  <mat-form-field appearance="outline">
-                    <mat-label>Business email</mat-label>
-                    <mat-icon matPrefix>email</mat-icon>
-                    <input matInput formControlName="email" type="email"
-                      placeholder="salon@example.com" />
-                    @if (infoGroup.controls.email.invalid && infoGroup.controls.email.touched) {
-                      <mat-error>A valid email address is required.</mat-error>
-                    }
-                  </mat-form-field>
-                </div>
+                    <p class="review-note">
+                      <i class="pi pi-info-circle note-icon"></i>
+                      After submission, your salon will be reviewed by an admin before going live.
+                      You can add services and operating hours from the dashboard once approved.
+                    </p>
 
-                <div class="step-actions">
-                  <button mat-flat-button color="primary" matStepperNext
-                    type="button" (click)="touchInfo()">
-                    Next
-                  </button>
-                </div>
-              </form>
-            </mat-step>
-
-            <!-- Step 2: Location -->
-            <mat-step [stepControl]="addressGroup" label="Location">
-              <form [formGroup]="addressGroup" novalidate class="step-form">
-
-                <mat-form-field appearance="outline" class="full">
-                  <mat-label>Street address</mat-label>
-                  <mat-icon matPrefix>location_on</mat-icon>
-                  <input matInput formControlName="street"
-                    placeholder="123 Main Street" />
-                  @if (addressGroup.controls.street.invalid && addressGroup.controls.street.touched) {
-                    <mat-error>Street address is required.</mat-error>
-                  }
-                </mat-form-field>
-
-                <div class="two-col">
-                  <mat-form-field appearance="outline">
-                    <mat-label>City</mat-label>
-                    <input matInput formControlName="city" />
-                    @if (addressGroup.controls.city.invalid && addressGroup.controls.city.touched) {
-                      <mat-error>City is required.</mat-error>
-                    }
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Province / State</mat-label>
-                    <input matInput formControlName="province" />
-                    @if (addressGroup.controls.province.invalid && addressGroup.controls.province.touched) {
-                      <mat-error>Province is required.</mat-error>
-                    }
-                  </mat-form-field>
-                </div>
-
-                <div class="two-col">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Latitude</mat-label>
-                    <input matInput formControlName="lat" type="number"
-                      placeholder="6.9271" step="0.0001" />
-                    <mat-hint>e.g. 6.9271</mat-hint>
-                    @if (addressGroup.controls.lat.invalid && addressGroup.controls.lat.touched) {
-                      <mat-error>Enter a valid latitude (−90 to 90).</mat-error>
-                    }
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline">
-                    <mat-label>Longitude</mat-label>
-                    <input matInput formControlName="lng" type="number"
-                      placeholder="79.8612" step="0.0001" />
-                    <mat-hint>e.g. 79.8612</mat-hint>
-                    @if (addressGroup.controls.lng.invalid && addressGroup.controls.lng.touched) {
-                      <mat-error>Enter a valid longitude (−180 to 180).</mat-error>
-                    }
-                  </mat-form-field>
-                </div>
-
-                <div class="step-actions">
-                  <button mat-stroked-button matStepperPrevious type="button">Back</button>
-                  <button mat-flat-button color="primary" matStepperNext
-                    type="button" (click)="touchAddress()">
-                    Next
-                  </button>
-                </div>
-              </form>
-            </mat-step>
-
-            <!-- Step 3: Review & Submit -->
-            <mat-step label="Confirm">
-              <div class="review-step">
-                <h3 class="review-title">Review your details</h3>
-
-                <div class="review-section">
-                  <span class="review-label">Salon name</span>
-                  <span class="review-value">{{ infoGroup.value.name }}</span>
-                </div>
-                @if (infoGroup.value.description) {
-                  <div class="review-section">
-                    <span class="review-label">Description</span>
-                    <span class="review-value">{{ infoGroup.value.description }}</span>
+                    <div class="step-actions">
+                      <p-button label="Back" outlined [disabled]="isSubmitting()" (onClick)="prevStep()" />
+                      <p-button label="Submit for Approval" [loading]="isSubmitting()" (onClick)="submit()" />
+                    </div>
                   </div>
-                }
-                <div class="review-section">
-                  <span class="review-label">Phone</span>
-                  <span class="review-value">{{ infoGroup.value.phone }}</span>
-                </div>
-                <div class="review-section">
-                  <span class="review-label">Email</span>
-                  <span class="review-value">{{ infoGroup.value.email }}</span>
-                </div>
-                <div class="review-section">
-                  <span class="review-label">Address</span>
-                  <span class="review-value">
-                    {{ addressGroup.value.street }},
-                    {{ addressGroup.value.city }},
-                    {{ addressGroup.value.province }}
-                  </span>
-                </div>
-                <div class="review-section">
-                  <span class="review-label">Coordinates</span>
-                  <span class="review-value">
-                    {{ addressGroup.value.lat }}, {{ addressGroup.value.lng }}
-                  </span>
-                </div>
+                </ng-template>
+              </p-step-panel>
 
-                <p class="review-note">
-                  <mat-icon class="note-icon">info</mat-icon>
-                  After submission, your salon will be reviewed by an admin before going live.
-                  You can add services and operating hours from the dashboard once approved.
-                </p>
-
-                <div class="step-actions">
-                  <button mat-stroked-button matStepperPrevious type="button"
-                    [disabled]="isSubmitting()">Back</button>
-                  <button mat-flat-button color="primary" type="button"
-                    [disabled]="isSubmitting()" (click)="submit()">
-                    @if (isSubmitting()) {
-                      <mat-spinner diameter="20" />
-                    } @else {
-                      Submit for Approval
-                    }
-                  </button>
-                </div>
-              </div>
-            </mat-step>
-
-          </mat-stepper>
+            </p-step-panels>
+          </p-stepper>
         }
 
       </div>
@@ -341,7 +339,26 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
       gap: 16px;
     }
 
-    .two-col mat-form-field { flex: 1; }
+    .two-col .field { flex: 1; }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field label {
+      font-size: .875rem;
+      font-weight: 500;
+      color: #374151;
+    }
+
+    .hint {
+      font-size: .75rem;
+      color: #6b7280;
+    }
+
+    .w-full { width: 100%; }
 
     .step-actions {
       display: flex;
@@ -440,8 +457,7 @@ export class RegisterSalonComponent {
   private readonly fb           = inject(FormBuilder);
   private readonly adminService = inject(SalonAdminService);
   private readonly router       = inject(Router);
-
-  readonly isSubmitting = signal(false);
+  readonly activeStep    = signal(0);  readonly isSubmitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly submitted    = signal(false);
   readonly submittedName = signal('');
@@ -467,6 +483,20 @@ export class RegisterSalonComponent {
 
   touchAddress(): void {
     this.addressGroup.markAllAsTouched();
+  }
+
+  nextFromInfo(): void {
+    this.touchInfo();
+    if (this.infoGroup.valid) this.activeStep.set(1);
+  }
+
+  nextFromAddress(): void {
+    this.touchAddress();
+    if (this.addressGroup.valid) this.activeStep.set(2);
+  }
+
+  prevStep(): void {
+    this.activeStep.update(s => Math.max(0, s - 1));
   }
 
   submit(): void {

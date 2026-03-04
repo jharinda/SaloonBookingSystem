@@ -1,58 +1,35 @@
 
-// Include theming for Angular Material with `mat.theme()`.
-// This Sass mixin will define CSS variables that are used for styling Angular Material
-// components according to the Material 3 design spec.
-// Learn more about theming and how to use it for your application's
-// custom components at https://material.angular.dev/guide/theming
-@use '@angular/material' as mat;
+@import 'primeicons/primeicons.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// ── SnapSalon brand font ──────────────────────────────────────────────────────
+// Applied to :root so both PrimeNG (via --p-font-family) and Tailwind/body
+// classes pick up Plus Jakarta Sans automatically.
+:root {
+  --p-font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
 
 html {
   height: 100%;
-  @include mat.theme((
-    color: (
-      primary: mat.$magenta-palette,
-      tertiary: mat.$violet-palette,
-    ),
-    typography: Roboto,
-    density: 0,
-  ));
 }
 
 body {
-  // Default the application to a light color theme. This can be changed to
-  // `dark` to enable the dark color theme, or to `light dark` to defer to the
-  // user's system settings.
   color-scheme: light;
-
-  // Set a default background, font and text colors for the application using
-  // Angular Material's system-level CSS variables. Learn more about these
-  // variables at https://material.angular.dev/guide/system-variables
-  background-color: var(--mat-sys-surface);
-  color: var(--mat-sys-on-surface);
-  font: var(--mat-sys-body-medium);
-
-  // Reset the user agent margin.
+  background-color: #f9fafb;
+  color: #111827;
+  font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
   margin: 0;
   height: 100%;
 }
-/* You can add global styles to this file, and also import other style files */
 
-/* ── Fix: Angular Material 3 overlay panels (select, autocomplete, menu) ──── */
-/* In M3, overlay panels can inherit a transparent surface. Force white bg.   */
-.mat-mdc-select-panel,
-.mat-mdc-autocomplete-panel,
-.mat-mdc-menu-panel,
-.mat-mdc-menu-content {
-  background-color: #ffffff !important;
-}
-
-.mat-mdc-option {
-  background-color: #ffffff;
-  &:hover,
-  &.mat-mdc-option-active {
-    background-color: #f3f4f6 !important;
-  }
-  &.mdc-list-item--selected:not(.mat-mdc-option-multiple) {
-    background-color: #ede9fe !important;
-  }
+.app-dark body,
+.dark body {
+  color-scheme: dark;
+  background-color: #09090b; /* zinc-950 */
+  color: #f4f4f5; /* zinc-100 */
 }

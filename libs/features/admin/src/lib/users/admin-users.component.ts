@@ -6,18 +6,14 @@ import {
   signal,
 } from '@angular/core';
 import { DatePipe, TitleCasePipe } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDialog } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTableModule } from '@angular/material/table';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { FormsModule } from '@angular/forms';
+import { Button } from 'primeng/button';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { Select } from 'primeng/select';
+import { TableModule } from 'primeng/table';
+import { Tooltip } from 'primeng/tooltip';
+import { MessageService } from 'primeng/api';
+import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
 
 import { AdminService, AdminUser } from '@org/shared-data-access';
 import { ConfirmDialogComponent } from '../shared/confirm-dialog.component';
@@ -29,24 +25,22 @@ import { ConfirmDialogComponent } from '../shared/confirm-dialog.component';
   imports: [
     DatePipe,
     TitleCasePipe,
-    MatButtonModule,
-    MatChipsModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
-    MatPaginatorModule,
-    MatProgressSpinnerModule,
-    MatSelectModule,
-    MatTableModule,
-    MatTooltipModule,
+    FormsModule,
+    Button,
+    ProgressSpinner,
+    Select,
+    TableModule,
+    Tooltip,
   ],
   templateUrl: './admin-users.component.html',
   styleUrl:    './admin-users.component.scss',
 })
 export class AdminUsersComponent implements OnInit {
-  private readonly adminService = inject(AdminService);
-  private readonly dialog       = inject(MatDialog);
-  private readonly snack        = inject(MatSnackBar);
+  private readonly adminService  = inject(AdminService);
+  private readonly dialogService  = inject(DialogService);
+  private readonly msgSvc         = inject(MessageService);
+
+  private confirmDialogRef: DynamicDialogRef | null = null;
 
   readonly loading    = signal(true);
   readonly error      = signal<string | null>(null);
@@ -75,9 +69,9 @@ export class AdminUsersComponent implements OnInit {
     this.loadUsers();
   }
 
-  onPage(e: PageEvent): void {
-    this.page.set(e.pageIndex);
-    this.pageSize.set(e.pageSize);
+  onPage(e: { first: number; rows: number }): void {
+    this.page.set(Math.floor(e.first / e.rows));
+    this.pageSize.set(e.rows);
     this.loadUsers();
   }
 
@@ -103,21 +97,23 @@ export class AdminUsersComponent implements OnInit {
 
   viewBookings(user: AdminUser): void {
     // Navigate to /admin/salons?userId=... (placeholder)
-    this.snack.open(`Bookings for ${user.firstName} ${user.lastName} (coming soon)`, undefined, { duration: 2500 });
+    this.msgSvc.add({ severity: 'info', summary: 'Coming Soon', detail: `Bookings for ${user.firstName} ${user.lastName} (coming soon)`, life: 2500 });
   }
 
   suspend(user: AdminUser): void {
-    const ref = this.dialog.open(ConfirmDialogComponent, {
+    this.confirmDialogRef = this.dialogService.open(ConfirmDialogComponent, {
+      header: 'Suspend Account',
+      width: '440px',
+      closable: true,
       data: {
         title:        'Suspend Account',
         message:      `Suspend account for ${user.firstName} ${user.lastName} (${user.email})? They will lose access to the platform.`,
         confirmLabel: 'Suspend',
         danger:       true,
       },
-      width: '440px',
     });
 
-    ref.afterClosed().subscribe((ok: boolean) => {
+    this.confirmDialogRef?.onClose.subscribe((ok: boolean) => {
       if (!ok) return;
       this.actionId.set(user._id);
       this.adminService.suspendUser(user._id).subscribe({
@@ -126,11 +122,11 @@ export class AdminUsersComponent implements OnInit {
             list.map((u) => u._id === user._id ? { ...u, isActive: false } : u)
           );
           this.actionId.set(null);
-          this.snack.open('Account suspended', undefined, { duration: 3000 });
+          this.msgSvc.add({ severity: 'warn', summary: 'Suspended', detail: 'Account suspended', life: 3000 });
         },
         error: () => {
           this.actionId.set(null);
-          this.snack.open('Failed to suspend account', 'Dismiss', { duration: 4000 });
+          this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Failed to suspend account', life: 4000 });
         },
       });
     });

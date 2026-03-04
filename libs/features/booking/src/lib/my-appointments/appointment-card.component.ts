@@ -8,9 +8,7 @@ import {
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { Button } from 'primeng/button';
 
 import { Booking, BookingStatus } from '@org/models';
 
@@ -40,13 +38,13 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
   selector: 'lib-appointment-card',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, MatButtonModule, MatIconModule, MatTooltipModule],
+  imports: [DatePipe, DecimalPipe, Button],
   template: `
     <article class="appt-card" [class.appt-card--cancelled]="tab() === 'cancelled'">
 
       <!-- Thumbnail -->
       <div class="appt-thumb" aria-hidden="true">
-        <mat-icon class="appt-thumb__icon">content_cut</mat-icon>
+        <i class="pi pi-scissors appt-thumb__icon"></i>
       </div>
 
       <!-- Details -->
@@ -57,7 +55,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
             <p class="appt-service">{{ booking().serviceName }}</p>
             @if (booking().stylistName) {
               <p class="appt-stylist">
-                <mat-icon class="inline-icon" aria-hidden="true">person</mat-icon>
+                <i class="pi pi-user inline-icon" aria-hidden="true"></i>
                 {{ booking().stylistName }}
               </p>
             }
@@ -73,7 +71,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
 
         <!-- Date / time row -->
         <div class="appt-datetime">
-          <mat-icon class="inline-icon" aria-hidden="true">calendar_today</mat-icon>
+          <i class="pi pi-calendar inline-icon" aria-hidden="true"></i>
           <time [attr.datetime]="booking().appointmentDate">
             {{ booking().appointmentDate | date: 'EEEE, d MMMM yyyy' }}
             at {{ booking().startTime }}
@@ -83,7 +81,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
         <!-- Duration & price -->
         <div class="appt-meta">
           <span>
-            <mat-icon class="inline-icon-sm" aria-hidden="true">schedule</mat-icon>
+            <i class="pi pi-clock inline-icon-sm" aria-hidden="true"></i>
             {{ booking().startTime }} – {{ booking().endTime }}
           </span>
           <span class="appt-price">LKR {{ booking().totalPrice | number }}</span>
@@ -96,15 +94,15 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
             [attr.aria-label]="'You rated this ' + booking().clientRating + ' stars'"
           >
             @for (star of stars(); track $index) {
-              <mat-icon
-                class="star-icon"
+              <i
+                class="pi star-icon"
+                [class.pi-star-fill]="star === 'full' || star === 'half'"
+                [class.pi-star]="star === 'empty'"
                 [class.star--full]="star === 'full'"
                 [class.star--half]="star === 'half'"
                 [class.star--empty]="star === 'empty'"
                 aria-hidden="true"
-              >
-                {{ star === 'full' ? 'star' : star === 'half' ? 'star_half' : 'star_border' }}
-              </mat-icon>
+              ></i>
             }
             <span class="appt-review-label">Your review</span>
           </div>
@@ -114,47 +112,47 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
         <div class="appt-actions">
 
           @if (tab() === 'upcoming') {
-            <button
-              mat-stroked-button
-              class="action-btn"
-              (click)="getDirections()"
-              aria-label="Get directions to {{ booking().salonName }}"
-            >
-              <mat-icon>directions</mat-icon>
-              Get Directions
-            </button>
-            <button
-              mat-stroked-button
-              class="action-btn action-btn--danger"
-              (click)="cancelRequested.emit()"
+            <p-button
+              icon="pi pi-compass"
+              label="Get Directions"
+              [outlined]="true"
+              size="small"
+              [rounded]="true"
+              (onClick)="getDirections()"
+              [attr.aria-label]="'Get directions to ' + booking().salonName"
+            />
+            <p-button
+              icon="pi pi-times-circle"
+              label="Cancel"
+              [outlined]="true"
+              severity="danger"
+              size="small"
+              [rounded]="true"
+              (onClick)="cancelRequested.emit()"
               aria-label="Cancel this appointment"
-            >
-              <mat-icon>cancel</mat-icon>
-              Cancel
-            </button>
+            />
           }
 
           @if (tab() === 'past') {
             @if (!booking().hasReview) {
-              <button
-                mat-flat-button
-                class="action-btn action-btn--primary"
-                (click)="leaveReview()"
+              <p-button
+                icon="pi pi-pencil"
+                label="Leave a Review"
+                size="small"
+                [rounded]="true"
+                (onClick)="leaveReview()"
                 aria-label="Leave a review for this booking"
-              >
-                <mat-icon>rate_review</mat-icon>
-                Leave a Review
-              </button>
+              />
             }
-            <button
-              mat-stroked-button
-              class="action-btn"
-              (click)="bookAgain()"
+            <p-button
+              icon="pi pi-replay"
+              label="Book Again"
+              [outlined]="true"
+              size="small"
+              [rounded]="true"
+              (onClick)="bookAgain()"
               aria-label="Book this salon again"
-            >
-              <mat-icon>replay</mat-icon>
-              Book Again
-            </button>
+            />
           }
 
         </div>
@@ -187,8 +185,6 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
 
       &__icon {
         font-size: 36px;
-        width: 36px;
-        height: 36px;
         color: #6750a4;
         opacity: .6;
       }
@@ -283,7 +279,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
     }
 
     .star-icon {
-      font-size: 16px; width: 16px; height: 16px;
+      font-size: 16px;
       &.star--full, &.star--half { color: #f59e0b; }
       &.star--empty { color: #d1d5db; }
     }
@@ -295,33 +291,12 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
       margin-top: 4px;
     }
 
-    .action-btn {
-      font-size: .8rem;
-      border-radius: 20px;
-      height: 34px;
-      padding: 0 14px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-
-      mat-icon { font-size: 16px; width: 16px; height: 16px; }
-
-      &--primary {
-        background: #6750a4;
-        color: #fff;
-      }
-      &--danger {
-        border-color: #dc2626;
-        color: #dc2626;
-      }
-    }
-
     .inline-icon {
-      font-size: 15px; width: 15px; height: 15px;
+      font-size: 15px;
       vertical-align: middle; margin-right: 3px; opacity: .65;
     }
     .inline-icon-sm {
-      font-size: 13px; width: 13px; height: 13px;
+      font-size: 13px;
       vertical-align: middle; margin-right: 2px;
     }
   `],

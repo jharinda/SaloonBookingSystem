@@ -8,13 +8,12 @@ import {
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import { MatButtonModule } from '@angular/material/button';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatIconModule } from '@angular/material/icon';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { Button } from 'primeng/button';
+import { Divider } from 'primeng/divider';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { Tooltip } from 'primeng/tooltip';
+import { MessageService } from 'primeng/api';
+import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
 
 import { Booking } from '@org/models';
 import { BookingService } from '../services/booking.service';
@@ -27,12 +26,10 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
   imports: [
     DatePipe,
     DecimalPipe,
-    MatButtonModule,
-    MatDialogModule,
-    MatDividerModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
+    Button,
+    Divider,
+    ProgressSpinner,
+    Tooltip,
   ],
   template: `
     <div class="success-container">
@@ -40,7 +37,7 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
       <!-- Header -->
       <div class="success-banner">
         <div class="success-icon-wrapper">
-          <mat-icon class="success-icon">check_circle</mat-icon>
+          <i class="pi pi-check-circle success-icon"></i>
         </div>
         <h1 class="success-title">Booking Confirmed!</h1>
         <p class="success-subtitle">
@@ -51,7 +48,7 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
       <!-- Loading state while fetching booking details -->
       @if (isLoading()) {
         <div class="loading-state">
-          <mat-spinner diameter="40" />
+          <p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '40px', height: '40px' }" />
           <span>Loading booking details…</span>
         </div>
       }
@@ -59,7 +56,7 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
       <!-- Error state -->
       @if (!isLoading() && loadError()) {
         <div class="error-state">
-          <mat-icon color="warn">error_outline</mat-icon>
+          <i class="pi pi-exclamation-circle" style="color:#ef4444;font-size:1.25rem"></i>
           <span>{{ loadError() }}</span>
         </div>
       }
@@ -70,27 +67,27 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
           <h2 class="details-heading">Appointment Details</h2>
 
           <div class="detail-row">
-            <mat-icon class="detail-icon">tag</mat-icon>
+            <i class="pi pi-hashtag detail-icon"></i>
             <div>
               <div class="detail-label">Booking ID</div>
               <div class="detail-value detail-value--mono">{{ booking()!._id }}</div>
             </div>
           </div>
 
-          <mat-divider />
+          <p-divider />
 
           <div class="detail-row">
-            <mat-icon class="detail-icon">storefront</mat-icon>
+            <i class="pi pi-shop detail-icon"></i>
             <div>
               <div class="detail-label">Salon</div>
               <div class="detail-value">{{ booking()!.salonName }}</div>
             </div>
           </div>
 
-          <mat-divider />
+          <p-divider />
 
           <div class="detail-row">
-            <mat-icon class="detail-icon">content_cut</mat-icon>
+            <i class="pi pi-scissors detail-icon"></i>
             <div>
               <div class="detail-label">Service</div>
               <div class="detail-value">{{ booking()!.serviceName }}</div>
@@ -98,9 +95,9 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
           </div>
 
           @if (booking()!.stylistName) {
-            <mat-divider />
+            <p-divider />
             <div class="detail-row">
-              <mat-icon class="detail-icon">person</mat-icon>
+              <i class="pi pi-user detail-icon"></i>
               <div>
                 <div class="detail-label">Stylist</div>
                 <div class="detail-value">{{ booking()!.stylistName }}</div>
@@ -108,10 +105,10 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
             </div>
           }
 
-          <mat-divider />
+          <p-divider />
 
           <div class="detail-row">
-            <mat-icon class="detail-icon">event</mat-icon>
+            <i class="pi pi-calendar detail-icon"></i>
             <div>
               <div class="detail-label">Date</div>
               <div class="detail-value">
@@ -120,10 +117,10 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
             </div>
           </div>
 
-          <mat-divider />
+          <p-divider />
 
           <div class="detail-row">
-            <mat-icon class="detail-icon">schedule</mat-icon>
+            <i class="pi pi-clock detail-icon"></i>
             <div>
               <div class="detail-label">Time</div>
               <div class="detail-value">
@@ -132,10 +129,10 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
             </div>
           </div>
 
-          <mat-divider />
+          <p-divider />
 
           <div class="detail-row">
-            <mat-icon class="detail-icon">payments</mat-icon>
+            <i class="pi pi-money-bill detail-icon"></i>
             <div>
               <div class="detail-label">Total</div>
               <div class="detail-value detail-value--price">
@@ -152,52 +149,46 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
         <!-- Calendar actions -->
         <div class="calendar-section">
           <h3 class="calendar-heading">
-            <mat-icon>calendar_month</mat-icon>
+            <i class="pi pi-calendar"></i>
             Add to your calendar
           </h3>
 
           <div class="calendar-buttons">
-            <button
-              mat-raised-button
-              color="primary"
-              [disabled]="isCalendarLoading()"
-              (click)="addToGoogleCalendar()"
-              matTooltip="Syncs with your Google Calendar account"
-            >
-              @if (isCalendarLoading()) {
-                <mat-spinner diameter="18" class="btn-spinner" />
-              } @else {
-                <mat-icon>event_available</mat-icon>
-              }
-              Add to Google Calendar
-            </button>
+            <p-button
+              label="Add to Google Calendar"
+              icon="pi pi-calendar-plus"
+              [loading]="isCalendarLoading()"
+              (onClick)="addToGoogleCalendar()"
+              pTooltip="Syncs with your Google Calendar account"
+              tooltipPosition="top"
+            />
 
-            <button
-              mat-stroked-button
-              [disabled]="isIcsLoading()"
-              (click)="downloadIcs()"
-              matTooltip="Download an .ics file for Apple Calendar, Outlook, etc."
-            >
-              @if (isIcsLoading()) {
-                <mat-spinner diameter="18" class="btn-spinner" />
-              } @else {
-                <mat-icon>download</mat-icon>
-              }
-              Download .ics File
-            </button>
+            <p-button
+              label="Download .ics File"
+              icon="pi pi-download"
+              [outlined]="true"
+              [loading]="isIcsLoading()"
+              (onClick)="downloadIcs()"
+              pTooltip="Download an .ics file for Apple Calendar, Outlook, etc."
+              tooltipPosition="top"
+            />
           </div>
         </div>
 
         <!-- Navigation -->
         <div class="nav-actions">
-          <button mat-stroked-button (click)="goToDiscover()">
-            <mat-icon>search</mat-icon>
-            Find Another Salon
-          </button>
-          <button mat-button (click)="goToBookings()">
-            <mat-icon>list_alt</mat-icon>
-            My Bookings
-          </button>
+          <p-button
+            label="Find Another Salon"
+            icon="pi pi-search"
+            [outlined]="true"
+            (onClick)="goToDiscover()"
+          />
+          <p-button
+            label="My Bookings"
+            icon="pi pi-list"
+            [text]="true"
+            (onClick)="goToBookings()"
+          />
         </div>
       }
     </div>
@@ -225,8 +216,6 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
 
     .success-icon {
       font-size: 3rem;
-      width: 3rem;
-      height: 3rem;
       color: #16a34a;
     }
 
@@ -284,10 +273,8 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
     }
 
     .detail-icon {
-      color: var(--mat-sys-primary, #6750A4);
+      color: var(--p-primary-500, #7c3aed);
       font-size: 1.2rem;
-      width: 1.2rem;
-      height: 1.2rem;
       flex-shrink: 0;
       margin-top: 2px;
     }
@@ -312,7 +299,7 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
     .detail-value--price {
       font-weight: 700;
       font-size: 1.1rem;
-      color: var(--mat-sys-primary, #6750A4);
+      color: var(--p-primary-500, #7c3aed);
     }
 
     .status-chip {
@@ -349,23 +336,15 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
       margin: 0 0 16px;
     }
 
-    .calendar-heading mat-icon {
+    .calendar-heading .pi {
       font-size: 1.1rem;
-      width: 1.1rem;
-      height: 1.1rem;
-      color: var(--mat-sys-primary, #6750A4);
+      color: var(--p-primary-500, #7c3aed);
     }
 
     .calendar-buttons {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
-    }
-
-    .btn-spinner {
-      display: inline-block;
-      vertical-align: middle;
-      margin-right: 6px;
     }
 
     /* ── Nav ── */
@@ -379,7 +358,6 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
     @media (max-width: 480px) {
       .success-container { padding: 20px 16px 40px; }
       .calendar-buttons { flex-direction: column; }
-      .calendar-buttons button { width: 100%; }
     }
   `],
 })
@@ -387,9 +365,11 @@ export class BookingSuccessComponent implements OnInit {
   private readonly route           = inject(ActivatedRoute);
   private readonly bookingService  = inject(BookingService);
   private readonly calendarService = inject(CalendarService);
-  private readonly snackBar        = inject(MatSnackBar);
+  private readonly msgSvc          = inject(MessageService);
   private readonly router          = inject(Router);
-  private readonly dialog          = inject(MatDialog);
+  private readonly dialogService   = inject(DialogService);
+
+  private pushNotifRef: DynamicDialogRef | null = null;
 
   private get bookingId(): string {
     return this.route.snapshot.paramMap.get('bookingId') ?? '';
@@ -422,10 +402,10 @@ export class BookingSuccessComponent implements OnInit {
 
     sessionStorage.setItem('pn_prompted', '1');
     setTimeout(() => {
-      this.dialog.open(PushNotificationDialogComponent, {
+      this.pushNotifRef = this.dialogService.open(PushNotificationDialogComponent, {
+        header: 'Stay in the loop',
         width: '380px',
-        panelClass: 'pwa-dialog-panel',
-        disableClose: false,
+        closable: true,
       });
     }, 800);
   }
@@ -438,9 +418,7 @@ export class BookingSuccessComponent implements OnInit {
       },
       error: () => {
         this.isCalendarLoading.set(false);
-        this.snackBar.open('Could not connect to Google Calendar. Please try again.', 'Dismiss', {
-          duration: 4000,
-        });
+        this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Could not connect to Google Calendar. Please try again.', life: 4000 });
       },
     });
   }
@@ -454,9 +432,7 @@ export class BookingSuccessComponent implements OnInit {
       },
       error: () => {
         this.isIcsLoading.set(false);
-        this.snackBar.open('Could not download calendar file. Please try again.', 'Dismiss', {
-          duration: 4000,
-        });
+        this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Could not download calendar file. Please try again.', life: 4000 });
       },
     });
   }

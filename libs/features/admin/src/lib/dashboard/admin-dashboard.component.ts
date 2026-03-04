@@ -6,8 +6,8 @@ import {
   signal,
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { Button } from 'primeng/button';
 
 import { AdminService, AdminStats } from '@org/shared-data-access';
 
@@ -23,7 +23,7 @@ interface StatCard {
   selector: 'lib-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, MatIconModule, MatProgressSpinnerModule],
+  imports: [DecimalPipe, ProgressSpinner, Button],
   templateUrl: './admin-dashboard.component.html',
   styleUrl:    './admin-dashboard.component.scss',
 })

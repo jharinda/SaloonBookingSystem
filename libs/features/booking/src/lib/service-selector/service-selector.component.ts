@@ -7,16 +7,15 @@ import {
   signal,
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatRippleModule } from '@angular/material/core';
+import { Button } from 'primeng/button';
+import { Ripple } from 'primeng/ripple';
 
 import { Salon, SalonServiceItem } from '@org/models';
 
 @Component({
   selector: 'lib-service-selector',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, MatButtonModule, MatIconModule, MatRippleModule],
+  imports: [DecimalPipe, Button, Ripple],
   template: `
     <div class="service-selector">
       <p class="selector-hint">
@@ -59,7 +58,7 @@ import { Salon, SalonServiceItem } from '@org/models';
             role="option"
             [attr.aria-selected]="selected()?._id === svc._id"
             tabindex="0"
-            matRipple
+            pRipple
             (click)="select(svc)"
             (keyup.enter)="select(svc)"
             (keyup.space)="select(svc)"
@@ -67,9 +66,7 @@ import { Salon, SalonServiceItem } from '@org/models';
             <div class="service-card__header">
               <span class="service-card__name">{{ svc.name }}</span>
               @if (selected()?._id === svc._id) {
-                <mat-icon class="service-card__check" aria-hidden="true">
-                  check_circle
-                </mat-icon>
+                <i class="pi pi-check-circle service-card__check" aria-hidden="true"></i>
               }
             </div>
 
@@ -79,7 +76,7 @@ import { Salon, SalonServiceItem } from '@org/models';
 
             <div class="service-card__meta">
               <span class="service-card__duration">
-                <mat-icon aria-hidden="true">schedule</mat-icon>
+                <i class="pi pi-clock" aria-hidden="true"></i>
                 {{ svc.duration }} min
               </span>
               <span class="service-card__price">LKR {{ svc.price | number }}</span>
@@ -94,14 +91,13 @@ import { Salon, SalonServiceItem } from '@org/models';
 
       <!-- Continue -->
       <div class="selector-footer">
-        <button
-          mat-raised-button
-          color="primary"
+        <p-button
+          label="Continue"
+          icon="pi pi-arrow-right"
+          iconPos="right"
           [disabled]="!selected()"
-          (click)="confirm()"
-        >
-          Continue <mat-icon iconPositionEnd>arrow_forward</mat-icon>
-        </button>
+          (onClick)="confirm()"
+        />
       </div>
     </div>
   `,
@@ -134,12 +130,12 @@ import { Salon, SalonServiceItem } from '@org/models';
       color: #374151;
     }
 
-    .category-tab:hover { border-color: var(--mat-sys-primary, #6750A4); }
+    .category-tab:hover { border-color: var(--p-primary-500, #7c3aed); }
 
     .category-tab--active {
-      background: var(--mat-sys-primary, #6750A4);
+      background: var(--p-primary-500, #7c3aed);
       color: #fff;
-      border-color: var(--mat-sys-primary, #6750A4);
+      border-color: var(--p-primary-500, #7c3aed);
     }
 
     /* ── Service grid ── */
@@ -166,9 +162,9 @@ import { Salon, SalonServiceItem } from '@org/models';
     .service-card:hover { border-color: #9ca3af; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 
     .service-card--selected {
-      border-color: var(--mat-sys-primary, #6750A4);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--mat-sys-primary, #6750A4) 15%, transparent);
-      background: color-mix(in srgb, var(--mat-sys-primary, #6750A4) 4%, white);
+      border-color: var(--p-primary-500, #7c3aed);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-primary-500, #7c3aed) 15%, transparent);
+      background: color-mix(in srgb, var(--p-primary-500, #7c3aed) 4%, white);
     }
 
     .service-card__header {
@@ -186,9 +182,7 @@ import { Salon, SalonServiceItem } from '@org/models';
 
     .service-card__check {
       font-size: 1.15rem;
-      width: 1.15rem;
-      height: 1.15rem;
-      color: var(--mat-sys-primary, #6750A4);
+      color: var(--p-primary-500, #7c3aed);
       flex-shrink: 0;
     }
 
@@ -217,16 +211,14 @@ import { Salon, SalonServiceItem } from '@org/models';
       color: #6b7280;
     }
 
-    .service-card__duration mat-icon {
+    .service-card__duration .pi {
       font-size: 0.85rem;
-      width: 0.85rem;
-      height: 0.85rem;
     }
 
     .service-card__price {
       font-size: 0.93rem;
       font-weight: 700;
-      color: var(--mat-sys-primary, #6750A4);
+      color: var(--p-primary-500, #7c3aed);
       white-space: nowrap;
       flex-shrink: 0;
     }

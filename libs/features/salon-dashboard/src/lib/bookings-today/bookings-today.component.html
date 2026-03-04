@@ -1,0 +1,232 @@
+<p-toast />
+<p-confirmDialog />
+
+<!-- ── Loading ──────────────────────────────────────────────────────────── -->
+@if (isLoading()) {
+  <div class="flex items-center justify-center gap-3 h-48 text-zinc-400 dark:text-zinc-500">
+    <p-progressSpinner
+      strokeWidth="3"
+      animationDuration=".8s"
+      [style]="{ width: '40px', height: '40px' }"
+    />
+    <span class="text-sm">Loading appointments…</span>
+  </div>
+}
+
+<!-- ── Error ─────────────────────────────────────────────────────────────── -->
+@else if (loadError()) {
+  <div class="flex flex-col items-center justify-center gap-4 py-16">
+    <p-message severity="error" [text]="loadError()!" styleClass="w-full max-w-md" />
+    <p-button
+      label="Retry"
+      icon="pi pi-refresh"
+      severity="secondary"
+      variant="outlined"
+      (onClick)="loadBookings()"
+    />
+  </div>
+}
+
+<!-- ── Table ─────────────────────────────────────────────────────────────── -->
+@else {
+
+  <!-- Toolbar ─────────────────────────────────────────────────────────────── -->
+  <p-toolbar styleClass="mb-4 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-900 shadow-sm px-4 py-3">
+
+    <!-- Left: heading -->
+    <ng-template #start>
+      <h1 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 m-0">Appointments</h1>
+    </ng-template>
+
+    <!-- Right: search + status filter -->
+    <ng-template #end>
+      <div class="flex items-center gap-3 flex-wrap">
+
+        <!-- Global search -->
+        <p-iconfield>
+          <p-inputicon class="pi pi-search" />
+          <input
+            pInputText
+            type="text"
+            placeholder="Search…"
+            [(ngModel)]="searchValue"
+            (input)="onSearchInput($event)"
+            class="w-48"
+          />
+        </p-iconfield>
+
+        <!-- Status filter -->
+        <p-select
+          [(ngModel)]="selectedStatus"
+          [options]="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="All Statuses"
+          (onChange)="onStatusChange($event.value)"
+          styleClass="w-44"
+        />
+
+      </div>
+    </ng-template>
+
+  </p-toolbar>
+
+  <!-- Data table ─────────────────────────────────────────────────────────── -->
+  <p-table
+    #dt
+    [value]="bookings"
+    dataKey="_id"
+    [paginator]="true"
+    [rows]="10"
+    [rowsPerPageOptions]="[10, 25, 50]"
+    [stripedRows]="true"
+    [sortMode]="'multiple'"
+    [globalFilterFields]="globalFilterFields"
+    [rowHover]="true"
+    [showCurrentPageReport]="true"
+    currentPageReportTemplate="Showing {first}–{last} of {totalRecords} appointments"
+    styleClass="p-datatable-sm"
+  >
+
+    <!-- ── Column headers ──────────────────────────────────────────────── -->
+    <ng-template pTemplate="header">
+      <tr>
+        <th pSortableColumn="clientId" class="whitespace-nowrap">
+          Client
+          <p-sortIcon field="clientId" />
+        </th>
+        <th pSortableColumn="serviceName" class="whitespace-nowrap">
+          Service
+          <p-sortIcon field="serviceName" />
+        </th>
+        <th pSortableColumn="appointmentDate" class="whitespace-nowrap">
+          Date
+          <p-sortIcon field="appointmentDate" />
+        </th>
+        <th pSortableColumn="startTime" class="whitespace-nowrap">
+          Time
+          <p-sortIcon field="startTime" />
+        </th>
+        <th pSortableColumn="stylistName" class="whitespace-nowrap">
+          Stylist
+          <p-sortIcon field="stylistName" />
+        </th>
+        <th pSortableColumn="status" class="whitespace-nowrap">
+          Status
+          <p-sortIcon field="status" />
+        </th>
+        <th class="text-center whitespace-nowrap" style="width: 8rem">Actions</th>
+      </tr>
+    </ng-template>
+
+    <!-- ── Rows ────────────────────────────────────────────────────────── -->
+    <ng-template pTemplate="body" let-appt>
+      <tr>
+
+        <!-- Client -->
+        <td>
+          <span class="flex items-center gap-2">
+            <span class="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 flex items-center justify-center text-xs font-bold flex-shrink-0">
+              {{ (appt.clientId ?? '?').charAt(0).toUpperCase() }}
+            </span>
+            <span class="text-sm text-zinc-700 dark:text-zinc-300 font-medium truncate max-w-[120px]">
+              {{ appt.clientId }}
+            </span>
+          </span>
+        </td>
+
+        <!-- Service -->
+        <td class="text-sm text-zinc-700 dark:text-zinc-300">
+          {{ appt.serviceName }}
+        </td>
+
+        <!-- Date -->
+        <td class="text-sm text-zinc-600 dark:text-zinc-400 tabular-nums whitespace-nowrap">
+          {{ appt.appointmentDate | date: 'dd MMM y' }}
+        </td>
+
+        <!-- Time -->
+        <td class="font-mono text-sm font-semibold text-zinc-800 dark:text-zinc-200 whitespace-nowrap">
+          {{ appt.startTime }}
+        </td>
+
+        <!-- Stylist -->
+        <td class="text-sm text-zinc-600 dark:text-zinc-400">
+          {{ appt.stylistName || '—' }}
+        </td>
+
+        <!-- Status -->
+        <td>
+          <p-tag
+            [value]="getStatusLabel(appt.status)"
+            [severity]="getSeverity(appt.status)"
+          />
+        </td>
+
+        <!-- Actions -->
+        <td>
+          <div class="flex items-center justify-center gap-1">
+
+            <!-- View -->
+            <p-button
+              icon="pi pi-eye"
+              [rounded]="true"
+              [text]="true"
+              severity="info"
+              size="small"
+              (onClick)="viewBooking(appt)"
+              pTooltip="View details"
+              tooltipPosition="top"
+              aria-label="View booking"
+            />
+
+            <!-- Cancel -->
+            <p-button
+              icon="pi pi-times"
+              [rounded]="true"
+              [text]="true"
+              severity="danger"
+              size="small"
+              [loading]="cancelInFlight() === appt._id"
+              [disabled]="appt.status === 'CANCELLED' || appt.status === 'COMPLETED' || appt.status === 'NO_SHOW'"
+              (onClick)="confirmCancel(appt)"
+              pTooltip="Cancel booking"
+              tooltipPosition="top"
+              aria-label="Cancel booking"
+            />
+
+          </div>
+        </td>
+
+      </tr>
+    </ng-template>
+
+    <!-- ── Empty state ─────────────────────────────────────────────────── -->
+    <ng-template pTemplate="emptymessage">
+      <tr>
+        <td colspan="7">
+          <div class="flex flex-col items-center justify-center gap-3 py-16 text-zinc-400 dark:text-zinc-500">
+            <i class="pi pi-calendar text-5xl"></i>
+            <p class="text-sm m-0">No appointments found.</p>
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <!-- ── Paginator left template ─────────────────────────────────────── -->
+    <ng-template pTemplate="paginatorleft">
+      <p-button
+        icon="pi pi-refresh"
+        [text]="true"
+        severity="secondary"
+        size="small"
+        (onClick)="loadBookings()"
+        pTooltip="Refresh"
+        tooltipPosition="top"
+        aria-label="Refresh appointments"
+      />
+    </ng-template>
+
+  </p-table>
+
+}<!-- /else -->

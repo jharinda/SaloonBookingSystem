@@ -3,7 +3,7 @@
   <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
   <aside class="sidebar">
     <a class="sidebar__brand" routerLink="/admin/dashboard">
-      <mat-icon class="brand-icon">admin_panel_settings</mat-icon>
+      <i class="pi pi-shield brand-icon"></i>
       <span class="brand-text">Admin</span>
     </a>
 
@@ -13,16 +13,16 @@
           class="nav-item"
           [routerLink]="item.route"
           routerLinkActive="nav-item--active"
-          [matTooltip]="item.label"
-          matTooltipPosition="right"
+          [pTooltip]="item.label"
+          tooltipPosition="right"
         >
-          <mat-icon
-            [matBadge]="getBadge(item)"
-            [matBadgeHidden]="getBadge(item) === null"
-            matBadgeColor="warn"
-            matBadgeSize="small"
-            class="nav-icon"
-          >{{ item.icon }}</mat-icon>
+          <i
+            class="pi {{ item.icon }} nav-icon"
+            pBadge
+            [value]="getBadge(item)?.toString() ?? ''"
+            [badgeDisabled]="getBadge(item) === null"
+            severity="danger"
+          ></i>
           <span class="nav-label">{{ item.label }}</span>
         </a>
       }

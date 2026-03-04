@@ -6,7 +6,14 @@ export const DASHBOARD_ROUTES: Routes = [
     path: '',
     component: DashboardHomeComponent,
     children: [
-      { path: '', redirectTo: 'bookings', pathMatch: 'full' },
+      { path: '', redirectTo: 'overview', pathMatch: 'full' },
+      {
+        path: 'overview',
+        loadComponent: () =>
+          import('./dashboard-overview/dashboard-overview.component').then(
+            (m) => m.DashboardOverviewComponent,
+          ),
+      },
       {
         path: 'register',
         loadComponent: () =>
@@ -29,6 +36,13 @@ export const DASHBOARD_ROUTES: Routes = [
           ),
       },
       {
+        path: 'staff',
+        loadComponent: () =>
+          import('./manage-staff/manage-staff.component').then(
+            (m) => m.ManageStaffComponent,
+          ),
+      },
+      {
         path: 'hours',
         loadComponent: () =>
           import('./manage-hours/manage-hours.component').then(
@@ -40,6 +54,13 @@ export const DASHBOARD_ROUTES: Routes = [
         loadComponent: () =>
           import('./salon-reviews/salon-reviews.component').then(
             (m) => m.SalonReviewsComponent,
+          ),
+      },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./salon-settings/salon-settings.component').then(
+            (m) => m.SalonSettingsComponent,
           ),
       },
     ],

@@ -4,11 +4,9 @@ import {
   inject,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { Button } from 'primeng/button';
+import { Textarea } from 'primeng/textarea';
+import { DynamicDialogRef, DynamicDialogConfig } from 'primeng/dynamicdialog';
 
 export interface CancelDialogData {
   salonName: string;
@@ -26,16 +24,11 @@ export interface CancelDialogResult {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     FormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatProgressSpinnerModule,
+    Button,
+    Textarea,
   ],
   template: `
-    <h2 mat-dialog-title>Cancel Appointment</h2>
-
-    <mat-dialog-content>
+    <div class="dlg-body">
       <p class="confirm-msg">
         Are you sure you want to cancel your
         <strong>{{ data.serviceName }}</strong> appointment at
@@ -44,32 +37,24 @@ export interface CancelDialogResult {
         <span class="warn-text">Cancellations cannot be undone.</span>
       </p>
 
-      <mat-form-field appearance="outline" class="reason-field">
-        <mat-label>Reason (optional)</mat-label>
-        <textarea
-          matInput
-          [(ngModel)]="reason"
-          rows="3"
-          placeholder="Let the salon know why you're cancelling..."
-          maxlength="300"
-          aria-label="Cancellation reason"
-        ></textarea>
-      </mat-form-field>
-    </mat-dialog-content>
+      <textarea
+        pTextarea
+        [(ngModel)]="reason"
+        rows="3"
+        placeholder="Let the salon know why you're cancelling..."
+        maxlength="300"
+        aria-label="Cancellation reason"
+        class="reason-textarea"
+      ></textarea>
+    </div>
 
-    <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>Keep Appointment</button>
-      <button
-        mat-flat-button
-        class="cancel-confirm-btn"
-        (click)="confirm()"
-        aria-label="Confirm cancellation"
-      >
-        Yes, Cancel It
-      </button>
-    </mat-dialog-actions>
+    <div class="dlg-actions">
+      <p-button label="Keep Appointment" [text]="true" (onClick)="dismiss()" />
+      <p-button label="Yes, Cancel It" severity="danger" (onClick)="confirm()" />
+    </div>
   `,
   styles: [`
+    .dlg-body { padding: 0; }
     .confirm-msg {
       font-size: .95rem;
       line-height: 1.5;
@@ -80,20 +65,27 @@ export interface CancelDialogResult {
       font-weight: 600;
       font-size: .875rem;
     }
-    .reason-field { width: 100%; }
-    .cancel-confirm-btn {
-      background: #dc2626;
-      color: #fff;
+    .reason-textarea { width: 100%; resize: vertical; }
+    .dlg-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
     }
   `],
 })
 export class CancelBookingDialogComponent {
-  readonly data = inject<CancelDialogData>(MAT_DIALOG_DATA);
-  private readonly dialogRef = inject(MatDialogRef<CancelBookingDialogComponent>);
+  private readonly ref    = inject(DynamicDialogRef);
+  private readonly config = inject(DynamicDialogConfig);
 
+  readonly data = this.config.data as CancelDialogData;
   reason = '';
 
   confirm(): void {
-    this.dialogRef.close({ confirmed: true, reason: this.reason } satisfies CancelDialogResult);
+    this.ref.close({ confirmed: true, reason: this.reason } satisfies CancelDialogResult);
+  }
+
+  dismiss(): void {
+    this.ref.close({ confirmed: false, reason: '' } satisfies CancelDialogResult);
   }
 }

@@ -8,14 +8,16 @@ import {
 } from '@angular/core';
 import { DatePipe, DecimalPipe, NgOptimizedImage } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { FormsModule } from '@angular/forms';
+import { MessageService } from 'primeng/api';
+import { ProgressSpinner } from 'primeng/progressspinner';
+
+import { Button } from 'primeng/button';
+import { Rating } from 'primeng/rating';
+import { Tag } from 'primeng/tag';
+import { Panel } from 'primeng/panel';
+import { TableModule } from 'primeng/table';
+import { Tabs, TabList, Tab, TabPanels, TabPanel } from 'primeng/tabs';
 
 import { Salon, SalonServiceItem, Review, ReviewsPage } from '@org/models';
 import { SalonService } from '@org/shared-data-access';
@@ -77,13 +79,14 @@ function isOpenNow(open: string, close: string): boolean {
     DecimalPipe,
     NgOptimizedImage,
     RouterLink,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatProgressBarModule,
-    MatChipsModule,
-    MatDividerModule,
-    MatTooltipModule,
+    FormsModule,
+    ProgressSpinner,
+    Button,
+    Rating,
+    Tag,
+    Panel,
+    TableModule,
+    Tabs, TabList, Tab, TabPanels, TabPanel,
   ],
   templateUrl: './salon-detail.component.html',
   styleUrl: './salon-detail.component.scss',
@@ -94,7 +97,7 @@ export class SalonDetailComponent implements OnInit {
   private readonly router        = inject(Router);
   private readonly salonService  = inject(SalonService);
   private readonly reviewService = inject(ReviewService);
-  private readonly snack         = inject(MatSnackBar);
+  private readonly msgSvc        = inject(MessageService);
 
   // ── State ───────────────────────────────────────────────────────────────────
   readonly salon          = signal<Salon | null>(null);
@@ -275,9 +278,9 @@ export class SalonDetailComponent implements OnInit {
 
     try {
       await navigator.clipboard.writeText(url);
-      this.snack.open('Link copied!', undefined, { duration: 2500 });
+      this.msgSvc.add({ severity: 'success', summary: 'Copied', detail: 'Link copied!', life: 2500 });
     } catch {
-      this.snack.open('Could not copy link.', undefined, { duration: 2500 });
+      this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Could not copy link.', life: 2500 });
     }
   }
 }

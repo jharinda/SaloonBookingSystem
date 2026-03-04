@@ -5,11 +5,9 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatIconModule } from '@angular/material/icon';
+import { Button } from 'primeng/button';
+import { InputText } from 'primeng/inputtext';
+import { DynamicDialogRef, DynamicDialogConfig } from 'primeng/dynamicdialog';
 
 export interface ConfirmDialogData {
   title:       string;
@@ -26,62 +24,64 @@ export interface ConfirmDialogData {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     FormsModule,
-    MatButtonModule,
-    MatDialogModule,
-    MatFormFieldModule,
-    MatIconModule,
-    MatInputModule,
+    Button,
+    InputText,
   ],
   template: `
     <div class="dlg-wrap">
       <div class="dlg-head">
-        <mat-icon class="dlg-icon" [class.danger]="data.danger">
-          {{ data.danger ? 'warning' : 'help_outline' }}
-        </mat-icon>
-        <h2 mat-dialog-title>{{ data.title }}</h2>
+        <i
+          class="pi dlg-icon"
+          [class.pi-exclamation-triangle]="data.danger"
+          [class.danger]="data.danger"
+          [class.pi-question-circle]="!data.danger"
+        ></i>
+        <p class="dlg-msg">{{ data.message }}</p>
       </div>
 
-      <mat-dialog-content>
-        <p class="dlg-msg">{{ data.message }}</p>
+      @if (data.requireText) {
+        <p class="require-label">
+          Type <strong>{{ data.requireText }}</strong> to confirm:
+        </p>
+        <input
+          pInputText
+          [(ngModel)]="typed"
+          [placeholder]="data.requireText"
+          autocomplete="off"
+          class="full"
+        />
+      }
 
-        @if (data.requireText) {
-          <p class="require-label">
-            Type <strong>{{ data.requireText }}</strong> to confirm:
-          </p>
-          <mat-form-field appearance="outline" class="full">
-            <input matInput [(ngModel)]="typed" [placeholder]="data.requireText" autocomplete="off" />
-          </mat-form-field>
-        }
-      </mat-dialog-content>
-
-      <mat-dialog-actions align="end">
-        <button mat-button [mat-dialog-close]="false">Cancel</button>
-        <button
-          mat-flat-button
-          [class.danger-btn]="data.danger"
-          [class.primary-btn]="!data.danger"
+      <div class="dlg-actions">
+        <p-button label="Cancel" [text]="true" (onClick)="close(false)" />
+        <p-button
+          [label]="data.confirmLabel ?? 'Confirm'"
+          [severity]="data.danger ? 'danger' : 'primary'"
           [disabled]="data.requireText ? typed() !== data.requireText : false"
-          [mat-dialog-close]="true"
-        >{{ data.confirmLabel ?? 'Confirm' }}</button>
-      </mat-dialog-actions>
+          (onClick)="close(true)"
+        />
+      </div>
     </div>
   `,
   styles: [`
-    .dlg-wrap { padding: 8px; min-width: 340px; max-width: 440px; }
-    .dlg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-    .dlg-icon { font-size: 26px; width: 26px; height: 26px; color: #6750a4; }
+    .dlg-wrap { min-width: 280px; }
+    .dlg-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+    .dlg-icon { font-size: 22px; color: #6750a4; flex-shrink: 0; margin-top: 2px; }
     .dlg-icon.danger { color: #dc2626; }
-    h2[mat-dialog-title] { margin: 0; font-size: 1.15rem; font-weight: 700; }
-    .dlg-msg { color: #4b5563; font-size: .9rem; line-height: 1.6; white-space: pre-line; }
+    .dlg-msg { color: #4b5563; font-size: .9rem; line-height: 1.6; white-space: pre-line; margin: 0; }
     .require-label { font-size: .875rem; margin-bottom: 4px; }
-    .full { width: 100%; }
-    .danger-btn { background: #dc2626 !important; color: #fff !important; border-radius: 6px; }
-    .primary-btn { background: #6750a4 !important; color: #fff !important; border-radius: 6px; }
-    button[disabled] { opacity: .45 !important; }
+    .full { width: 100%; margin-bottom: 12px; }
+    .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
   `],
 })
 export class ConfirmDialogComponent {
-  readonly data    = inject<ConfirmDialogData>(MAT_DIALOG_DATA);
-  readonly typed   = signal('');
-  private readonly _ref = inject(MatDialogRef<ConfirmDialogComponent>);
+  private readonly ref    = inject(DynamicDialogRef);
+  private readonly config = inject(DynamicDialogConfig);
+
+  readonly data  = this.config.data as ConfirmDialogData;
+  readonly typed = signal('');
+
+  close(result: boolean): void {
+    this.ref.close(result);
+  }
 }

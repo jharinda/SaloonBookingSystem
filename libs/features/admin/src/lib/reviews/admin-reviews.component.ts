@@ -6,14 +6,12 @@ import {
   signal,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDialog } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTableModule } from '@angular/material/table';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { Button } from 'primeng/button';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { TableModule } from 'primeng/table';
+import { Tooltip } from 'primeng/tooltip';
+import { MessageService } from 'primeng/api';
+import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
 
 import { AdminService, AdminReview } from '@org/shared-data-access';
 import { ConfirmDialogComponent } from '../shared/confirm-dialog.component';
@@ -24,20 +22,20 @@ import { ConfirmDialogComponent } from '../shared/confirm-dialog.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
-    MatButtonModule,
-    MatIconModule,
-    MatPaginatorModule,
-    MatProgressSpinnerModule,
-    MatTableModule,
-    MatTooltipModule,
+    Button,
+    ProgressSpinner,
+    TableModule,
+    Tooltip,
   ],
   templateUrl: './admin-reviews.component.html',
   styleUrl:    './admin-reviews.component.scss',
 })
 export class AdminReviewsComponent implements OnInit {
-  private readonly adminService = inject(AdminService);
-  private readonly dialog       = inject(MatDialog);
-  private readonly snack        = inject(MatSnackBar);
+  private readonly adminService  = inject(AdminService);
+  private readonly dialogService  = inject(DialogService);
+  private readonly msgSvc         = inject(MessageService);
+
+  private confirmDialogRef: DynamicDialogRef | null = null;
 
   readonly loading  = signal(true);
   readonly error    = signal<string | null>(null);
@@ -53,9 +51,9 @@ export class AdminReviewsComponent implements OnInit {
     this.loadReviews();
   }
 
-  onPage(e: PageEvent): void {
-    this.page.set(e.pageIndex);
-    this.pageSize.set(e.pageSize);
+  onPage(e: { first: number; rows: number }): void {
+    this.page.set(Math.floor(e.first / e.rows));
+    this.pageSize.set(e.rows);
     this.loadReviews();
   }
 
@@ -79,17 +77,19 @@ export class AdminReviewsComponent implements OnInit {
   }
 
   remove(review: AdminReview): void {
-    const ref = this.dialog.open(ConfirmDialogComponent, {
+    this.confirmDialogRef = this.dialogService.open(ConfirmDialogComponent, {
+      header: 'Remove Review',
+      width: '440px',
+      closable: true,
       data: {
         title:        'Remove Review',
         message:      `Remove this review by ${review.clientName} for "${review.salonName}"?\n\nThe review will be hidden from the public.`,
         confirmLabel: 'Remove',
         danger:       true,
       },
-      width: '440px',
     });
 
-    ref.afterClosed().subscribe((ok: boolean) => {
+    this.confirmDialogRef?.onClose.subscribe((ok: boolean) => {
       if (!ok) return;
       this.actionId.set(review._id);
       this.adminService.removeReview(review._id).subscribe({
@@ -97,11 +97,11 @@ export class AdminReviewsComponent implements OnInit {
           this.reviews.update((list) => list.filter((r) => r._id !== review._id));
           this.total.update((t) => t - 1);
           this.actionId.set(null);
-          this.snack.open('Review removed', undefined, { duration: 3000 });
+          this.msgSvc.add({ severity: 'success', summary: 'Done', detail: 'Review removed', life: 3000 });
         },
         error: () => {
           this.actionId.set(null);
-          this.snack.open('Failed to remove review', 'Dismiss', { duration: 4000 });
+          this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Failed to remove review', life: 4000 });
         },
       });
     });
