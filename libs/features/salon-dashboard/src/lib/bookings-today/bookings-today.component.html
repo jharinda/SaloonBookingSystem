@@ -38,9 +38,33 @@
       <h1 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 m-0">Appointments</h1>
     </ng-template>
 
-    <!-- Right: search + status filter -->
+    <!-- Right: search + status filter + view toggle -->
     <ng-template #end>
       <div class="flex items-center gap-3 flex-wrap">
+
+        <!-- View toggle -->
+        <div class="inline-flex rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700">
+          <p-button
+            icon="pi pi-list"
+            [severity]="viewMode() === 'table' ? 'primary' : 'secondary'"
+            [text]="viewMode() !== 'table'"
+            size="small"
+            (onClick)="viewMode.set('table')"
+            pTooltip="Table view"
+            tooltipPosition="top"
+            aria-label="Table view"
+          />
+          <p-button
+            icon="pi pi-calendar"
+            [severity]="viewMode() === 'calendar' ? 'primary' : 'secondary'"
+            [text]="viewMode() !== 'calendar'"
+            size="small"
+            (onClick)="viewMode.set('calendar')"
+            pTooltip="Calendar view"
+            tooltipPosition="top"
+            aria-label="Calendar view"
+          />
+        </div>
 
         <!-- Global search -->
         <p-iconfield>
@@ -71,10 +95,18 @@
 
   </p-toolbar>
 
-  <!-- Data table ─────────────────────────────────────────────────────────── -->
+  <!-- ── Calendar view ──────────────────────────────────────────────────── -->
+  @if (viewMode() === 'calendar') {
+    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-sm p-4 min-h-[600px]">
+      <full-calendar [options]="calendarOptions()" />
+    </div>
+  }
+
+  <!-- ── Table view ─────────────────────────────────────────────────────── -->
+  @if (viewMode() === 'table') {
   <p-table
     #dt
-    [value]="bookings"
+    [value]="bookings()"
     dataKey="_id"
     [paginator]="true"
     [rows]="10"
@@ -115,7 +147,7 @@
           Status
           <p-sortIcon field="status" />
         </th>
-        <th class="text-center whitespace-nowrap" style="width: 8rem">Actions</th>
+        <th class="text-center whitespace-nowrap" style="width: 10rem">Actions</th>
       </tr>
     </ng-template>
 
@@ -127,17 +159,17 @@
         <td>
           <span class="flex items-center gap-2">
             <span class="w-7 h-7 rounded-full bg-violet-100 dark:bg-violet-900 text-violet-700 dark:text-violet-300 flex items-center justify-center text-xs font-bold flex-shrink-0">
-              {{ (appt.clientId ?? '?').charAt(0).toUpperCase() }}
+              {{ ((appt.clientName || appt.clientId) ?? '?').charAt(0).toUpperCase() }}
             </span>
-            <span class="text-sm text-zinc-700 dark:text-zinc-300 font-medium truncate max-w-[120px]">
-              {{ appt.clientId }}
+            <span class="text-sm text-zinc-700 dark:text-zinc-300 font-medium truncate max-w-[140px]" [title]="appt.clientName || appt.clientId">
+              {{ appt.clientName || ('Client ·' + (appt.clientId).slice(-6)) }}
             </span>
           </span>
         </td>
 
         <!-- Service -->
         <td class="text-sm text-zinc-700 dark:text-zinc-300">
-          {{ appt.serviceName }}
+          {{ getServiceDisplay(appt) }}
         </td>
 
         <!-- Date -->
@@ -167,6 +199,22 @@
         <td>
           <div class="flex items-center justify-center gap-1">
 
+            <!-- Approve -->
+            <p-button
+              icon="pi pi-check"
+              [rounded]="true"
+              [text]="true"
+              severity="success"
+              size="small"
+              [loading]="confirmInFlight() === appt._id"
+              [disabled]="appt.status !== 'PENDING'"
+              [style]="{display: appt.status !== 'PENDING' ? 'none' : ''}"
+              (onClick)="confirmBooking(appt)"
+              pTooltip="Approve booking"
+              tooltipPosition="top"
+              aria-label="Approve booking"
+            />
+
             <!-- View -->
             <p-button
               icon="pi pi-eye"
@@ -180,20 +228,21 @@
               aria-label="View booking"
             />
 
-            <!-- Cancel -->
-            <p-button
-              icon="pi pi-times"
-              [rounded]="true"
-              [text]="true"
-              severity="danger"
-              size="small"
-              [loading]="cancelInFlight() === appt._id"
-              [disabled]="appt.status === 'CANCELLED' || appt.status === 'COMPLETED' || appt.status === 'NO_SHOW'"
-              (onClick)="confirmCancel(appt)"
-              pTooltip="Cancel booking"
-              tooltipPosition="top"
-              aria-label="Cancel booking"
-            />
+            <!-- Cancel (hidden once confirmed or in a terminal state) -->
+            @if (appt.status !== 'CONFIRMED' && appt.status !== 'CANCELLED' && appt.status !== 'COMPLETED' && appt.status !== 'NO_SHOW') {
+              <p-button
+                icon="pi pi-times"
+                [rounded]="true"
+                [text]="true"
+                severity="danger"
+                size="small"
+                [loading]="cancelInFlight() === appt._id"
+                (onClick)="confirmCancel(appt)"
+                pTooltip="Decline booking"
+                tooltipPosition="top"
+                aria-label="Decline booking"
+              />
+            }
 
           </div>
         </td>
@@ -228,5 +277,7 @@
     </ng-template>
 
   </p-table>
+
+  } <!-- /viewMode table -->
 
 }<!-- /else -->

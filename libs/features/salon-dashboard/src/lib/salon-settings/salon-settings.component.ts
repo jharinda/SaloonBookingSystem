@@ -35,8 +35,10 @@ import {
   SalonAdminService,
   UpdateSalonInfoDto,
   UpdateOperatingHoursDto,
+  SalonImage,
 } from '@org/shared-data-access';
 import { Salon } from '@org/models';
+import { SalonImageUploaderComponent } from '../salon-images/salon-image-uploader.component';
 
 //  Constants 
 
@@ -89,6 +91,7 @@ interface NotifSettings {
     TextareaModule,
     ToastModule,
     ToggleSwitchModule,
+    SalonImageUploaderComponent,
   ],
   templateUrl: './salon-settings.component.html',
 })
@@ -101,7 +104,8 @@ export class SalonSettingsComponent implements OnInit {
 
   //  State 
   readonly loading     = signal(true);
-  private salonId      = '';
+  protected salonId    = '';
+  readonly salonImages = signal<SalonImage[]>([]);
 
   readonly savingInfo  = signal(false);
   readonly savingHours = signal(false);
@@ -162,6 +166,7 @@ export class SalonSettingsComponent implements OnInit {
         this.salonId = salon._id;
         this.patchInfoForm(salon);
         this.patchHoursForm(salon);
+        this.salonImages.set((salon.images as unknown as SalonImage[]) ?? []);
         this.loading.set(false);
         this.cdr.markForCheck();
       },
@@ -197,6 +202,11 @@ export class SalonSettingsComponent implements OnInit {
         });
       }
     });
+  }
+
+  //  Photos 
+  onImagesChanged(images: SalonImage[]): void {
+    this.salonImages.set(images);
   }
 
   //  Logo 

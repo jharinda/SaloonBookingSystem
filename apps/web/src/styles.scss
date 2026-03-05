@@ -1,5 +1,7 @@
 
 @import 'primeicons/primeicons.css';
+// Leaflet map styles — used by LocationPickerComponent (ViewEncapsulation.None)
+@import 'leaflet/dist/leaflet.css';
 
 @tailwind base;
 @tailwind components;
@@ -18,7 +20,7 @@ html {
 
 body {
   color-scheme: light;
-  background-color: #f9fafb;
+  background-color: #f1f5f9; /* slate-100 — one step darker than before for depth */
   color: #111827;
   font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-size: 1rem;
@@ -33,3 +35,139 @@ body {
   background-color: #09090b; /* zinc-950 */
   color: #f4f4f5; /* zinc-100 */
 }
+
+/* ── Light-mode secondary text contrast boost ────────────────────────────────
+   Tailwind text-zinc-500 / text-gray-500 are too light (#71717a / #6b7280)
+   on light backgrounds. Nudge them to zinc-600 for WCAG AA compliance.      */
+html:not(.app-dark):not(.dark) {
+  .text-zinc-500 { color: #52525b; } /* zinc-600 */
+  .text-gray-500 { color: #4b5563; } /* gray-600 */
+  .text-zinc-400 { color: #71717a; } /* zinc-500 */
+}
+
+// ── FullCalendar dark-mode overrides ─────────────────────────────────────────
+// FullCalendar ships with a light-only theme. These rules adapt it to the
+// app's `.app-dark` / `.dark` dark-mode selector.
+
+.app-dark,
+.dark {
+  // FullCalendar CSS variable overrides
+  --fc-border-color: #3f3f46;          // zinc-700
+  --fc-page-bg-color: #18181b;         // zinc-900
+  --fc-neutral-bg-color: #27272a;      // zinc-800
+  --fc-neutral-text-color: #d4d4d8;    // zinc-300
+  --fc-today-bg-color: rgba(124, 58, 237, 0.15); // brand violet tint
+  --fc-highlight-color: rgba(124, 58, 237, 0.2);
+  --fc-event-bg-color: #7c3aed;
+  --fc-event-border-color: #7c3aed;
+  --fc-event-text-color: #ffffff;
+  --fc-list-event-hover-bg-color: #27272a;
+
+  // Overall calendar background & borders
+  .fc {
+    color: #d4d4d8; // zinc-300
+  }
+
+  .fc-scrollgrid,
+  .fc-scrollgrid-section > td,
+  .fc-scrollgrid-section > th,
+  .fc table,
+  .fc-scrollgrid td,
+  .fc-scrollgrid th {
+    border-color: #3f3f46 !important; // zinc-700
+  }
+
+  // Day column header (Mon, Tue, etc.)
+  .fc-col-header-cell {
+    background-color: #27272a; // zinc-800
+
+    .fc-col-header-cell-cushion {
+      color: #e4e4e7 !important; // zinc-200
+      font-weight: 600;
+      text-decoration: none;
+    }
+  }
+
+  // Day number in month view
+  .fc-daygrid-day-number {
+    color: #a1a1aa !important; // zinc-400
+    text-decoration: none;
+  }
+
+  // Today's cell
+  .fc-day-today {
+    background-color: var(--fc-today-bg-color) !important;
+
+    .fc-daygrid-day-number {
+      color: #c4b5fd !important; // violet-300
+      font-weight: 700;
+    }
+  }
+
+  // Other-month day cells
+  .fc-day-other .fc-daygrid-day-number {
+    color: #52525b !important; // zinc-600
+  }
+
+  // Header toolbar (title + nav buttons)
+  .fc-toolbar-title {
+    color: #f4f4f5 !important; // zinc-100
+  }
+
+  .fc-button,
+  .fc-button-primary {
+    background-color: #3f3f46;   // zinc-700
+    border-color: #52525b;       // zinc-600
+    color: #e4e4e7;
+
+    &:hover:not(:disabled) {
+      background-color: #52525b;
+      border-color: #71717a;
+      color: #f4f4f5;
+    }
+
+    &:focus,
+    &:not(:disabled):active {
+      background-color: #7c3aed;
+      border-color: #7c3aed;
+      color: #fff;
+      box-shadow: none;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+    }
+  }
+
+  .fc-button-primary:not(:disabled).fc-button-active {
+    background-color: #7c3aed !important;
+    border-color: #7c3aed !important;
+    color: #fff !important;
+  }
+
+  // Daygrid/timegrid cell rows
+  .fc-daygrid-day {
+    background-color: transparent;
+  }
+
+  .fc-timegrid-slot {
+    border-color: #3f3f46 !important;
+  }
+
+  // Time labels (08:00, 09:00, …) in week/day view
+  .fc-timegrid-axis-cushion,
+  .fc-timegrid-slot-label-cushion {
+    color: #71717a; // zinc-500
+  }
+
+  // "X more" overflow link
+  .fc-daygrid-more-link {
+    color: #a78bfa; // violet-400
+  }
+
+  // All-day row in week/day view
+  .fc-timegrid-axis {
+    background-color: #27272a;
+  }
+}
+

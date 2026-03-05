@@ -12,12 +12,17 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router } from '@angular/router';
+import { DecimalPipe } from '@angular/common';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { Stepper, StepList, Step, StepPanels, StepPanel } from 'primeng/stepper';
 import { Textarea } from 'primeng/textarea';
 
 import { SalonAdminService } from '@org/shared-data-access';
+import {
+  LocationPickerComponent,
+  SelectedLocation,
+} from '../location-picker/location-picker.component';
 
 // ── Validators ────────────────────────────────────────────────────────────────
 
@@ -45,6 +50,8 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
     StepPanels,
     StepPanel,
     Textarea,
+    LocationPickerComponent,
+    DecimalPipe,
   ],
   template: `
     <div class="register-page">
@@ -174,25 +181,29 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
                       </div>
                     </div>
 
-                    <div class="two-col">
-                      <div class="field">
-                        <label for="lat">Latitude</label>
-                        <input id="lat" pInputText formControlName="lat" type="number" placeholder="6.9271" step="0.0001" class="w-full" />
-                        <small class="hint">e.g. 6.9271</small>
-                        @if (addressGroup.controls.lat.invalid && addressGroup.controls.lat.touched) {
-                          <small class="p-error">Enter a valid latitude (−90 to 90).</small>
-                        }
-                      </div>
-
-                      <div class="field">
-                        <label for="lng">Longitude</label>
-                        <input id="lng" pInputText formControlName="lng" type="number" placeholder="79.8612" step="0.0001" class="w-full" />
-                        <small class="hint">e.g. 79.8612</small>
-                        @if (addressGroup.controls.lng.invalid && addressGroup.controls.lng.touched) {
-                          <small class="p-error">Enter a valid longitude (−180 to 180).</small>
-                        }
-                      </div>
+                    <!-- Map location picker -->
+                    <div class="field full">
+                      <label>Pin your salon location</label>
+                      <small class="hint map-hint">Search for your address or click / drag the marker on the map.</small>
+                      <lib-location-picker
+                        class="map-picker-wrap"
+                        (locationSelected)="onLocationSelected($event)"
+                      />
+                      @if (addressGroup.controls.lat.invalid && addressGroup.controls.lat.touched) {
+                        <small class="p-error">Please select a location on the map.</small>
+                      }
                     </div>
+
+                    <!-- Read-only coordinate display -->
+                    @if (addressGroup.value.lat && addressGroup.value.lng) {
+                      <div class="coords-display">
+                        <i class="pi pi-map-marker coords-icon"></i>
+                        <span>
+                          <strong>{{ addressGroup.value.lat | number:'1.5-5' }},
+                          {{ addressGroup.value.lng | number:'1.5-5' }}</strong>
+                        </span>
+                      </div>
+                    }
 
                     <div class="step-actions">
                       <p-button label="Back" outlined (onClick)="prevStep()" />
@@ -273,7 +284,7 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
 
     .register-card {
       width: 100%;
-      max-width: 680px;
+      max-width: 820px;
       background: #fff;
       border-radius: 16px;
       padding: 32px 36px;
@@ -357,6 +368,24 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
       font-size: .75rem;
       color: #6b7280;
     }
+
+    .map-hint { margin-bottom: 6px; }
+
+    .map-picker-wrap { display: block; margin-top: 4px; }
+
+    .coords-display {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: .85rem;
+    }
+
+    .coords-icon { font-size: .9rem; }
 
     .w-full { width: 100%; }
 
@@ -451,6 +480,22 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
       .two-col { flex-direction: column; gap: 0; }
       .register-header { flex-direction: column; gap: 8px; }
     }
+
+    :host-context(.app-dark) {
+      .register-card { background: #18181b; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+      .register-title { color: #f4f4f5; }
+      .register-subtitle { color: #a1a1aa; }
+      .error-banner { background: rgba(254,242,242,.06); border-color: #991b1b; color: #f87171; }
+      .field label { color: #d4d4d8; }
+      .hint { color: #71717a; }
+      .review-title { color: #d4d4d8; }
+      .review-section { border-color: #27272a; }
+      .review-label { color: #71717a; }
+      .review-value { color: #f4f4f5; }
+      .review-note { background: rgba(240,253,244,.05); border-color: #166534; color: #4ade80; }
+      .success-state h2 { color: #f4f4f5; }
+      .success-state p { color: #a1a1aa; }
+    }
   `],
 })
 export class RegisterSalonComponent {
@@ -476,6 +521,18 @@ export class RegisterSalonComponent {
     lat:      [null as unknown as number, [Validators.required, latValidator]],
     lng:      [null as unknown as number, [Validators.required, lngValidator]],
   });
+
+  onLocationSelected(loc: SelectedLocation): void {
+    this.addressGroup.patchValue({ lat: loc.lat, lng: loc.lng });
+    // Auto-fill city if currently empty
+    if (!this.addressGroup.value.city && loc.city) {
+      this.addressGroup.patchValue({ city: loc.city });
+    }
+    // Auto-fill street if currently empty
+    if (!this.addressGroup.value.street && loc.street) {
+      this.addressGroup.patchValue({ street: loc.street });
+    }
+  }
 
   touchInfo(): void {
     this.infoGroup.markAllAsTouched();

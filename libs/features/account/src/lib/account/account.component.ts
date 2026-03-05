@@ -579,10 +579,10 @@ export class AccountComponent implements OnInit {
   readonly avatarPreview       = signal<string | null>(null);
   readonly avatarFile          = signal<File | null>(null);
   readonly notifPrefs          = signal<NotificationPreferences>({
-    emailBookingConfirmations: true,
-    emailReminders:            true,
-    smsReminders:              false,
-    whatsappMessages:          false,
+    email:    true,
+    sms:      false,
+    whatsapp: false,
+    push:     false,
   });
   readonly connectedAccounts   = signal<ConnectedAccounts>({});
   readonly bookings            = signal<Booking[]>([]);
@@ -629,28 +629,28 @@ export class AccountComponent implements OnInit {
     icon: string;
   }> = [
     {
-      key:   'emailBookingConfirmations',
-      label: 'Booking Confirmations',
-      desc:  'Email when a booking is confirmed or cancelled',
+      key:   'email',
+      label: 'Email Notifications',
+      desc:  'Booking confirmations and reminders via email',
       icon:  'pi pi-envelope',
     },
     {
-      key:   'emailReminders',
-      label: 'Email Reminders',
-      desc:  'Email reminder 24 hours before your appointment',
-      icon:  'pi pi-clock',
-    },
-    {
-      key:   'smsReminders',
+      key:   'sms',
       label: 'SMS Reminders',
-      desc:  'SMS 2 hours before your appointment',
+      desc:  'SMS reminder 2 hours before your appointment',
       icon:  'pi pi-mobile',
     },
     {
-      key:   'whatsappMessages',
+      key:   'whatsapp',
       label: 'WhatsApp Messages',
       desc:  'Appointment updates via WhatsApp',
       icon:  'pi pi-comment',
+    },
+    {
+      key:   'push',
+      label: 'Push Notifications',
+      desc:  'In-app and browser push notifications',
+      icon:  'pi pi-bell',
     },
   ];
 

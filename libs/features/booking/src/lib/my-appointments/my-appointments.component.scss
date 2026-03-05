@@ -155,3 +155,21 @@ $mobile: 768px;
   border-radius: 24px;
   font-weight: 600;
 }
+
+// ── Dark mode ──────────────────────────────────────────────────────────────
+:host-context(.app-dark) {
+  .page-title { color: #f4f4f5; }
+
+  .error-card {
+    border-color: #3f3f46;
+    color: #a1a1aa;
+  }
+
+  .empty-state {
+    color: #a1a1aa;
+
+    h3 { color: #f4f4f5; }
+  }
+
+  .tab-count { background: darken(#6750a4, 10%); }
+}

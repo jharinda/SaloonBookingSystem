@@ -53,6 +53,19 @@ export class ReviewController {
     return { data: [], total: 0, page, limit, totalPages: 0 };
   }
 
+  /**
+   * GET /api/reviews/my
+   * Returns all reviews written by the authenticated user.
+   * Used by the client-side "My Bookings" page.
+   */
+  @Get('my')
+  @UseGuards(JwtAuthGuard)
+  async getMyReviews(
+    @CurrentUser() user: JwtUser,
+  ): Promise<ReviewResponseDto[]> {
+    return this.reviewService.getClientReviews(user.sub);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, RolesGuard)

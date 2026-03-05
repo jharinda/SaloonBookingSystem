@@ -8,7 +8,6 @@ import {
   Param,
   Patch,
   Post,
-  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -113,6 +112,19 @@ export class SalonController {
     return this.salonService.addService(id, dto, user.sub);
   }
 
+  @Patch(':id/services/:serviceId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async updateService(
+    @Param('id') id: string,
+    @Param('serviceId') serviceId: string,
+    @Body() dto: AddServiceDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.updateService(id, serviceId, dto, user.sub);
+  }
+
   @Delete(':id/services/:serviceId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -125,15 +137,27 @@ export class SalonController {
     return this.salonService.removeService(id, serviceId, user.sub);
   }
 
-  @Put(':id/operating-hours')
+  @Patch(':id/operating-hours')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SALON_OWNER)
   async updateOperatingHours(
     @Param('id') id: string,
-    @Body() hours: OperatingHoursDto[],
+    @Body() body: Record<string, { isOpen: boolean; open: string; close: string }>,
     @CurrentUser() user: JwtUser,
   ): Promise<SalonResponseDto> {
+    const DAY_INDEX: Record<string, number> = {
+      sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+      thursday: 4, friday: 5, saturday: 6,
+    };
+    const hours: OperatingHoursDto[] = Object.entries(body)
+      .filter(([day]) => DAY_INDEX[day] !== undefined)
+      .map(([day, h]) => ({
+        day: DAY_INDEX[day],
+        open: h.open,
+        close: h.close,
+        closed: !h.isOpen,
+      }));
     return this.salonService.updateOperatingHours(id, hours, user.sub);
   }
 
@@ -145,5 +169,43 @@ export class SalonController {
     @Body() body: { rating: number; reviewCount: number },
   ): Promise<void> {
     return this.salonService.updateRating(id, body.rating, body.reviewCount);
+  }
+
+  // ── Image management routes ───────────────────────────────────────────────
+
+  @Post(':id/images')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async pushImage(
+    @Param('id') id: string,
+    @Body() body: { cloudinaryId: string; url: string },
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.pushImage(id, body, user.sub);
+  }
+
+  @Delete(':id/images/:cloudinaryId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async removeImage(
+    @Param('id') id: string,
+    @Param('cloudinaryId') cloudinaryId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.removeImage(id, cloudinaryId, user.sub);
+  }
+
+  @Patch(':id/images/:imageId/primary')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async setPrimaryImage(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.setPrimaryImage(id, imageId, user.sub);
   }
 }

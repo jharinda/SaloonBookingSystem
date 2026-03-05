@@ -12,9 +12,10 @@ export { CalendarService } from './lib/services/calendar.service';
 export type { CalendarAuthUrlResponse } from './lib/services/calendar.service';
 
 export { ReviewService } from './lib/services/review.service';
+export type { CreateReviewDto } from '@org/models';
 
 export { SalonAdminService } from './lib/services/salon-admin.service';
-export type { AddServiceDto, UpdateOperatingHoursDto, CreateSalonDto, CreateSalonAddressDto, UpdateSalonInfoDto } from './lib/services/salon-admin.service';
+export type { AddServiceDto, UpdateOperatingHoursDto, CreateSalonDto, CreateSalonAddressDto, UpdateSalonInfoDto, SalonImage, UploadImageResult } from './lib/services/salon-admin.service';
 
 export { UserService } from './lib/services/user.service';
 export { AdminService } from './lib/services/admin.service';

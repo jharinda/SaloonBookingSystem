@@ -8,6 +8,7 @@ export class ReviewResponseDto {
   salonId: string;
   bookingId: string;
   clientId: string;
+  clientName: string;
   stylistId?: string;
   rating: number;
   comment?: string;

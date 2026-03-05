@@ -3,15 +3,45 @@
    PrimeNG Menubar overrides + avatar styles
    ───────────────────────────────────────────────────────────── */
 
+/* ── Navbar header wrapper ───────────────────────────────────── */
+:host header {
+  background: transparent;
+}
+
 /* ── PrimeNG Menubar host overrides ──────────────────────────── */
 :host ::ng-deep .snapsalon-menubar {
-  border-bottom: 1px solid var(--p-menubar-border-color, #e5e7eb);
+  --p-menubar-background: transparent;
+  --p-menubar-border-color: rgba(203, 213, 225, 0.7);
+
+  background: rgba(248, 250, 252, 0.85) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  border-color: rgba(203, 213, 225, 0.7) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07), 0 1px 0 rgba(203, 213, 225, 0.5);
+
+  /* Ensure inner containers don't paint over the blur */
+  .p-menubar-start,
+  .p-menubar-center,
+  .p-menubar-end,
+  .p-menubar-root-list {
+    background: transparent !important;
+  }
 
   /* Give the bar a bit more vertical padding */
   .p-menubar-root-list > .p-menuitem > .p-menuitem-content > .p-menuitem-link {
     padding-top: 0.6rem;
     padding-bottom: 0.6rem;
   }
+}
+
+/* Dark mode */
+:host-context(.dark) ::ng-deep .snapsalon-menubar {
+  --p-menubar-background: transparent;
+  --p-menubar-border-color: rgba(255, 255, 255, 0.08);
+
+  background: rgba(9, 9, 11, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Avatar button ───────────────────────────────────────────── */

@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { InjectQueue } from '@nestjs/bull';
 import { HttpService } from '@nestjs/axios';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
 import { Model, Types } from 'mongoose';
 import { Queue } from 'bull';
@@ -83,7 +84,7 @@ export class BookingService {
     durationMinutes: number,
   ): Promise<AvailableSlotsResponseDto> {
     // ── Step 0: Redis cache ──────────────────────────────────────────────
-    const cacheKey = `slots:${salonId}:${date}`;
+    const cacheKey = `slots:${salonId}:${date}:${durationMinutes}:${stylistId ?? 'any'}`;
     try {
       const cached = await this.redis.get(cacheKey);
       if (cached) {
@@ -198,46 +199,61 @@ export class BookingService {
     const endTime = addMinutes(dto.startTime, totalDuration);
     const totalPrice = dto.services.reduce((acc, s) => acc + s.price, 0);
 
-    // Validate the slot is still free
-    const appointmentDate = new Date(`${dto.appointmentDate}T00:00:00.000Z`);
-    const clash = await this.bookingModel.findOne({
-      salonId: new Types.ObjectId(dto.salonId),
-      appointmentDate,
-      status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
-      $or: [
-        {
-          // New booking starts during an existing one
-          startTime: { $lt: endTime },
-          endTime: { $gt: dto.startTime },
-        },
-      ],
-    });
-
-    if (clash) {
+    // Acquire a distributed lock to prevent double-booking races
+    const lockKey = `booking-lock:${dto.salonId}:${dto.appointmentDate}:${dto.startTime}`;
+    const lockValue = await this.acquireLock(lockKey, 5, 3, 100);
+    if (!lockValue) {
       throw new BadRequestException(
-        `The time slot ${dto.startTime}–${endTime} is no longer available`,
+        'Slot is currently being reserved, please try again',
       );
     }
 
-    const booking = await this.bookingModel.create({
-      clientId: new Types.ObjectId(clientId),
-      salonId: new Types.ObjectId(dto.salonId),
-      stylistId: dto.stylistId ? new Types.ObjectId(dto.stylistId) : null,
-      services: dto.services.map((s) => ({
-        ...s,
-        serviceId: new Types.ObjectId(s.serviceId),
-      })),
-      appointmentDate,
-      startTime: dto.startTime,
-      endTime,
-      totalPrice,
-      notes: dto.notes ?? null,
-      status: BookingStatus.PENDING,
-    });
+    try {
+      // Validate the slot is still free
+      const appointmentDate = new Date(`${dto.appointmentDate}T00:00:00.000Z`);
+      const clash = await this.bookingModel.findOne({
+        salonId: new Types.ObjectId(dto.salonId),
+        appointmentDate,
+        status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+        $or: [
+          {
+            // New booking starts during an existing one
+            startTime: { $lt: endTime },
+            endTime: { $gt: dto.startTime },
+          },
+        ],
+      });
 
-    const response = this.toResponse(booking);
-    await this.bookingQueue.add(BookingEvent.CREATED, response);
-    return response;
+      if (clash) {
+        throw new BadRequestException(
+          `The time slot ${dto.startTime}–${endTime} is no longer available`,
+        );
+      }
+
+      const booking = await this.bookingModel.create({
+        clientId: new Types.ObjectId(clientId),
+        salonId: new Types.ObjectId(dto.salonId),
+        salonName: dto.salonName ?? '',
+        clientName: await this.fetchClientName(clientId),
+        stylistId: dto.stylistId ? new Types.ObjectId(dto.stylistId) : null,
+        services: dto.services.map((s) => ({
+          ...s,
+          serviceId: new Types.ObjectId(s.serviceId),
+        })),
+        appointmentDate,
+        startTime: dto.startTime,
+        endTime,
+        totalPrice,
+        notes: dto.notes ?? null,
+        status: BookingStatus.PENDING,
+      });
+
+      const response = this.toResponse(booking);
+      await this.bookingQueue.add(BookingEvent.CREATED, response);
+      return response;
+    } finally {
+      await this.releaseLock(lockKey, lockValue);
+    }
   }
 
   async findAll(
@@ -249,9 +265,21 @@ export class BookingService {
     const skip = (page - 1) * limit;
     const where: Record<string, unknown> = { ...filter };
 
+    // clientId is stored as ObjectId — convert the string from JWT so the query matches
+    if (where['clientId'] && typeof where['clientId'] === 'string') {
+      where['clientId'] = new Types.ObjectId(where['clientId'] as string);
+    }
+
+    if (query.salonId) where['salonId'] = new Types.ObjectId(query.salonId);
     if (query.status) where['status'] = query.status;
     if (query.date) {
       where['appointmentDate'] = new Date(`${query.date}T00:00:00.000Z`);
+    }
+    if (query.startDate || query.endDate) {
+      const range: Record<string, Date> = {};
+      if (query.startDate) range['$gte'] = new Date(`${query.startDate}T00:00:00.000Z`);
+      if (query.endDate) range['$lte'] = new Date(`${query.endDate}T23:59:59.999Z`);
+      where['appointmentDate'] = range;
     }
 
     const [data, total] = await Promise.all([
@@ -297,7 +325,7 @@ export class BookingService {
   async cancelBooking(
     bookingId: string,
     userId: string,
-    reason: string,
+    reason?: string,
   ): Promise<BookingResponseDto> {
     const booking = await this.bookingModel.findById(bookingId);
     if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
@@ -354,24 +382,145 @@ export class BookingService {
     return response;
   }
 
+  // ── Scheduled: auto-complete overdue bookings ─────────────────────────────
+
+  /**
+   * Runs every minute.
+   * Finds CONFIRMED / IN_PROGRESS bookings whose end time has passed and marks
+   * them COMPLETED so the client's appointment list stays accurate without
+   * needing manual intervention.
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async autoCompleteOverdueBookings(): Promise<void> {
+    const now = new Date();
+
+    // Fetch all active bookings up to (but not including) tomorrow's UTC midnight
+    // so we definitely catch everything that could have ended by now.
+    const tomorrowUtcMidnight = new Date(now);
+    tomorrowUtcMidnight.setUTCHours(0, 0, 0, 0);
+    tomorrowUtcMidnight.setUTCDate(tomorrowUtcMidnight.getUTCDate() + 1);
+
+    const candidates = await this.bookingModel
+      .find({
+        status: { $in: [BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS] },
+        appointmentDate: { $lt: tomorrowUtcMidnight },
+      })
+      .lean()
+      .exec();
+
+    // Reconstruct end datetime from the stored UTC-midnight date + "HH:mm" endTime
+    // (endTime is stored in local/salon time, so we use local Date constructor)
+    const overdue = candidates.filter((b) => {
+      const apptDate = new Date(b.appointmentDate);
+      const [hStr, mStr = '0'] = b.endTime.split(':');
+      const endDt = new Date(
+        apptDate.getUTCFullYear(),
+        apptDate.getUTCMonth(),
+        apptDate.getUTCDate(),
+        parseInt(hStr, 10),
+        parseInt(mStr, 10),
+      );
+      return endDt.getTime() < now.getTime();
+    });
+
+    if (!overdue.length) return;
+
+    const ids = overdue.map((b) => b._id);
+    await this.bookingModel.updateMany(
+      { _id: { $in: ids } },
+      { $set: { status: BookingStatus.COMPLETED } },
+    );
+    this.logger.log(`[Scheduler] Auto-completed ${overdue.length} overdue booking(s)`);
+
+    // Fire COMPLETED events for queue consumers (notifications, calendar, etc.)
+    for (const b of overdue) {
+      const response = this.toResponse(b as unknown as BookingDocument);
+      response.status = BookingStatus.COMPLETED;
+      await this.bookingQueue.add(BookingEvent.COMPLETED, response).catch(() => {/* non-fatal */});
+    }
+  }
+
   // ── Private helpers ──────────────────────────────────────────────────────
+
+  /**
+   * Try to acquire a Redis SET NX EX lock.
+   * Returns the unique lock value on success, or null if all retries are exhausted.
+   */
+  private async acquireLock(
+    key: string,
+    ttlSeconds: number,
+    retries: number,
+    retryDelayMs: number,
+  ): Promise<string | null> {
+    const lockValue = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    for (let attempt = 0; attempt < retries; attempt++) {
+      const result = await this.redis.set(key, lockValue, 'EX', ttlSeconds, 'NX');
+      if (result === 'OK') {
+        return lockValue;
+      }
+      if (attempt < retries - 1) {
+        await new Promise<void>((resolve) => setTimeout(resolve, retryDelayMs));
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Atomically release a Redis lock only if it still holds our value,
+   * preventing accidental release of a lock acquired by another process.
+   */
+  private async releaseLock(key: string, value: string): Promise<void> {
+    const luaScript = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    try {
+      await this.redis.eval(luaScript, 1, key, value);
+    } catch (err) {
+      this.logger.warn(`Failed to release lock ${key}: ${(err as Error).message}`);
+    }
+  }
+
+  private async fetchClientName(clientId: string): Promise<string> {
+    const authUrl = this.configService.get<string>('services.authUrl', 'http://localhost:3003');
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(`${authUrl}/api/auth/users/${clientId}`),
+      );
+      return (
+        data.name ??
+        (`${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() || 'Unknown')
+      );
+    } catch {
+      return '';
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private toResponse(booking: any): BookingResponseDto {
+    const id = (booking._id ?? booking.id)?.toString();
+    const services = (booking.services ?? []).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => ({
+        serviceId: s.serviceId?.toString(),
+        name: s.name,
+        price: s.price,
+        durationMinutes: s.durationMinutes,
+      }),
+    );
     return {
-      id: (booking._id ?? booking.id)?.toString(),
+      id,
+      _id: id,
       clientId: booking.clientId?.toString(),
+      clientName: booking.clientName ?? '',
       salonId: booking.salonId?.toString(),
+      salonName: booking.salonName ?? '',
+      serviceName: services[0]?.name ?? '',
       stylistId: booking.stylistId?.toString() ?? undefined,
-      services: (booking.services ?? []).map(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (s: any) => ({
-          serviceId: s.serviceId?.toString(),
-          name: s.name,
-          price: s.price,
-          durationMinutes: s.durationMinutes,
-        }),
-      ),
+      services,
       appointmentDate: booking.appointmentDate,
       startTime: booking.startTime,
       endTime: booking.endTime,

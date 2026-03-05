@@ -31,6 +31,13 @@ import { PwaInstallService } from '../../shared/services/pwa-install.service';
     .pwa-banner__icon { flex-shrink: 0; font-size: 1.25rem; }
     .pwa-banner__text { flex: 1; }
     .pwa-banner__actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+
+    :host-context(.app-dark) {
+      .pwa-banner {
+        background: #27272a;
+        color: #f4f4f5;
+      }
+    }
   `],
 })
 export class PwaInstallBannerComponent {

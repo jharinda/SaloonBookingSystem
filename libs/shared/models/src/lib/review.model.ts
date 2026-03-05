@@ -3,6 +3,7 @@
 export interface Review {
   _id: string;
   salonId: string;
+  bookingId: string;
   clientId: string;
   /** Denormalised for display */
   clientName: string;
@@ -26,8 +27,10 @@ export interface ReviewsPage {
 
 export interface CreateReviewDto {
   salonId: string;
+  bookingId: string;
   rating: number;
-  comment: string;
+  comment?: string;
+  stylistId?: string;
 }
 
 export interface ReplyToReviewDto {

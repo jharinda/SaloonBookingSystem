@@ -16,7 +16,7 @@ $danger: #dc2626;
 
 .sub-text {
   font-size: .9rem;
-  color: #6b7280;
+  color: #52525b; /* zinc-600 — lifted from gray-500 for readability */
   margin: -12px 0 18px;
 }
 
@@ -28,13 +28,13 @@ $danger: #dc2626;
 .error-card {
   display: flex; flex-direction: column; align-items: center; gap: 12px;
   padding: 48px 24px; border: 1px solid #e5e7eb; border-radius: 12px;
-  color: #6b7280; text-align: center;
+  color: #52525b; text-align: center;
   mat-icon { font-size: 48px; width: 48px; height: 48px; color: $danger; opacity: .7; }
 }
 
 .empty-state {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 64px 24px; text-align: center; color: #6b7280;
+  padding: 64px 24px; text-align: center; color: #52525b;
   h3 { margin: 0; font-size: 1.1rem; font-weight: 700; color: #1f2937; }
   p  { margin: 0; font-size: .9rem; }
 }
@@ -70,8 +70,8 @@ table.mat-mdc-table { width: 100%; }
   font-size: .78rem !important;
   text-transform: uppercase;
   letter-spacing: .04em;
-  color: #9ca3af !important;
-  background: #f9fafb;
+  color: #71717a !important; /* zinc-500 — lifted from gray-400 */
+  background: #f1f5f9; /* slate-100 — matches new page bg */
 }
 
 .mat-mdc-row:hover { background: #f5f3ff; }
@@ -84,7 +84,7 @@ table.mat-mdc-table { width: 100%; }
   span { line-height: 1.4; }
 }
 
-.owner-email { font-size: .78rem; color: #6b7280; }
+.owner-email { font-size: .78rem; color: #52525b; }
 
 .salon-name { font-weight: 600; color: #1f2937; }
 
@@ -139,7 +139,7 @@ table.mat-mdc-table { width: 100%; }
   &--filled { color: #f59e0b; }
 }
 
-.plan { font-size: .85rem; color: #6b7280; }
+.plan { font-size: .85rem; color: #52525b; }
 
 .comment-cell {
   display: -webkit-box;
@@ -171,3 +171,29 @@ table.mat-mdc-table { width: 100%; }
 }
 
 .danger-icon-btn .mat-icon { color: $danger !important; }
+
+// ── Dark mode ───────────────────────────────────────────────────────────────────
+:host-context(.app-dark) {
+  .page-title { color: #f4f4f5; }
+  .sub-text { color: #a1a1aa; }
+  .error-card { border-color: #3f3f46; color: #a1a1aa; }
+  .empty-state {
+    color: #a1a1aa;
+    h3 { color: #f4f4f5; }
+  }
+  .table-card { background: #18181b; border-color: #3f3f46; }
+  .bold, .salon-name { color: #f4f4f5; }
+  .owner-email, .plan { color: #71717a; }
+  .comment-cell { color: #a1a1aa; }
+  .badge--approved  { background: rgba(220,252,231,.12); color: #4ade80; }
+  .badge--pending   { background: rgba(254,243,199,.12); color: #fde047; }
+  .badge--suspended { background: rgba(254,226,226,.12); color: #f87171; }
+  .role-chip {
+    background: rgba(224,231,255,.12); color: #818cf8;
+    &--client      { background: rgba(224,242,254,.12); color: #38bdf8; }
+    &--salon_owner { background: rgba(253,244,255,.12); color: #c084fc; }
+    &--stylist     { background: rgba(254,249,195,.12); color: #fde047; }
+    &--admin       { background: rgba(254,226,226,.12); color: #f87171; }
+  }
+  .star { color: #52525b; &--filled { color: #f59e0b; } }
+}

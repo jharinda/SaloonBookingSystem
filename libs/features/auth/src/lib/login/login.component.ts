@@ -43,6 +43,15 @@ export class LoginComponent {
   readonly isLoading    = signal(false);
   readonly errorMessage = signal<string | null>(null);
 
+  constructor() {
+    const err = this.route.snapshot.queryParamMap.get('error');
+    if (err === 'not_registered') {
+      this.errorMessage.set(
+        'No account found for this Google account. Please register first.',
+      );
+    }
+  }
+
   readonly form = this.fb.nonNullable.group({
     email:    ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8)]],
@@ -50,6 +59,10 @@ export class LoginComponent {
 
   get email()    { return this.form.controls.email; }
   get password() { return this.form.controls.password; }
+
+  loginWithGoogle(): void {
+    window.location.href = '/api/auth/google/init?intent=login';
+  }
 
   onSubmit(): void {
     this.form.markAllAsTouched();

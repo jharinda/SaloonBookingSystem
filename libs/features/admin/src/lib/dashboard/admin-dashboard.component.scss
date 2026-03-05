@@ -75,3 +75,13 @@ $brand: #6750a4;
   font-weight: 800;
   color: #111827;
 }
+
+// ── Dark mode ──────────────────────────────────────────────────
+:host-context(.app-dark) {
+  .page-title { color: #f4f4f5; }
+  .error-card { border-color: #3f3f46; color: #a1a1aa; }
+  .stat-card { background: #18181b; border-color: #3f3f46; }
+  .stat-card--warn { background: rgba(255,247,237,.05); border-color: #c2410c; }
+  .stat-label { color: #a1a1aa; }
+  .stat-value { color: #f4f4f5; }
+}

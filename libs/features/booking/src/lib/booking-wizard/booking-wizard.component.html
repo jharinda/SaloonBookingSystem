@@ -20,6 +20,15 @@
   <!-- ── Wizard ─────────────────────────────────────────────────────────────── -->
   @if (!isSalonLoading() && salon()) {
 
+    <!-- ── Non-client role warning ── -->
+    @if (userRole() && userRole() !== 'client') {
+      <p-message
+        severity="warn"
+        styleClass="mb-5 w-full"
+        [text]="'Bookings are not available for ' + userRole().replace('_', ' ') + ' accounts. Please log in with a client account to make a booking.'"
+      />
+    }
+
     <!-- Salon identity bar -->
     <div class="wizard-salon-bar">
       <img
@@ -66,12 +75,12 @@
 
               <!-- Right column: available times -->
               <div class="flex flex-col gap-4">
-                <h3 class="font-semibold text-gray-800 m-0">Available Times</h3>
+                <h3 class="font-semibold text-gray-800 dark:text-gray-200 m-0">Available Times</h3>
 
                 @if (!selectedDate) {
                   <p-message severity="info" text="Please select a date first." />
                 } @else if (isSlotsLoading()) {
-                  <div class="flex items-center gap-3 text-gray-500 text-sm py-4">
+                  <div class="flex items-center gap-3 text-gray-500 dark:text-gray-400 text-sm py-4">
                     <i class="pi pi-spin pi-spinner text-purple-500"></i>
                     Checking availability…
                   </div>
@@ -90,7 +99,7 @@
                     />
                   </div>
                 } @else if (timeSlots.length === 0) {
-                  <p class="text-gray-400 text-sm m-0">
+                  <p class="text-gray-400 dark:text-gray-500 text-sm m-0">
                     No slots available for this date. Please try another day.
                   </p>
                 } @else {
@@ -108,7 +117,7 @@
             </div><!-- /grid -->
 
             <!-- Step navigation -->
-            <div class="flex justify-end mt-8 pt-4 border-t border-gray-100">
+            <div class="flex justify-end mt-8 pt-4 border-t border-gray-100 dark:border-zinc-700">
               <p-button
                 label="Next: Your Details"
                 icon="pi pi-arrow-right"
@@ -168,9 +177,9 @@
 
               <!-- Special Requests -->
               <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium text-gray-700" for="wiz-notes">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300" for="wiz-notes">
                   Special Requests
-                  <span class="text-gray-400 font-normal">(optional)</span>
+                  <span class="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
                 </label>
                 <textarea
                   pTextarea
@@ -181,7 +190,7 @@
                   class="w-full"
                   [(ngModel)]="specialRequests"
                 ></textarea>
-                <div class="text-xs text-gray-400 text-right">{{ specialRequests.length }}/500</div>
+                <div class="text-xs text-gray-400 dark:text-gray-500 text-right">{{ specialRequests.length }}/500</div>
               </div>
 
               <!-- Cancellation policy checkbox -->
@@ -197,7 +206,7 @@
             </div><!-- /form -->
 
             <!-- Step navigation -->
-            <div class="flex justify-between mt-8 pt-4 border-t border-gray-100">
+            <div class="flex justify-between mt-8 pt-4 border-t border-gray-100 dark:border-zinc-700">
               <p-button
                 label="Back"
                 icon="pi pi-arrow-left"
@@ -224,8 +233,8 @@
             <p-card styleClass="mb-6">
               <ng-template #header>
                 <div class="px-5 pt-5">
-                  <h2 class="text-lg font-bold text-gray-900 m-0">Booking Summary</h2>
-                  <p class="text-sm text-gray-500 m-0 mt-1">Please review your booking before confirming.</p>
+                  <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100 m-0">Booking Summary</h2>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 m-0 mt-1">Please review your booking before confirming.</p>
                 </div>
               </ng-template>
 
@@ -235,7 +244,7 @@
                 <div>
                   <div class="summary-label">Salon</div>
                   <div class="summary-value">{{ salon()!.name }}</div>
-                  <div class="text-sm text-gray-400">{{ salon()!.address.city }}</div>
+                  <div class="text-sm text-gray-400 dark:text-gray-500">{{ salon()!.address.city }}</div>
                 </div>
               </div>
 
@@ -248,7 +257,7 @@
                   <div>
                     <div class="summary-label">Service</div>
                     <div class="summary-value">{{ selectedService()!.name }}</div>
-                    <div class="text-sm text-gray-400">
+                    <div class="text-sm text-gray-400 dark:text-gray-500">
                       {{ selectedService()!.category }} &bull; {{ selectedService()!.duration }} min
                     </div>
                   </div>
@@ -297,7 +306,7 @@
                   <div class="summary-icon"><i class="pi pi-tag text-sm"></i></div>
                   <div>
                     <div class="summary-label">Total</div>
-                    <div class="summary-value text-purple-700 text-lg">
+                    <div class="summary-value text-purple-700 dark:text-purple-400 text-lg">
                       LKR {{ selectedService()!.price | number: '1.2-2' }}
                     </div>
                   </div>

@@ -65,6 +65,10 @@ export class AllSalonsComponent implements OnInit, OnDestroy {
   ];
 
   ngOnInit(): void {
+    // Wire up debounced search. The initial data load is triggered by p-table's
+    // onLazyLoad event which fires automatically when the table first renders.
+    // Do NOT call loadSalons() here — that would destroy/recreate the table on
+    // every load cycle, causing the onLazyLoad → loadSalons infinite loop.
     this.search$.pipe(
       debounceTime(300),
       distinctUntilChanged(),
@@ -74,8 +78,6 @@ export class AllSalonsComponent implements OnInit, OnDestroy {
       this.page.set(0);
       this.loadSalons();
     });
-
-    this.loadSalons();
   }
 
   ngOnDestroy(): void {

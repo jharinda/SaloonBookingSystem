@@ -33,6 +33,10 @@ export class CreateBookingDto {
   @IsMongoId()
   salonId: string;
 
+  @IsString()
+  @IsOptional()
+  salonName?: string;
+
   @IsMongoId()
   @IsOptional()
   stylistId?: string;

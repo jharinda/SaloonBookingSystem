@@ -269,10 +269,12 @@ export class SubmitReviewComponent implements OnInit {
 
   submit(): void {
     const bookingId = this.route.snapshot.queryParamMap.get('bookingId') ?? '';
+    const salonId = this.booking()?.salonId ?? '';
     this.isSubmitting.set(true);
 
     this.reviewService
       .createReview({
+        salonId,
         bookingId,
         rating: this.selectedRating(),
         comment: this.comment,

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -21,6 +22,8 @@ import {
   UpdateProfileDto,
   UserProfileResponseDto,
 } from './dto/user-profile.dto';
+import { GooglePendingProfile } from './strategies/google.strategy';
+import { UserRole } from './dto/register.dto';
 
 export interface AdminUserDto {
   _id:       string;
@@ -81,6 +84,12 @@ export class AuthService {
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.isActive === false) {
+      throw new UnauthorizedException(
+        'Your account has been suspended. Please contact support.',
+      );
     }
 
     const tokens = await this.generateTokens(user);
@@ -159,6 +168,81 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  /** Creates a short-lived (10 min) token carrying the Google profile so the
+   *  frontend can resume registration after the user selects their role. */
+  createPendingToken(profile: GooglePendingProfile): string {
+    return this.jwtService.sign(
+      {
+        type: 'google_pending',
+        googleId:  profile.googleId,
+        email:     profile.email,
+        firstName: profile.firstName,
+        lastName:  profile.lastName,
+        avatarUrl: profile.avatarUrl,
+      },
+      {
+        secret:    this.configService.get<string>('jwt.accessSecret'),
+        expiresIn: '10m',
+      },
+    );
+  }
+
+  /** Verifies the pending token and creates the user with the chosen role. */
+  async completeGoogleRegistration(
+    pendingToken: string,
+    role: UserRole,
+  ): Promise<AuthResponseDto> {
+    let payload: {
+      type: string;
+      googleId: string;
+      email: string;
+      firstName: string;
+      lastName: string;
+      avatarUrl: string | null;
+    };
+
+    try {
+      payload = this.jwtService.verify(pendingToken, {
+        secret: this.configService.get<string>('jwt.accessSecret'),
+      });
+    } catch {
+      throw new UnauthorizedException('Pending token expired or invalid. Please try again.');
+    }
+
+    if (payload.type !== 'google_pending') {
+      throw new BadRequestException('Invalid token type');
+    }
+
+    // Re-check in case the user registered by email in the meantime
+    const existing = await this.userModel.findOne({ email: payload.email });
+    if (existing) {
+      if (!existing.googleId) {
+        existing.googleId = payload.googleId;
+        existing.isEmailVerified = true;
+        await existing.save();
+      }
+      if (existing.isActive === false) {
+        throw new UnauthorizedException('Your account has been suspended. Please contact support.');
+      }
+      const tokens = await this.generateTokens(existing);
+      return { user: this.toUserResponse(existing), ...tokens };
+    }
+
+    const user = await this.userModel.create({
+      googleId:        payload.googleId,
+      email:           payload.email,
+      firstName:       payload.firstName,
+      lastName:        payload.lastName,
+      avatarUrl:       payload.avatarUrl ?? null,
+      role,
+      isEmailVerified: true,
+      passwordHash:    null,
+    });
+
+    const tokens = await this.generateTokens(user);
+    return { user: this.toUserResponse(user), ...tokens };
+  }
+
   // ── Internal user lookups (consumed by other microservices) ─────────────
 
   async findUserById(id: string): Promise<UserResponseDto> {
@@ -209,23 +293,16 @@ export class AuthService {
     const user = await this.userModel.findById(userId).lean();
     if (!user) throw new NotFoundException('User not found');
 
-    // Map frontend camelCase fields → schema fields
-    const current = (user as UserDocument).notificationPreferences ?? {};
-    const merged = {
-      email:    dto.emailBookingConfirmations ?? dto.emailReminders ?? (current as Record<string, boolean>)['email'] ?? true,
-      sms:      dto.smsReminders ?? (current as Record<string, boolean>)['sms'] ?? false,
-      whatsapp: dto.whatsappMessages ?? (current as Record<string, boolean>)['whatsapp'] ?? false,
-      push:     (current as Record<string, boolean>)['push'] ?? false,
+    const prefs = {
+      email:    dto.email,
+      sms:      dto.sms,
+      whatsapp: dto.whatsapp,
+      push:     dto.push,
     };
 
-    await this.userModel.findByIdAndUpdate(userId, { notificationPreferences: merged });
+    await this.userModel.findByIdAndUpdate(userId, { $set: { notificationPreferences: prefs } });
 
-    return {
-      emailBookingConfirmations: dto.emailBookingConfirmations ?? dto.emailReminders ?? merged.email,
-      emailReminders:            dto.emailReminders ?? merged.email,
-      smsReminders:              dto.smsReminders ?? merged.sms,
-      whatsappMessages:          dto.whatsappMessages ?? merged.whatsapp,
-    };
+    return prefs;
   }
 
   async getConnectedAccounts(userId: string): Promise<ConnectedAccountsResponseDto> {

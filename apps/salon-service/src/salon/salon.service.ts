@@ -240,11 +240,61 @@ export class SalonService {
     const updated = await this.salonModel
       .findByIdAndUpdate(
         salonId,
-        { $push: { services: { ...dto, _id: new Types.ObjectId() } } },
+        {
+          $push: {
+            services: {
+              _id:             new Types.ObjectId(),
+              name:            dto.name,
+              description:     dto.description,
+              price:           dto.price,
+              durationMinutes: dto.duration,
+              category:        dto.category,
+              active:          dto.active ?? true,
+            },
+          },
+        },
         { returnDocument: 'after' },
       )
       .lean()
       .exec();
+
+    return this.toResponse(updated as unknown as SalonDocument);
+  }
+
+  async updateService(
+    salonId: string,
+    serviceId: string,
+    dto: Partial<AddServiceDto>,
+    ownerId: string,
+  ): Promise<SalonResponseDto> {
+    const salon = await this.salonModel.findById(salonId);
+    if (!salon) {
+      throw new NotFoundException(`Salon with id ${salonId} not found`);
+    }
+    if (salon.ownerId.toString() !== ownerId) {
+      throw new ForbiddenException('You can only modify your own salon');
+    }
+
+    const setFields: Record<string, unknown> = {};
+    if (dto.name        !== undefined) setFields['services.$.name']            = dto.name;
+    if (dto.description !== undefined) setFields['services.$.description']     = dto.description;
+    if (dto.price       !== undefined) setFields['services.$.price']           = dto.price;
+    if (dto.duration    !== undefined) setFields['services.$.durationMinutes'] = dto.duration;
+    if (dto.category    !== undefined) setFields['services.$.category']        = dto.category;
+    if (dto.active      !== undefined) setFields['services.$.active']          = dto.active;
+
+    const updated = await this.salonModel
+      .findOneAndUpdate(
+        { _id: salonId, 'services._id': new Types.ObjectId(serviceId) },
+        { $set: setFields },
+        { returnDocument: 'after' },
+      )
+      .lean()
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException(`Service ${serviceId} not found in salon ${salonId}`);
+    }
 
     return this.toResponse(updated as unknown as SalonDocument);
   }
@@ -634,12 +684,13 @@ export class SalonService {
       services: (salon.services ?? []).map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (svc: any): SalonServiceItemDto => ({
-          id: svc._id?.toString(),
-          name: svc.name,
+          id:       svc._id?.toString(),
+          name:     svc.name,
           description: svc.description,
-          price: svc.price,
-          durationMinutes: svc.durationMinutes,
+          price:    svc.price,
+          duration: svc.durationMinutes,
           category: svc.category,
+          active:   svc.active ?? true,
         }),
       ),
       staff: (salon.staff ?? []).map((id: Types.ObjectId) => id.toString()),

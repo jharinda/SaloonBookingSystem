@@ -120,6 +120,37 @@ interface TimeSlotOption {
       color: var(--p-primary-500, #7c3aed);
     }
 
+    /* ── Dark mode overrides ── */
+    :host-context(.dark) .wizard-salon-bar,
+    :host-context(.app-dark) .wizard-salon-bar {
+      background: #18181b;
+      border-color: #3f3f46;
+    }
+    :host-context(.dark) .salon-bar-name,
+    :host-context(.app-dark) .salon-bar-name {
+      color: #f4f4f5;
+    }
+    :host-context(.dark) .salon-bar-city,
+    :host-context(.app-dark) .salon-bar-city {
+      color: #a1a1aa;
+    }
+    :host-context(.dark) .wizard-state,
+    :host-context(.app-dark) .wizard-state {
+      color: #a1a1aa;
+    }
+    :host-context(.dark) .summary-label,
+    :host-context(.app-dark) .summary-label {
+      color: #71717a;
+    }
+    :host-context(.dark) .summary-value,
+    :host-context(.app-dark) .summary-value {
+      color: #f4f4f5;
+    }
+    :host-context(.dark) .summary-icon,
+    :host-context(.app-dark) .summary-icon {
+      background: #3b0764;
+    }
+
     /* ── Datepicker fills its column ── */
     :host ::ng-deep .fill-calendar { width: 100%; }
     :host ::ng-deep .fill-calendar .p-datepicker { width: 100%; }
@@ -168,6 +199,9 @@ export class BookingWizardComponent {
   readonly salon          = signal<Salon | null>(null);
   readonly isSalonLoading = signal(true);
   readonly salonError     = signal<string | null>(null);
+
+  /** Role from the authenticated user's JWT profile */
+  readonly userRole = signal<string>('');
 
   readonly selectedService = signal<SalonServiceItem | null>(null);
   readonly stylistId       = signal<string>('');
@@ -283,6 +317,7 @@ export class BookingWizardComponent {
       .pipe(takeUntilDestroyed())
       .subscribe({
         next: (p) => {
+          this.userRole.set(p.role);
           this.fullName = `${p.firstName} ${p.lastName}`.trim();
           this.email    = p.email;
           this.phone    = p.phone ?? '';
@@ -342,23 +377,48 @@ export class BookingWizardComponent {
     const time    = this.selectedTime;
     if (!salon || !service || !dateStr || !time) return;
 
+    const role = this.userRole();
+    if (role && role !== 'client') {
+      this.msgSvc.add({
+        severity: 'warn',
+        summary: 'Bookings Not Available',
+        detail: 'Only client accounts can make bookings. Please log in with a client account to continue.',
+        life: 6000,
+      });
+      return;
+    }
+
     this.isSubmitting.set(true);
     this.bookingService
       .createBooking({
         salonId:         salon._id,
-        serviceId:       service._id,
+        salonName:       salon.name,
+        stylistId:       this.stylistId() || undefined,
+        services: [{
+          serviceId:       service._id,
+          name:            service.name,
+          price:           service.price,
+          durationMinutes: service.duration,
+        }],
         appointmentDate: dateStr,
         startTime:       time,
-        stylistId:       this.stylistId() || undefined,
         notes:           this.specialRequests.trim() || undefined,
       })
       .subscribe({
         next: (booking: Booking) => {
           void this.router.navigate(['/booking', 'success', booking._id]);
         },
-        error: () => {
+        error: (err) => {
           this.isSubmitting.set(false);
-          this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Could not create booking. Please try again.', life: 4000 });
+          const is403 = err?.status === 403;
+          this.msgSvc.add({
+            severity: is403 ? 'warn' : 'error',
+            summary:  is403 ? 'Bookings Not Available' : 'Booking Failed',
+            detail:   is403
+              ? 'Only client accounts can make bookings. Please log in with a client account.'
+              : 'Could not create booking. Please try again.',
+            life: 6000,
+          });
         },
       });
   }

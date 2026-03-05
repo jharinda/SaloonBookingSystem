@@ -18,6 +18,7 @@ import { FloatLabelModule } from 'primeng/floatlabel';
 import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { DividerModule } from 'primeng/divider';
 
 import { AuthService, RegisterDto } from '@org/shared-data-access';
 
@@ -35,6 +36,7 @@ import { AuthService, RegisterDto } from '@org/shared-data-access';
     InputTextModule,
     PasswordModule,
     SelectButtonModule,
+    DividerModule,
   ],
   templateUrl: './register.component.html',
 })
@@ -65,6 +67,10 @@ export class RegisterComponent {
   get email()     { return this.form.controls.email; }
   get password()  { return this.form.controls.password; }
   get salonName() { return this.form.controls.salonName; }
+
+  loginWithGoogle(): void {
+    window.location.href = '/api/auth/google/init?intent=register';
+  }
 
   onSubmit(): void {
     this.form.markAllAsTouched();

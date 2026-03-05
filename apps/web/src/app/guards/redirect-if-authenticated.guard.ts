@@ -1,29 +1,28 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
-import { Observable, catchError, map, of } from 'rxjs';
 import { AuthService } from '@org/shared-data-access';
 
 /**
  * Prevents authenticated users from accessing guest-only pages
  * (login / register / forgot-password).
  *
- * Fast path: if the in-memory token is present, redirect to /discover.
- * Slow path: silently try to refresh — if that succeeds the user is
- * authenticated and gets redirected; if it fails they stay on the
- * auth page.
+ * APP_INITIALIZER already calls initAuth() (which attempts a silent token
+ * refresh) before any routing begins, so by the time this guard runs the
+ * in-memory token is either set (user has a valid session) or absent (no
+ * valid refresh-token cookie exists). A second refresh attempt here would
+ * be redundant and causes an unnecessary 401 round-trip on every visit to
+ * the auth pages.
  */
-export const redirectIfAuthenticatedGuard: CanActivateFn = (): boolean | UrlTree | Observable<boolean | UrlTree> => {
+export const redirectIfAuthenticatedGuard: CanActivateFn = (): boolean | UrlTree => {
   const router = inject(Router);
   const authService = inject(AuthService);
 
-  // Fast path — already authenticated
+  // If a valid in-memory token exists the user is already authenticated —
+  // send them to the discover page instead of the auth route.
   if (authService.isLoggedIn()) {
     return router.createUrlTree(['/discover']);
   }
 
-  // Slow path — check if there is a valid refresh-token cookie
-  return authService.refreshToken().pipe(
-    map(() => router.createUrlTree(['/discover']) as boolean | UrlTree),
-    catchError(() => of(true)), // no valid cookie → let them through to login
-  );
+  // No token — allow access to the guest-only page.
+  return true;
 };

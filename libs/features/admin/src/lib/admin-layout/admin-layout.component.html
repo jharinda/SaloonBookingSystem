@@ -1,36 +1,81 @@
-<div class="admin-shell">
+<div class="flex h-screen overflow-hidden">
 
-  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
-  <aside class="sidebar">
-    <a class="sidebar__brand" routerLink="/admin/dashboard">
-      <i class="pi pi-shield brand-icon"></i>
-      <span class="brand-text">Admin</span>
-    </a>
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <aside
+    class="flex flex-col flex-shrink-0 bg-slate-50 dark:bg-zinc-950 transition-all duration-300 ease-in-out overflow-hidden fixed left-3 top-[4.75rem] h-[calc(100vh-5.5rem)] rounded-2xl border border-zinc-200 dark:border-zinc-700 z-40"
+    [class.w-52]="isExpanded()"
+    [class.w-16]="!isExpanded()"
+    [class.shadow-\[0_0_20px_rgba\(16\,185\,129\,0\.2\)\,0_0_40px_rgba\(16\,185\,129\,0\.1\)\]]="isExpanded()"
+    [class.shadow-\[0_0_15px_rgba\(16\,185\,129\,0\.12\)\,0_0_30px_rgba\(16\,185\,129\,0\.06\)\]]="!isExpanded()"
+    (mouseenter)="isExpanded.set(true)"
+    (mouseleave)="isExpanded.set(false)"
+  >
+    <!-- Brand header -->
+    <div class="flex flex-col items-center gap-1 pb-4 mb-2 border-b border-zinc-200 dark:border-zinc-800 w-full px-2 mt-2">
+      <div class="flex items-center gap-2 w-full min-w-0 transition-all duration-300"
+           [class.justify-center]="!isExpanded()"
+           [class.justify-start]="isExpanded()">
+        <div class="w-9 h-9 flex-shrink-0 rounded-lg bg-violet-100 dark:bg-violet-900 flex items-center justify-center">
+          <i class="pi pi-shield text-violet-600 dark:text-violet-400 text-sm"></i>
+        </div>
+        <span class="text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate overflow-hidden transition-all duration-200 whitespace-nowrap"
+              [class.opacity-100]="isExpanded()"
+              [class.opacity-0]="!isExpanded()"
+              [class.max-w-xs]="isExpanded()"
+              [class.max-w-0]="!isExpanded()">Admin</span>
+      </div>
+    </div>
 
-    <nav class="sidebar__nav">
+    <!-- Icon nav -->
+    <nav class="flex flex-col items-center gap-1 flex-1 w-full px-2 py-2">
       @for (item of navItems; track item.route) {
         <a
-          class="nav-item"
+          class="nav-icon-btn w-full px-3"
           [routerLink]="item.route"
-          routerLinkActive="nav-item--active"
+          routerLinkActive="active-nav-item"
           [pTooltip]="item.label"
           tooltipPosition="right"
+          [tooltipOptions]="{showDelay: 200}"
+          [tooltipDisabled]="isExpanded()"
         >
-          <i
-            class="pi {{ item.icon }} nav-icon"
-            pBadge
-            [value]="getBadge(item)?.toString() ?? ''"
-            [badgeDisabled]="getBadge(item) === null"
-            severity="danger"
-          ></i>
-          <span class="nav-label">{{ item.label }}</span>
+          <span class="flex-shrink-0 w-5 flex items-center justify-center relative">
+            <i class="pi {{ item.icon }}"></i>
+            @if (getBadge(item); as badge) {
+              <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-[3px] leading-none">{{ badge }}</span>
+            }
+          </span>
+          <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
+                [class.opacity-100]="isExpanded()"
+                [class.opacity-0]="!isExpanded()"
+                [class.max-w-xs]="isExpanded()"
+                [class.max-w-0]="!isExpanded()">{{ item.label }}</span>
         </a>
       }
     </nav>
+
+    <!-- Footer: user email + logout -->
+    <div class="flex items-center gap-2 pb-3 border-t border-zinc-200 dark:border-zinc-800 w-full pt-3 px-2 min-w-0">
+      <p-button
+        icon="pi pi-sign-out"
+        [rounded]="true"
+        [text]="true"
+        severity="secondary"
+        (onClick)="logout()"
+        aria-label="Sign out"
+        styleClass="text-zinc-400 flex-shrink-0"
+      />
+      <span class="text-xs text-zinc-500 dark:text-zinc-400 truncate overflow-hidden transition-all duration-200"
+            [class.opacity-100]="isExpanded()"
+            [class.opacity-0]="!isExpanded()"
+            [class.w-auto]="isExpanded()"
+            [class.w-0]="!isExpanded()">{{ userEmail() }}</span>
+    </div>
   </aside>
 
-  <!-- ── Main area ─────────────────────────────────────────────────────── -->
-  <main class="admin-main">
+  <!-- ── Main content area ──────────────────────────────────────────────── -->
+  <main class="flex-1 overflow-y-auto bg-slate-100 dark:bg-zinc-950 transition-all duration-300"
+        [class.ml-56]="isExpanded()"
+        [class.ml-20]="!isExpanded()">
     <router-outlet />
   </main>
 

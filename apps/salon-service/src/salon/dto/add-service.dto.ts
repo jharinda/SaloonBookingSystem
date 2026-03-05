@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -21,11 +22,16 @@ export class AddServiceDto {
   @Min(0)
   price: number;
 
+  /** Duration in minutes — stored as durationMinutes in the DB */
   @IsNumber()
   @Min(1)
-  durationMinutes: number;
+  duration: number;
 
   @IsString()
   @IsNotEmpty()
   category: string;
+
+  @IsBoolean()
+  @IsOptional()
+  active?: boolean;
 }

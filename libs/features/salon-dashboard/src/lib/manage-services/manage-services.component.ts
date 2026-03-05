@@ -134,14 +134,13 @@ export class ManageServicesComponent implements OnInit {
       : this.adminService.addService(this.salonId, dto);
 
     request$.subscribe({
-      next: (saved) => {
-        if (editing) {
-          this.services.update((list) => list.map((s) => (s._id === editing._id ? saved : s)));
-          this.msgSvc.add({ severity: 'success', summary: 'Updated', detail: 'Service updated.' });
-        } else {
-          this.services.update((list) => [...list, saved]);
-          this.msgSvc.add({ severity: 'success', summary: 'Added', detail: 'Service added.' });
-        }
+      next: (services) => {
+        this.services.set(services);
+        this.msgSvc.add({
+          severity: 'success',
+          summary: editing ? 'Updated' : 'Added',
+          detail:  editing ? 'Service updated.' : 'Service added.',
+        });
         this.isSaving.set(false);
         this.dialogVisible = false;
         this.editingService.set(null);
@@ -161,8 +160,7 @@ export class ManageServicesComponent implements OnInit {
       list.map((s) => (s._id === svc._id ? { ...s, active: newActive } : s)),
     );
     this.adminService.updateService(this.salonId, svc._id, { active: newActive }).subscribe({
-      next: (saved) =>
-        this.services.update((list) => list.map((s) => (s._id === svc._id ? saved : s))),
+      next: (services) => this.services.set(services),
       error: () => {
         // revert
         this.services.update((list) => list.map((s) => (s._id === svc._id ? svc : s)));

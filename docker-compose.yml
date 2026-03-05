@@ -128,6 +128,7 @@ services:
       BOOKING_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-bookings'
       REDIS_URL: 'redis://redis:6379'
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
+      INTERNAL_SERVICE_TOKEN: '${INTERNAL_SERVICE_TOKEN}'
       AUTH_SERVICE_URL: 'http://auth-service:3003'
       NOTIFICATION_SERVICE_URL: 'http://notification-service:3004'
       CALENDAR_SERVICE_URL: 'http://calendar-service:3005'
@@ -152,6 +153,7 @@ services:
       MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-calendar'
       REDIS_URL: 'redis://redis:6379'
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
+      INTERNAL_SERVICE_TOKEN: '${INTERNAL_SERVICE_TOKEN}'
       GOOGLE_CLIENT_ID: '${GOOGLE_CLIENT_ID}'
       GOOGLE_CLIENT_SECRET: '${GOOGLE_CLIENT_SECRET}'
     networks:
@@ -175,6 +177,7 @@ services:
       REVIEW_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-reviews'
       REDIS_URL: 'redis://redis:6379'
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
+      INTERNAL_SERVICE_TOKEN: '${INTERNAL_SERVICE_TOKEN}'
       BOOKING_SERVICE_URL: 'http://booking-service:3002'
       SALON_SERVICE_URL: 'http://salon-service:3001'
     networks:

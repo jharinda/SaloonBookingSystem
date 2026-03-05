@@ -72,6 +72,11 @@ export interface ConfirmDialogData {
     .require-label { font-size: .875rem; margin-bottom: 4px; }
     .full { width: 100%; margin-bottom: 12px; }
     .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+    :host-context(.app-dark) {
+      .dlg-msg { color: #a1a1aa; }
+      .require-label { color: #d4d4d8; }
+    }
   `],
 })
 export class ConfirmDialogComponent {

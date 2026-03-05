@@ -20,6 +20,10 @@ export class Review extends Document {
   @Prop({ required: true, index: true })
   clientId: string;
 
+  /** Denormalised from auth-service at review creation time */
+  @Prop({ type: String, default: '' })
+  clientName: string;
+
   /** Optional — set when the booking was with a specific stylist */
   @Prop({ type: String, default: null })
   stylistId: string | null;

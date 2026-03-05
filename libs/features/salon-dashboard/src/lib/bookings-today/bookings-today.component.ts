@@ -2,6 +2,7 @@
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  computed,
   inject,
   OnInit,
   signal,
@@ -23,6 +24,12 @@ import { Toast }                   from 'primeng/toast';
 import { ProgressSpinner }         from 'primeng/progressspinner';
 import { Message }                 from 'primeng/message';
 import { ConfirmationService, MessageService } from 'primeng/api';
+
+import { FullCalendarModule } from '@fullcalendar/angular';
+import { CalendarOptions } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
 import { SalonAdminService } from '@org/shared-data-access';
 import { Booking, BookingStatus } from '@org/models';
@@ -55,8 +62,39 @@ interface StatusOption {
     Toast,
     ProgressSpinner,
     Message,
+    FullCalendarModule,
   ],
   templateUrl: './bookings-today.component.html',
+  styles: [`
+    /* ── Now-indicator: red line with leading dot ── */
+    ::ng-deep .fc .fc-timegrid-now-indicator-line {
+      border-color: #ef4444;
+      border-width: 2px;
+    }
+    ::ng-deep .fc .fc-timegrid-now-indicator-arrow {
+      border-color: #ef4444;
+    }
+
+    :host-context(.app-dark) ::ng-deep .fc {
+      --fc-border-color: #3f3f46;
+      --fc-button-bg-color: #27272a;
+      --fc-button-border-color: #3f3f46;
+      --fc-button-hover-bg-color: #3f3f46;
+      --fc-button-hover-border-color: #52525b;
+      --fc-button-active-bg-color: #52525b;
+      --fc-today-bg-color: rgba(139,92,246,.08);
+      --fc-neutral-bg-color: #18181b;
+      --fc-page-bg-color: #18181b;
+      color: #d4d4d8;
+    }
+
+    :host-context(.app-dark) ::ng-deep .fc .fc-toolbar-title { color: #f4f4f5; }
+    :host-context(.app-dark) ::ng-deep .fc .fc-col-header-cell { background: #27272a; color: #a1a1aa; }
+    :host-context(.app-dark) ::ng-deep .fc .fc-timegrid-slot-label { color: #71717a; }
+    :host-context(.app-dark) ::ng-deep .fc .fc-daygrid-day-number { color: #a1a1aa; }
+    :host-context(.app-dark) ::ng-deep .fc .fc-timegrid-now-indicator-line { border-color: #f87171; }
+    :host-context(.app-dark) ::ng-deep .fc .fc-timegrid-now-indicator-arrow { border-color: #f87171; }
+  `],
 })
 export class BookingsTodayComponent implements OnInit {
   // ── Injections ────────────────────────────────────────────────────────────
@@ -73,7 +111,44 @@ export class BookingsTodayComponent implements OnInit {
   readonly loadError       = signal<string | null>(null);
   readonly cancelInFlight  = signal<string | null>(null);
 
-  bookings: Booking[] = [];
+  readonly bookings        = signal<Booking[]>([]);
+  readonly viewMode        = signal<'table' | 'calendar'>('table');
+  readonly confirmInFlight = signal<string | null>(null);
+
+  readonly calendarOptions = computed<CalendarOptions>(() => ({
+    plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
+    initialView: 'timeGridWeek',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay',
+    },
+    // ── Real-time "now" indicator (red line + dot, like Microsoft Teams) ──
+    nowIndicator: true,
+    scrollToTime: {
+      hours:   new Date().getHours(),
+      minutes: Math.max(0, new Date().getMinutes() - 15),
+    },
+    events: this.bookings().map((b) => ({
+      id: b._id,
+      title: (b.clientName || ('Client ·' + b._id.slice(-6))) + ' — ' + (b.serviceName || b.services?.[0]?.name || 'Appointment') + (b.stylistName ? ` · ${b.stylistName}` : ''),
+      start: `${b.appointmentDate}T${b.startTime}:00`,
+      end:   `${b.appointmentDate}T${b.endTime}:00`,
+      backgroundColor: this._statusColor(b.status),
+      borderColor:     this._statusColor(b.status),
+      textColor:       '#ffffff',
+      extendedProps: { booking: b },
+    })),
+    height: 'auto',
+    editable: false,
+    selectable: false,
+    eventDisplay: 'block',
+    eventMinHeight: 22,
+    displayEventTime: true,
+    eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+    moreLinkClick: 'popover',
+    eventClick: (info) => this.viewBooking(info.event.extendedProps['booking']),
+  }));
 
   // ── Filter state ──────────────────────────────────────────────────────────
   selectedStatus: string | null = null;
@@ -119,6 +194,13 @@ export class BookingsTodayComponent implements OnInit {
 
   loadBookings(): void {
     this._loadBookings();
+  }
+
+  getServiceDisplay(appt: Booking): string {
+    if (appt.services?.length) {
+      return appt.services.map((s) => s.name).join(', ');
+    }
+    return appt.serviceName || '—';
   }
 
   // ── Severity helper ───────────────────────────────────────────────────────
@@ -178,6 +260,34 @@ export class BookingsTodayComponent implements OnInit {
     });
   }
 
+  confirmBooking(appt: Booking): void {
+    this.confirmInFlight.set(appt._id);
+    this.adminService.confirmBooking(appt._id).subscribe({
+      next: (updated) => {
+        this.bookings.update((prev) =>
+          prev.map((b) => (b._id === appt._id ? updated : b)),
+        );
+        this.confirmInFlight.set(null);
+        this.cdr.markForCheck();
+        this.msgSvc.add({
+          severity: 'success',
+          summary: 'Approved',
+          detail:  'Appointment has been confirmed.',
+          life:     3500,
+        });
+      },
+      error: () => {
+        this.confirmInFlight.set(null);
+        this.msgSvc.add({
+          severity: 'error',
+          summary:  'Error',
+          detail:   'Could not confirm the appointment. Please try again.',
+          life:     4000,
+        });
+      },
+    });
+  }
+
   confirmCancel(appt: Booking): void {
     this.confirmSvc.confirm({
       header:           'Cancel Appointment',
@@ -202,7 +312,7 @@ export class BookingsTodayComponent implements OnInit {
 
     this.adminService.getBookingsByRange(this.salonId, from, to).subscribe({
       next: (data) => {
-        this.bookings = data;
+        this.bookings.set(data);
         this.isLoading.set(false);
         this.cdr.markForCheck();
       },
@@ -218,7 +328,7 @@ export class BookingsTodayComponent implements OnInit {
     this.cancelInFlight.set(appt._id);
     this.adminService.cancelBooking(appt._id).subscribe({
       next: (updated) => {
-        this.bookings = this.bookings.map((b) => (b._id === appt._id ? updated : b));
+        this.bookings.update((prev) => prev.map((b) => (b._id === appt._id ? updated : b)));
         this.cancelInFlight.set(null);
         this.cdr.markForCheck();
         this.msgSvc.add({
@@ -238,6 +348,18 @@ export class BookingsTodayComponent implements OnInit {
         });
       },
     });
+  }
+
+  private _statusColor(status: BookingStatus | string): string {
+    switch (status) {
+      case 'CONFIRMED':   return '#10b981';
+      case 'PENDING':     return '#f59e0b';
+      case 'CANCELLED':   return '#ef4444';
+      case 'COMPLETED':   return '#6b7280';
+      case 'IN_PROGRESS': return '#3b82f6';
+      case 'NO_SHOW':     return '#374151';
+      default:            return '#6b7280';
+    }
   }
 
   private _fmtDate(d: Date): string {

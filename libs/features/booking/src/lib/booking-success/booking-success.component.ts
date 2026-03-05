@@ -359,6 +359,36 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
       .success-container { padding: 20px 16px 40px; }
       .calendar-buttons { flex-direction: column; }
     }
+
+    /* ── Dark mode ─────────────────────────────────────────────── */
+    :host-context(.dark) {
+      .success-title    { color: #f4f4f5; }
+      .success-subtitle { color: #a1a1aa; }
+
+      .success-icon-wrapper { background: rgba(22,163,74,.2); }
+
+      .loading-state { color: #a1a1aa; }
+
+      .details-card {
+        background: #18181b;
+        border-color: #3f3f46;
+      }
+
+      .details-heading { color: #d4d4d8; }
+
+      .detail-label { color: #71717a; }
+
+      .detail-value { color: #f4f4f5; }
+      .detail-value--mono { color: #a1a1aa; }
+
+      .status-chip--pending   { background: rgba(254,249,195,.12); color: #fde68a; }
+      .status-chip--confirmed { background: rgba(220,252,231,.12); color: #86efac; }
+      .status-chip--cancelled { background: rgba(254,226,226,.12); color: #fca5a5; }
+      .status-chip--completed { background: rgba(237,233,254,.12); color: #c4b5fd; }
+
+      .calendar-section    { background: #27272a; }
+      .calendar-heading    { color: #d4d4d8; }
+    }
   `],
 })
 export class BookingSuccessComponent implements OnInit {

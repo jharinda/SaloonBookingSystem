@@ -122,6 +122,15 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
               [attr.aria-label]="'Get directions to ' + booking().salonName"
             />
             <p-button
+              icon="pi pi-calendar-plus"
+              label="Add to Calendar"
+              [outlined]="true"
+              size="small"
+              [rounded]="true"
+              (onClick)="addToCalendar()"
+              aria-label="Add appointment to Google Calendar"
+            />
+            <p-button
               icon="pi pi-times-circle"
               label="Cancel"
               [outlined]="true"
@@ -140,7 +149,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
                 label="Leave a Review"
                 size="small"
                 [rounded]="true"
-                (onClick)="leaveReview()"
+                (onClick)="reviewRequested.emit()"
                 aria-label="Leave a review for this booking"
               />
             }
@@ -299,6 +308,25 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
       font-size: 13px;
       vertical-align: middle; margin-right: 2px;
     }
+
+    :host-context(.app-dark) {
+      .appt-card {
+        background: #18181b;
+        border-color: #3f3f46;
+      }
+      .appt-thumb { background: #27272a; }
+      .appt-name { color: #f4f4f5; }
+      .appt-service, .appt-stylist { color: #a1a1aa; }
+      .appt-datetime { color: #d4d4d8; }
+      .appt-meta, .appt-review-label { color: #71717a; }
+      .appt-price { color: #f4f4f5; }
+      .star--empty { color: #52525b; }
+      .badge--pending     { background: rgba(254,249,195,.12); color: #fde047; }
+      .badge--confirmed   { background: rgba(220,252,231,.12); color: #4ade80; }
+      .badge--in-progress { background: rgba(219,234,254,.12); color: #60a5fa; }
+      .badge--completed   { background: rgba(224,231,255,.12); color: #818cf8; }
+      .badge--cancelled   { background: rgba(254,226,226,.12); color: #f87171; }
+    }
   `],
 })
 export class AppointmentCardComponent {
@@ -307,6 +335,9 @@ export class AppointmentCardComponent {
 
   /** Emitted when the user requests cancellation (parent opens dialog). */
   readonly cancelRequested = output<void>();
+
+  /** Emitted when the user clicks "Leave a Review" (parent opens dialog). */
+  readonly reviewRequested = output<void>();
 
   private readonly router = inject(Router);
 
@@ -330,15 +361,32 @@ export class AppointmentCardComponent {
     window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank');
   }
 
-  leaveReview(): void {
-    void this.router.navigate(['/reviews', 'new'], {
-      queryParams: { bookingId: this.booking()._id },
-    });
+  bookAgain(): void {
+    void this.router.navigate(['/booking', this.booking().salonId]);
   }
 
-  bookAgain(): void {
-    void this.router.navigate(['/booking'], {
-      queryParams: { salonId: this.booking().salonId },
+  addToCalendar(): void {
+    const b = this.booking();
+    const dateStr = b.appointmentDate.replace(/-/g, ''); // YYYYMMDD
+    const startStr = b.startTime.replace(':', '') + '00';  // HHMMSS
+    const endStr   = b.endTime.replace(':', '')   + '00';  // HHMMSS
+
+    const params = new URLSearchParams({
+      action:   'TEMPLATE',
+      text:     `${b.serviceName} at ${b.salonName}`,
+      dates:    `${dateStr}T${startStr}/${dateStr}T${endStr}`,
+      details:  [
+        `Service: ${b.serviceName}`,
+        b.stylistName ? `Stylist: ${b.stylistName}` : '',
+        `Booking ID: ${b._id}`,
+      ].filter(Boolean).join('\n'),
+      location: b.salonName,
     });
+
+    window.open(
+      `https://calendar.google.com/calendar/render?${params.toString()}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
   }
 }

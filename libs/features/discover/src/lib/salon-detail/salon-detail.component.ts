@@ -25,14 +25,14 @@ import { ReviewService } from '@org/shared-data-access';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const DAYS: { key: string; label: string }[] = [
-  { key: 'monday',    label: 'Monday'    },
-  { key: 'tuesday',   label: 'Tuesday'   },
-  { key: 'wednesday', label: 'Wednesday' },
-  { key: 'thursday',  label: 'Thursday'  },
-  { key: 'friday',    label: 'Friday'    },
-  { key: 'saturday',  label: 'Saturday'  },
-  { key: 'sunday',    label: 'Sunday'    },
+const DAYS: { key: string; day: number; label: string }[] = [
+  { key: 'monday',    day: 1, label: 'Monday'    },
+  { key: 'tuesday',   day: 2, label: 'Tuesday'   },
+  { key: 'wednesday', day: 3, label: 'Wednesday' },
+  { key: 'thursday',  day: 4, label: 'Thursday'  },
+  { key: 'friday',    day: 5, label: 'Friday'    },
+  { key: 'saturday',  day: 6, label: 'Saturday'  },
+  { key: 'sunday',    day: 0, label: 'Sunday'    },
 ];
 
 const REVIEW_LIMIT = 5;
@@ -150,20 +150,25 @@ export class SalonDetailComponent implements OnInit {
   });
 
   readonly operatingHours = computed(() => {
-    const wh = this.salon()?.workingHours ?? {};
-    return DAYS.map((d) => ({
-      ...d,
-      hours: (wh[d.key] as import('@org/models').SalonWorkingHours | undefined) ?? null,
-      isToday: d.key === this.todayKey,
-    }));
+    const oh = this.salon()?.operatingHours ?? [];
+    return DAYS.map((d) => {
+      const entry = oh.find((h) => h.day === d.day);
+      return {
+        ...d,
+        hours: entry
+          ? { open: entry.open, close: entry.close, isOpen: !entry.closed }
+          : null,
+      };
+    });
   });
 
   readonly openNowStatus = computed(() => {
-    const wh = this.salon()?.workingHours;
-    if (!wh) return null;
-    const todayHours = wh[this.todayKey];
-    if (!todayHours?.isOpen) return 'closed';
-    return isOpenNow(todayHours.open, todayHours.close) ? 'open' : 'closed';
+    const oh = this.salon()?.operatingHours;
+    if (!oh?.length) return null;
+    const todayDay = new Date().getDay();
+    const todayEntry = oh.find((h) => h.day === todayDay);
+    if (!todayEntry || todayEntry.closed) return 'closed';
+    return isOpenNow(todayEntry.open, todayEntry.close) ? 'open' : 'closed';
   });
 
   readonly hasMoreReviews = computed(
@@ -243,22 +248,12 @@ export class SalonDetailComponent implements OnInit {
 
   // ── Navigation / booking ────────────────────────────────────────────────────
   bookSalon(): void {
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      void this.router.navigate(['/booking'], {
-        queryParams: { salonId: this.salonId },
-      });
-    } else {
-      document.getElementById('services-section')?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }
+    void this.router.navigate(['/booking', this.salonId]);
   }
 
   bookService(serviceId: string): void {
-    void this.router.navigate(['/booking'], {
-      queryParams: { salonId: this.salonId, serviceId },
+    void this.router.navigate(['/booking', this.salonId], {
+      queryParams: { serviceId },
     });
   }
 

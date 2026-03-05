@@ -33,12 +33,24 @@ export class AvailableSlotsQueryDto {
 
 export class BookingListQueryDto {
   @IsOptional()
+  @IsMongoId()
+  salonId?: string;
+
+  @IsOptional()
   @IsEnum(BookingStatus)
   status?: BookingStatus;
 
   @IsOptional()
   @IsDateString()
   date?: string;
+
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 
   @IsOptional()
   @IsNumber()

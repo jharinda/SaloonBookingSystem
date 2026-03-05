@@ -37,12 +37,13 @@ export interface AdminReviewsPageDto {
   limit: number;
 }
 
-/** Minimal booking shape returned by booking-service GET /api/bookings/:id */
+/** Minimal booking shape returned by booking-service GET /api/bookings/internal/:id */
 interface BookingStub {
   id: string;
   clientId: string;
   salonId: string;
   status: string;
+  clientName: string;
 }
 
 @Injectable()
@@ -70,7 +71,7 @@ export class ReviewService {
     try {
       const { data } = await firstValueFrom(
         this.httpService.get<BookingStub>(
-          `${bookingServiceUrl}/api/bookings/${dto.bookingId}`,
+          `${bookingServiceUrl}/api/bookings/internal/${dto.bookingId}`,
         ),
       );
       booking = data;
@@ -102,6 +103,7 @@ export class ReviewService {
       salonId: dto.salonId,
       bookingId: dto.bookingId,
       clientId,
+      clientName: booking.clientName || '',
       stylistId: dto.stylistId ?? null,
       rating: dto.rating,
       comment: dto.comment ?? null,
@@ -122,6 +124,19 @@ export class ReviewService {
     limit: number,
   ): Promise<PaginatedReviewsDto> {
     return this.paginate({ salonId, isVisible: true }, page, limit);
+  }
+
+  /**
+   * Returns all reviews written by the given client, newest first.
+   * Used by the "My Bookings" page to check which bookings are already reviewed.
+   */
+  async getClientReviews(clientId: string): Promise<ReviewResponseDto[]> {
+    const reviews = await this.reviewModel
+      .find({ clientId })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+    return reviews.map((r) => this.toResponse(r as unknown as ReviewDocument));
   }
 
   async getStylistReviews(
@@ -265,6 +280,7 @@ export class ReviewService {
       salonId: review.salonId,
       bookingId: review.bookingId,
       clientId: review.clientId,
+      clientName: review.clientName || '',
       stylistId: review.stylistId ?? undefined,
       rating: review.rating,
       comment: review.comment ?? undefined,

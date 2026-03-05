@@ -45,10 +45,10 @@
 
     <ng-template pTemplate="body" let-svc>
       <tr>
-        <td class="font-medium text-gray-900">{{ svc.name }}</td>
-        <td class="text-gray-600">{{ svc.category }}</td>
-        <td class="text-right text-gray-600">{{ svc.duration }} mins</td>
-        <td class="text-right font-semibold text-gray-900">£ {{ svc.price | number: '1.2-2' }}</td>
+        <td class="font-medium text-gray-900 dark:text-zinc-100">{{ svc.name }}</td>
+        <td class="text-gray-600 dark:text-zinc-400">{{ svc.category }}</td>
+        <td class="text-right text-gray-600 dark:text-zinc-400">{{ svc.duration }} mins</td>
+        <td class="text-right font-semibold text-gray-900 dark:text-zinc-100">£ {{ svc.price | number: '1.2-2' }}</td>
 
         <!-- Active toggle -->
         <td class="text-center">
@@ -107,72 +107,80 @@
   [style]="{ width: '480px' }"
   [closable]="!isSaving()"
 >
-  <form [formGroup]="form" p-fluid class="flex flex-col gap-5 pt-2" novalidate>
+  <form [formGroup]="form" p-fluid class="flex flex-col gap-6 py-4" novalidate>
 
     <!-- Name -->
-    <p-floatLabel>
-      <input
-        id="svc-name"
-        pInputText
-        formControlName="name"
-        class="w-full"
-        autocomplete="off"
-      />
-      <label for="svc-name">Name</label>
-    </p-floatLabel>
-    @if (form.controls.name.invalid && form.controls.name.touched) {
-      <small class="text-red-500 -mt-4">Service name is required.</small>
-    }
+    <div class="flex flex-col gap-1">
+      <p-floatLabel>
+        <input
+          id="svc-name"
+          pInputText
+          formControlName="name"
+          class="w-full"
+          autocomplete="off"
+        />
+        <label for="svc-name">Name</label>
+      </p-floatLabel>
+      @if (form.controls.name.invalid && form.controls.name.touched) {
+        <small class="text-red-500">Service name is required.</small>
+      }
+    </div>
 
     <!-- Category -->
-    <p-floatLabel>
-      <p-select
-        inputId="svc-category"
-        formControlName="category"
-        [options]="categoryOptions"
-        optionLabel="label"
-        optionValue="value"
-        styleClass="w-full"
-      />
-      <label for="svc-category">Category</label>
-    </p-floatLabel>
-    @if (form.controls.category.invalid && form.controls.category.touched) {
-      <small class="text-red-500 -mt-4">Category is required.</small>
-    }
+    <div class="flex flex-col gap-1">
+      <p-floatLabel>
+        <p-select
+          inputId="svc-category"
+          formControlName="category"
+          [options]="categoryOptions"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="w-full"
+        />
+        <label for="svc-category">Category</label>
+      </p-floatLabel>
+      @if (form.controls.category.invalid && form.controls.category.touched) {
+        <small class="text-red-500">Category is required.</small>
+      }
+    </div>
 
     <!-- Duration -->
-    <p-floatLabel>
-      <p-inputNumber
-        inputId="svc-duration"
-        formControlName="duration"
-        [min]="5"
-        [step]="5"
-        suffix=" mins"
-        styleClass="w-full"
-        inputStyleClass="w-full"
-      />
-      <label for="svc-duration">Duration</label>
-    </p-floatLabel>
-    @if (form.controls.duration.invalid && form.controls.duration.touched) {
-      <small class="text-red-500 -mt-4">Minimum 5 minutes.</small>
-    }
+    <div class="flex flex-col gap-1">
+      <p-floatLabel>
+        <p-inputNumber
+          inputId="svc-duration"
+          formControlName="duration"
+          [min]="5"
+          [step]="5"
+          suffix=" mins"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        />
+        <label for="svc-duration">Duration</label>
+      </p-floatLabel>
+      @if (form.controls.duration.invalid && form.controls.duration.touched) {
+        <small class="text-red-500">Minimum 5 minutes.</small>
+      }
+    </div>
 
     <!-- Price -->
-    <p-floatLabel>
-      <p-inputNumber
-        inputId="svc-price"
-        formControlName="price"
-        [min]="0"
-        prefix="£ "
-        [minFractionDigits]="2"
-        styleClass="w-full"
-        inputStyleClass="w-full"
-      />
-      <label for="svc-price">Price</label>
-    </p-floatLabel>
-    @if (form.controls.price.invalid && form.controls.price.touched) {
-      <small class="text-red-500 -mt-4">Enter a valid price.</small>
-    }
+    <div class="flex flex-col gap-1">
+      <p-floatLabel>
+        <p-inputNumber
+          inputId="svc-price"
+          formControlName="price"
+          [min]="0"
+          prefix="£ "
+          [minFractionDigits]="2"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        />
+        <label for="svc-price">Price</label>
+      </p-floatLabel>
+      @if (form.controls.price.invalid && form.controls.price.touched) {
+        <small class="text-red-500">Enter a valid price.</small>
+      }
+    </div>
 
   </form>
 

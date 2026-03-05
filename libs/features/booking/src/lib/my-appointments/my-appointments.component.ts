@@ -17,12 +17,19 @@ import { Tabs, TabList, Tab, TabPanels, TabPanel } from 'primeng/tabs';
 
 import { Booking, BookingStatus } from '@org/models';
 import { BookingService } from '@org/shared-data-access';
+import { ReviewService } from '@org/shared-data-access';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 
 import { AppointmentCardComponent } from './appointment-card.component';
 import {
   CancelBookingDialogComponent,
   CancelDialogResult,
 } from './cancel-booking-dialog.component';
+import {
+  WriteReviewDialogComponent,
+  WriteReviewDialogResult,
+} from './write-review-dialog.component';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,15 +39,26 @@ const UPCOMING_STATUSES: BookingStatus[] = ['PENDING', 'CONFIRMED', 'IN_PROGRESS
 const PAST_STATUSES: BookingStatus[]      = ['COMPLETED'];
 const CANCELLED_STATUSES: BookingStatus[] = ['CANCELLED', 'NO_SHOW'];
 
+// ── Time helpers ─────────────────────────────────────────────────────────────
+
+/** Parse "YYYY-MM-DD" + "HH:mm" as a LOCAL-time Date (avoids UTC-midnight drift). */
+function parseLocalDateTime(dateStr: string, timeStr: string): Date {
+  const [year, month, day]   = dateStr.split('-').map(Number);
+  const [hStr, mStr = '0']   = timeStr.split(':');
+  return new Date(year, month - 1, day, parseInt(hStr, 10), parseInt(mStr, 10), 0, 0);
+}
+
+/** Returns true when the appointment's end time is already in the past. */
+function isAppointmentOver(appointmentDate: string, endTime: string): boolean {
+  return parseLocalDateTime(appointmentDate, endTime).getTime() < Date.now();
+}
+
 // ── Countdown helper ──────────────────────────────────────────────────────────
 
-function buildCountdown(targetIso: string, startTime: string): string {
-  const [hStr, mStr] = startTime.split(':');
-  const target = new Date(targetIso);
-  target.setHours(parseInt(hStr, 10), parseInt(mStr ?? '0', 10), 0, 0);
-
-  const diffMs = target.getTime() - Date.now();
-  if (diffMs <= 0) return 'now';
+function buildCountdown(appointmentDate: string, startTime: string): string {
+  const target  = parseLocalDateTime(appointmentDate, startTime);
+  const diffMs  = target.getTime() - Date.now();
+  if (diffMs <= 0) return 'starting now';
 
   const totalMins = Math.floor(diffMs / 60_000);
   const days  = Math.floor(totalMins / 1440);
@@ -78,10 +96,12 @@ function buildCountdown(targetIso: string, startTime: string): string {
 export class MyAppointmentsComponent implements OnInit, OnDestroy {
   // ── DI ──────────────────────────────────────────────────────────────────────
   private readonly bookingService = inject(BookingService);
+  private readonly reviewService  = inject(ReviewService);
   private readonly dialogService  = inject(DialogService);
   private readonly msgSvc         = inject(MessageService);
 
   private cancelDialogRef: DynamicDialogRef | null = null;
+  private reviewDialogRef: DynamicDialogRef | null = null;
 
   // ── State ────────────────────────────────────────────────────────────────────
   readonly loading = signal(true);
@@ -98,13 +118,24 @@ export class MyAppointmentsComponent implements OnInit, OnDestroy {
   // ── Derived lists ────────────────────────────────────────────────────────────
   readonly upcoming = computed(() =>
     this.allBookings()
-      .filter((b) => UPCOMING_STATUSES.includes(b.status))
-      .sort((a, b) => a.appointmentDate.localeCompare(b.appointmentDate)),
+      .filter((b) =>
+        UPCOMING_STATUSES.includes(b.status) &&
+        !isAppointmentOver(b.appointmentDate, b.endTime),
+      )
+      .sort((a, b) => {
+        const tA = parseLocalDateTime(a.appointmentDate, a.startTime).getTime();
+        const tB = parseLocalDateTime(b.appointmentDate, b.startTime).getTime();
+        return tA - tB;
+      }),
   );
 
   readonly past = computed(() =>
     this.allBookings()
-      .filter((b) => PAST_STATUSES.includes(b.status))
+      .filter((b) =>
+        PAST_STATUSES.includes(b.status) ||
+        // Ended-but-not-yet-completed (backend cron will catch up)
+        (UPCOMING_STATUSES.includes(b.status) && isAppointmentOver(b.appointmentDate, b.endTime)),
+      )
       .sort((a, b) => b.appointmentDate.localeCompare(a.appointmentDate)),
   );
 
@@ -131,9 +162,22 @@ export class MyAppointmentsComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.error.set(null);
 
-    this.bookingService.getMyBookings().subscribe({
-      next: (bookings) => {
-        this.allBookings.set(bookings as RichBooking[]);
+    forkJoin({
+      bookings: this.bookingService.getMyBookings(),
+      // Reviews are best-effort: if the endpoint is unavailable, bookings still load.
+      reviews:  this.reviewService.getMyReviews().pipe(catchError(() => of([]))),
+    }).subscribe({
+      next: ({ bookings, reviews }) => {
+        // Build a lookup: bookingId → { hasReview, rating }
+        const reviewMap = new Map(
+          reviews.map((r) => [r.bookingId, r.rating]),
+        );
+        const rich: RichBooking[] = bookings.map((b) => ({
+          ...b,
+          hasReview:    reviewMap.has(b._id),
+          clientRating: reviewMap.get(b._id),
+        }));
+        this.allBookings.set(rich);
         this.loading.set(false);
         this.startCountdown();
       },
@@ -185,6 +229,35 @@ export class MyAppointmentsComponent implements OnInit, OnDestroy {
       error: () => {
         this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Could not cancel — please try again.', life: 4000 });
       },
+    });
+  }
+
+  // ── Review flow ─────────────────────────────────────────────────────────────────────
+  openReviewDialog(booking: RichBooking): void {
+    this.reviewDialogRef = this.dialogService.open(WriteReviewDialogComponent, {
+      header: 'Leave a Review',
+      width: '460px',
+      closable: true,
+      data: {
+        bookingId:   booking._id,
+        salonId:     booking.salonId,
+        stylistId:   booking.stylistName ? undefined : undefined, // stylistId not on Booking model
+        salonName:   booking.salonName,
+        serviceName: booking.serviceName,
+      },
+    });
+
+    this.reviewDialogRef?.onClose.subscribe((result: WriteReviewDialogResult | undefined) => {
+      if (!result) return;
+      // Optimistically mark as reviewed
+      this.allBookings.update((list) =>
+        list.map((b) =>
+          b._id === booking._id
+            ? { ...b, hasReview: true, clientRating: result.rating }
+            : b,
+        ),
+      );
+      this.msgSvc.add({ severity: 'success', summary: 'Thank you!', detail: 'Your review has been submitted.', life: 3000 });
     });
   }
 }

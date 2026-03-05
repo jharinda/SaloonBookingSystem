@@ -56,6 +56,10 @@ export interface RejectSalonDialogResult {
     .dlg-msg { color: #4b5563; font-size: .9rem; line-height: 1.6; margin: 0; }
     .full { width: 100%; resize: vertical; }
     .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+    :host-context(.app-dark) {
+      .dlg-msg { color: #a1a1aa; }
+    }
   `],
 })
 export class RejectSalonDialogComponent {

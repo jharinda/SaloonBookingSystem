@@ -240,6 +240,33 @@ import { Salon, SalonServiceItem } from '@org/models';
     @media (max-width: 480px) {
       .service-grid { grid-template-columns: 1fr; }
     }
+
+    :host-context(.app-dark) {
+      .selector-hint { color: #a1a1aa; }
+
+      .category-tab {
+        background: #27272a;
+        border-color: #3f3f46;
+        color: #d4d4d8;
+      }
+
+      .category-tab:hover { border-color: var(--p-primary-400, #a78bfa); }
+
+      .service-card {
+        background: #18181b;
+        border-color: #3f3f46;
+      }
+
+      .service-card:hover { border-color: #52525b; }
+
+      .service-card--selected {
+        background: color-mix(in srgb, var(--p-primary-500, #7c3aed) 15%, #18181b);
+      }
+
+      .service-card__name { color: #f4f4f5; }
+      .service-card__desc, .service-card__duration { color: #a1a1aa; }
+      .no-services { color: #52525b; }
+    }
   `],
 })
 export class ServiceSelectorComponent {

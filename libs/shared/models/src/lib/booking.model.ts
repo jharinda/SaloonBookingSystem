@@ -10,9 +10,19 @@ export type BookingStatus =
 
 // ─── API payloads ─────────────────────────────────────────────────────────────
 
+export interface BookedServicePayload {
+  serviceId: string;
+  name: string;
+  price: number;
+  durationMinutes: number;
+}
+
 export interface CreateBookingPayload {
   salonId: string;
-  serviceId: string;
+  /** Denormalised salon name — stored server-side for display in appointment lists */
+  salonName: string;
+  stylistId?: string;
+  services: BookedServicePayload[];
   /**  ISO date string: "2026-03-15" */
   appointmentDate: string;
   /** "HH:mm", e.g. "09:30" */
@@ -37,14 +47,16 @@ export interface SlotsResponse {
 export interface Booking {
   _id: string;
   clientId: string;
+  /** Denormalised client full name (set at booking time) */
+  clientName?: string;
   salonId: string;
-  serviceId: string;
-  /** Denormalised name for display */
+  /** Denormalised salon name */
   salonName: string;
-  /** Denormalised service name for display */
+  /** Name of the primary service (services[0].name) */
   serviceName: string;
   /** Denormalised stylist name (if assigned) */
   stylistName?: string;
+  services: BookedServicePayload[];
   /** ISO date string: "2026-03-15" */
   appointmentDate: string;
   /** "HH:mm" */

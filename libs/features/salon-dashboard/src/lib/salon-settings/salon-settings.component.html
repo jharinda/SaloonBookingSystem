@@ -26,6 +26,9 @@
             <p-tab value="notif">
               <i class="pi pi-bell mr-2"></i>Notifications
             </p-tab>
+            <p-tab value="photos">
+              <i class="pi pi-images mr-2"></i>Photos
+            </p-tab>
             <p-tab value="danger">
               <i class="pi pi-exclamation-triangle mr-2 text-red-500"></i>
               <span class="text-red-500">Danger Zone</span>
@@ -244,7 +247,23 @@
               </div>
             </p-tabpanel>
 
-            <!-- ── TAB 4: DANGER ZONE ────────────────────────────────── -->
+            <!-- ── TAB 4: PHOTOS ─────────────────────────────────────── -->
+            <p-tabpanel value="photos">
+              <div class="pt-4">
+                <p class="text-sm text-zinc-500 mb-4 m-0">
+                  Manage your salon's photo gallery. The primary image is used as the cover photo across the app.
+                </p>
+                @if (salonId) {
+                  <lib-salon-image-uploader
+                    [salonId]="salonId"
+                    [initialImages]="salonImages()"
+                    (imagesChanged)="onImagesChanged($event)"
+                  />
+                }
+              </div>
+            </p-tabpanel>
+
+            <!-- ── TAB 5: DANGER ZONE ────────────────────────────────── -->
             <p-tabpanel value="danger">
               <div class="pt-4 flex flex-col gap-4">
 

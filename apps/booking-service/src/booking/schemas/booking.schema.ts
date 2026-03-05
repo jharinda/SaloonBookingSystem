@@ -60,6 +60,14 @@ export class Booking extends Document {
   @Prop({ required: true, min: 0 })
   totalPrice: number;
 
+  /** Denormalised salon name stored at booking time for fast display */
+  @Prop({ default: '' })
+  salonName: string;
+
+  /** Denormalised client name stored at booking time for fast display */
+  @Prop({ default: '' })
+  clientName: string;
+
   @Prop({ default: null })
   notes: string | null;
 

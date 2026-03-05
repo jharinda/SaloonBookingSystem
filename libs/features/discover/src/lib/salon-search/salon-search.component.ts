@@ -75,9 +75,9 @@ interface SearchFilters {
         <p class="discover-subtitle">
           Discover top-rated salons and book appointments instantly
         </p>
-        <!-- PrimeNG search + filter toolbar -->
-        <div class="flex flex-wrap items-center gap-4 mt-7 w-full max-w-3xl mx-auto">
-          <span class="p-input-icon-left flex-1 min-w-[200px]">
+        <!-- Search input -->
+        <div class="flex justify-center mt-7 w-full">
+          <span class="p-input-icon-left w-full max-w-xl">
             <i class="pi pi-search"></i>
             <input
               pInputText
@@ -91,27 +91,11 @@ interface SearchFilters {
               aria-label="Search salons or services"
             />
           </span>
-          <p-select
-            [options]="serviceTypeOptions"
-            [ngModel]="filters().serviceType"
-            (ngModelChange)="onServiceTypeChange($event)"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Service type"
-            class="min-w-[180px]"
-            styleClass="w-full"
-          />
-          <p-button
-            label="Search"
-            icon="pi pi-search"
-            (onClick)="triggerSearchImmediate()"
-            [disabled]="isLoading()"
-          />
         </div>
       </header>
 
       <!-- ── Filter & search toolbar ─────────────────────────────────────── -->
-      <div class="flex flex-wrap items-center gap-4 bg-gray-50 rounded-xl px-5 py-4 mb-8">
+      <div class="flex flex-wrap items-center gap-4 bg-gray-50 dark:bg-zinc-800 border border-transparent dark:border-zinc-700 rounded-xl px-5 py-4 mb-8">
         <p-select
           [options]="serviceTypeOptions"
           [ngModel]="filters().serviceType"
@@ -131,6 +115,13 @@ interface SearchFilters {
           placeholder="All cities"
           styleClass="w-full"
           class="flex-1 min-w-[140px]"
+        />
+        <p-button
+          label="Search"
+          icon="pi pi-search"
+          (onClick)="triggerSearchImmediate()"
+          [disabled]="isLoading()"
+          aria-label="Search salons"
         />
         <p-button
           label="Near Me"
@@ -155,7 +146,7 @@ interface SearchFilters {
       <!-- ── All Salons (initial load) ───────────────────────────────────────── -->
       @if (!hasActiveFilters() && !hasSearched() && !isLoading()) {
         <section class="mb-10" aria-label="All salons">
-          <h2 class="flex items-center gap-2 text-xl font-bold text-gray-900 mb-5">
+          <h2 class="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white mb-5">
             <i class="pi pi-storefront text-purple-500"></i>
             All Salons
           </h2>
@@ -205,9 +196,9 @@ interface SearchFilters {
       <!-- ── Empty state ───────────────────────────────────────────────────── -->
       @if (!isLoading() && hasSearched() && results().length === 0 && !error()) {
         <div class="flex flex-col items-center text-center py-16 gap-4" role="status">
-          <i class="pi pi-search text-5xl text-gray-300"></i>
-          <h2 class="text-xl font-semibold text-gray-700 m-0">No salons found</h2>
-          <p class="max-w-md text-gray-500 text-sm m-0">
+          <i class="pi pi-search text-5xl text-gray-300 dark:text-zinc-600"></i>
+          <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 m-0">No salons found</h2>
+          <p class="max-w-md text-gray-500 dark:text-gray-400 text-sm m-0">
             We couldn&apos;t find any salons matching
             <strong>{{ activeQuery() }}</strong>.
             Try a different search term or adjust your filters.
@@ -220,8 +211,8 @@ interface SearchFilters {
       @if (!isLoading() && error()) {
         <div class="flex flex-col items-center text-center py-16 gap-4" role="alert">
           <i class="pi pi-exclamation-circle text-5xl text-red-400"></i>
-          <h2 class="text-xl font-semibold text-gray-700 m-0">Something went wrong</h2>
-          <p class="max-w-md text-gray-500 text-sm m-0">{{ error() }}</p>
+          <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 m-0">Something went wrong</h2>
+          <p class="max-w-md text-gray-500 dark:text-gray-400 text-sm m-0">{{ error() }}</p>
           <p-button label="Try again" icon="pi pi-refresh" (onClick)="retrySearch()" />
         </div>
       }
@@ -461,6 +452,45 @@ interface SearchFilters {
       .hero-search-bar { flex-wrap: wrap; border-radius: 16px; padding: 12px; gap: 8px; }
       .hero-search-input { width: 100%; }
       .hero-search-btn { width: 100%; border-radius: 12px; }
+    }
+
+    /* ── Dark mode overrides ─────────────────────────────────────────────────── */
+
+    :host-context(.dark) .discover-title,
+    :host-context(.app-dark) .discover-title {
+      color: #f4f4f5;
+    }
+
+    :host-context(.dark) .discover-subtitle,
+    :host-context(.app-dark) .discover-subtitle {
+      color: #a1a1aa;
+    }
+
+    :host-context(.dark) .skeleton-card,
+    :host-context(.app-dark) .skeleton-card {
+      background: #18181b;
+      border-color: #3f3f46;
+    }
+
+    :host-context(.dark) .skeleton-block,
+    :host-context(.app-dark) .skeleton-block {
+      background: linear-gradient(
+        90deg,
+        #27272a 25%,
+        #3f3f46 50%,
+        #27272a 75%
+      );
+      background-size: 1200px 100%;
+    }
+
+    :host-context(.dark) .results-meta,
+    :host-context(.app-dark) .results-meta {
+      color: #a1a1aa;
+    }
+
+    :host-context(.dark) .section-heading,
+    :host-context(.app-dark) .section-heading {
+      color: #f4f4f5;
     }
   `],
 })

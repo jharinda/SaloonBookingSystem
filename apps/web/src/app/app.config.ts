@@ -12,6 +12,7 @@ import { provideServiceWorker } from '@angular/service-worker';
 import { AuthService, authInterceptor } from '@org/shared-data-access';
 import { httpErrorInterceptor } from './core/interceptors/http-error.interceptor';
 import { MessageService } from 'primeng/api';
+import { DialogService } from 'primeng/dynamicdialog';
 import { providePrimeNG } from 'primeng/config';
 import { definePreset } from '@primeng/themes';
 import Aura from '@primeng/themes/aura';
@@ -106,6 +107,7 @@ export const appConfig: ApplicationConfig = {
       registrationStrategy: 'registerWhenStable:30000',
     }),
     MessageService,
+    DialogService,
     provideAuthInit(),
   ],
 };

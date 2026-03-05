@@ -148,4 +148,13 @@ export class AuthService {
   getAccessToken(): string | null {
     return this.accessToken();
   }
+
+  /**
+   * Stores an access token obtained externally (e.g. Google OAuth callback).
+   * This makes the signal writable from outside the service without
+   * exposing the signal itself.
+   */
+  setAccessToken(token: string): void {
+    this.accessToken.set(token);
+  }
 }

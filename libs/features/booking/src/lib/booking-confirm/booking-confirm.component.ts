@@ -141,6 +141,16 @@ import { BookingDraft } from '@org/models';
     :host ::ng-deep .confirm-card .p-card-body { padding: 0.75rem 1.25rem; }
     :host ::ng-deep .confirm-card .p-card-content { padding: 0; }
     :host ::ng-deep .p-divider { margin: 0; }
+
+    :host-context(.app-dark) {
+      h2 { color: #f4f4f5; }
+      .text-gray-900 { color: #f4f4f5; }
+      .text-gray-700 { color: #d4d4d8; }
+      .text-gray-500 { color: #a1a1aa; }
+      .text-gray-400 { color: #71717a; }
+      .bg-purple-100 { background-color: rgba(139,92,246,.15) !important; }
+      .border-gray-100 { border-color: #3f3f46; }
+    }
   `],
 })
 export class BookingConfirmComponent {

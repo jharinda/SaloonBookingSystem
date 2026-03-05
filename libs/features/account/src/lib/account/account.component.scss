@@ -338,3 +338,19 @@ $mobile: 768px;
 
   &[disabled] { opacity: .5 !important; }
 }
+
+// ── Dark mode ──────────────────────────────────────────────────────────────
+:host-context(.app-dark) {
+  .page-title       { color: #f4f4f5; }
+  .settings-tabs    { border-color: #3f3f46; }
+  .section-title    { color: #f4f4f5; }
+  .section-desc     { color: #a1a1aa; }
+  .connected-row    { background: #27272a; border-color: #3f3f46; }
+  .connected-name   { color: #f4f4f5; }
+  .connected-email  { color: #a1a1aa; }
+  .notif-label      { color: #f4f4f5; }
+  .notif-desc       { color: #a1a1aa; }
+  .danger-zone      { border-color: rgba(248,113,113,.35); background: rgba(220,38,38,.04); }
+  .danger-desc      { color: #a1a1aa; }
+  .avatar-circle    { border-color: #27272a; }
+}

@@ -1,14 +1,28 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { Booking, CreateBookingPayload, SlotsResponse } from '@org/models';
 
+// ── Normalisation ────────────────────────────────────────────────────────────
+
+/** Map backend booking shape (id, appointmentDate as ISO string) → Booking */
+function normBooking(b: Booking & { id?: string; appointmentDate?: unknown }): Booking {
+  return {
+    ...b,
+    _id: b._id || (b as { id?: string }).id || '',
+    appointmentDate:
+      typeof b.appointmentDate === 'string'
+        ? (b.appointmentDate as string).substring(0, 10)
+        : String(b.appointmentDate ?? ''),
+  };
+}
+
 // ── Public DTOs ──────────────────────────────────────────────────────────────
 
-/** Alias that matches the wizard's schema — use instead of CreateBookingPayload
- *  to stay consistent with the shared-data-access naming convention. */
-export type CreateBookingDto = CreateBookingPayload & { stylistId?: string };
+/** Canonical type for creating a booking — matches the backend CreateBookingDto. */
+export type CreateBookingDto = CreateBookingPayload;
 
 export interface CancelBookingDto {
   reason?: string;
@@ -31,11 +45,21 @@ export class BookingService {
     let params = new HttpParams()
       .set('salonId', salonId)
       .set('date', date)
-      .set('duration', String(durationMinutes));
+      .set('durationMinutes', String(durationMinutes));
 
     if (stylistId) params = params.set('stylistId', stylistId);
 
-    return this.http.get<SlotsResponse>('/api/bookings/slots', { params });
+    // The API returns { salonId, date, slots: string[] } (only available time strings).
+    // We normalise to SlotsResponse { date, slots: BookingSlot[] } so consumers
+    // can treat every returned slot as available.
+    return this.http
+      .get<{ salonId: string; date: string; slots: string[] }>('/api/bookings/slots', { params })
+      .pipe(
+        map((resp) => ({
+          date: resp.date,
+          slots: resp.slots.map((time) => ({ time, available: true })),
+        })),
+      );
   }
 
   /**
@@ -43,7 +67,9 @@ export class BookingService {
    * Creates a new booking and returns the persisted Booking document.
    */
   createBooking(dto: CreateBookingDto): Observable<Booking> {
-    return this.http.post<Booking>('/api/bookings', dto);
+    return this.http.post<Booking>('/api/bookings', dto).pipe(
+      map(normBooking),
+    );
   }
 
   /**
@@ -51,7 +77,14 @@ export class BookingService {
    * Returns all bookings for the currently authenticated user.
    */
   getMyBookings(): Observable<Booking[]> {
-    return this.http.get<Booking[]>('/api/bookings/my');
+    return this.http
+      .get<{ data: Booking[] } | Booking[]>('/api/bookings/my')
+      .pipe(
+        map((res) => {
+          const list = Array.isArray(res) ? res : (res as { data: Booking[] }).data ?? [];
+          return list.map(normBooking);
+        }),
+      );
   }
 
   /**
@@ -59,7 +92,9 @@ export class BookingService {
    * Cancels a booking and returns the updated Booking document.
    */
   cancelBooking(id: string, reason?: string): Observable<Booking> {
-    return this.http.patch<Booking>(`/api/bookings/${id}/cancel`, { reason });
+    return this.http
+      .patch<Booking>(`/api/bookings/${id}/cancel`, { reason })
+      .pipe(map(normBooking));
   }
 
   /**
@@ -67,6 +102,8 @@ export class BookingService {
    * Returns a single booking by ID (used by the success screen).
    */
   getById(id: string): Observable<Booking> {
-    return this.http.get<Booking>(`/api/bookings/${id}`);
+    return this.http
+      .get<Booking>(`/api/bookings/${id}`)
+      .pipe(map(normBooking));
   }
 }

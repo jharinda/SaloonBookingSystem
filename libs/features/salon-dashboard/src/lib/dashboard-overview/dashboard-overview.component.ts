@@ -1,6 +1,5 @@
 import {
   ChangeDetectionStrategy,
-  ChangeDetectorRef,
   Component,
   inject,
   OnInit,
@@ -40,20 +39,19 @@ interface KpiCard {
 })
 export class DashboardOverviewComponent implements OnInit {
   private readonly adminService = inject(SalonAdminService);
-  private readonly cdr          = inject(ChangeDetectorRef);
 
-  // ── Async state ───────────────────────────────────────────────────────────
+  // ── Async state ──────────────────────────────────────────────────────
   readonly isLoading = signal(true);
   readonly loadError = signal<string | null>(null);
 
-  // ── Template-bound data ───────────────────────────────────────────────────
-  kpiCards: KpiCard[]   = [];
-  revenueData: object   = {};
-  chartOptions: object  = {};
+  // ── Template-bound data ───────────────────────────────────────────────
+  readonly kpiCards    = signal<KpiCard[]>([]);
+  readonly revenueData = signal<object>({});
+  readonly chartOptions = signal<object>({});
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
-    this.chartOptions = this._buildChartOptions();
+    this.chartOptions.set(this._buildChartOptions());
     this._loadData();
   }
 
@@ -87,12 +85,10 @@ export class DashboardOverviewComponent implements OnInit {
           this._buildKpiCards(today, thisMonth, lastMonth, rating);
           this._buildChartData(last7);
           this.isLoading.set(false);
-          this.cdr.markForCheck();
         },
         error: () => {
           this.loadError.set('Failed to load dashboard data. Please try again.');
           this.isLoading.set(false);
-          this.cdr.markForCheck();
         },
       });
   }
@@ -127,7 +123,7 @@ export class DashboardOverviewComponent implements OnInit {
       ? ((thisClients - lastClients) / lastClients) * 100
       : null;
 
-    this.kpiCards = [
+    this.kpiCards.set([
       {
         label:        "Today's Bookings",
         displayValue: String(todayCount),
@@ -164,7 +160,7 @@ export class DashboardOverviewComponent implements OnInit {
         iconColor:    'text-amber-500 dark:text-amber-400',
         trend:        null,
       },
-    ];
+    ]);
   }
 
   // ── Chart data ────────────────────────────────────────────────────────────
@@ -182,7 +178,7 @@ export class DashboardOverviewComponent implements OnInit {
         .reduce((sum, b) => sum + b.totalPrice, 0),
     );
 
-    this.revenueData = {
+    this.revenueData.set({
       labels,
       datasets: [
         {
@@ -193,7 +189,7 @@ export class DashboardOverviewComponent implements OnInit {
           borderSkipped:   false,
         },
       ],
-    };
+    });
   }
 
   private _buildChartOptions(): object {

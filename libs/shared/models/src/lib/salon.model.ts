@@ -29,6 +29,14 @@ export interface SalonWorkingHours {
   isOpen: boolean;
 }
 
+/** Shape of each entry in the backend's operatingHours array */
+export interface SalonOperatingHours {
+  day: number;     // 0 = Sunday … 6 = Saturday
+  open: string;    // "HH:mm"
+  close: string;   // "HH:mm"
+  closed: boolean;
+}
+
 export interface Salon {
   _id: string;
   name: string;
@@ -39,6 +47,9 @@ export interface Salon {
   /** Ordered list of image URLs; first is the cover */
   images?: string[];
   services: SalonServiceItem[];
+  /** Raw operating-hours array as returned by the backend */
+  operatingHours?: SalonOperatingHours[];
+  /** Normalised working-hours record (derived by frontend services from operatingHours) */
   workingHours?: Record<string, SalonWorkingHours>;
   /** Average rating 0–5 */
   rating: number;

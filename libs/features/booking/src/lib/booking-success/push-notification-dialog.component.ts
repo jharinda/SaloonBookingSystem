@@ -22,6 +22,10 @@ import { PushNotificationService } from '@org/shared-data-access';
     .pn-dialog__icon { font-size: 48px; color: var(--p-primary-500, #7c3aed); display: block; margin: 0 0 12px; }
     .pn-dialog p { font-size: 14px; color: #49454f; }
     .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    :host-context(.app-dark) {
+      .pn-dialog p { color: #a1a1aa; }
+    }
   `],
 })
 export class PushNotificationDialogComponent {

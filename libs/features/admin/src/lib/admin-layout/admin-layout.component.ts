@@ -1,15 +1,16 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   OnInit,
   signal,
 } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { BadgeModule } from 'primeng/badge';
+import { Button } from 'primeng/button';
 import { Tooltip } from 'primeng/tooltip';
 
-import { AdminService } from '@org/shared-data-access';
+import { AdminService, AuthService } from '@org/shared-data-access';
 
 interface NavItem {
   label:    string;
@@ -26,7 +27,7 @@ interface NavItem {
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
-    BadgeModule,
+    Button,
     Tooltip,
   ],
   templateUrl: './admin-layout.component.html',
@@ -34,9 +35,13 @@ interface NavItem {
 })
 export class AdminLayoutComponent implements OnInit {
   private readonly adminService = inject(AdminService);
+  private readonly authService  = inject(AuthService);
   private readonly router       = inject(Router);
 
   readonly pendingCount = signal(0);
+  readonly isExpanded   = signal(false);
+
+  readonly userEmail = computed(() => this.authService.currentUser()?.email ?? '');
 
   readonly navItems: NavItem[] = [
     { label: 'Dashboard',       icon: 'pi-chart-pie',    route: '/admin/dashboard' },
@@ -58,5 +63,12 @@ export class AdminLayoutComponent implements OnInit {
       return this.pendingCount() > 0 ? this.pendingCount() : null;
     }
     return null;
+  }
+
+  logout(): void {
+    this.authService.logout().subscribe({
+      complete: () => void this.router.navigate(['/discover']),
+      error:    () => void this.router.navigate(['/discover']),
+    });
   }
 }

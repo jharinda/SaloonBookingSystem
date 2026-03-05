@@ -2,15 +2,17 @@
      SnapSalon — PrimeNG Menubar top navigation
      Sticky header with Tailwind positioning utilities
      ═══════════════════════════════════════════════════ -->
-<header class="sticky top-0 z-50">
-  <p-menubar [model]="menuItems()" styleClass="snapsalon-menubar rounded-none border-x-0 border-t-0 px-4">
+<header class="sticky top-0 z-50 px-3 pt-3">
+  <p-menubar [model]="menuItems()" styleClass="snapsalon-menubar rounded-2xl border px-4">
 
     <!-- ── Logo (start slot) ──────────────────────────────── -->
     <ng-template #start>
       <a routerLink="/discover"
          class="flex items-center gap-2 no-underline mr-6"
          aria-label="SnapSalon home">
-        <span class="text-2xl leading-none">✂️</span>
+        <div class="flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-500 flex-shrink-0">
+          <span class="text-white font-bold text-base leading-none">✂</span>
+        </div>
         <span class="font-bold text-lg tracking-wide">SnapSalon</span>
       </a>
     </ng-template>

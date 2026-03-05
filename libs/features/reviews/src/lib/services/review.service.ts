@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { Booking } from '@org/models';
 
 export interface CreateReviewDto {
+  salonId: string;
   bookingId: string;
   rating: number;
   comment?: string;

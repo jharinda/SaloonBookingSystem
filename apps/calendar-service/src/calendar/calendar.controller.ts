@@ -127,10 +127,13 @@ export class CalendarController {
     const { filename, content } = this.iCal.generateBookingIcs(
       {
         id: b._id.toString(),
-        clientId: b.clientId.toString(),
-        salonId: b.salonId.toString(),
+        clientId: b.clientId?.toString() ?? '',
+        salonId: b.salonId?.toString() ?? '',
         services: b.services ?? [],
-        appointmentDate: b.appointmentDate.toISOString(),
+        // appointmentDate may be stored as a plain "YYYY-MM-DD" string by booking-service
+        appointmentDate: b.appointmentDate instanceof Date
+          ? b.appointmentDate.toISOString()
+          : new Date(b.appointmentDate as string).toISOString(),
         startTime: b.startTime,
         endTime: b.endTime,
         totalPrice: b.totalPrice,

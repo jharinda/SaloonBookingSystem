@@ -1,8 +1,9 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
-import { Review, ReviewsPage, ReplyToReviewDto } from '@org/models';
+import { CreateReviewDto, Review, ReviewsPage, ReplyToReviewDto } from '@org/models';
 
 @Injectable({ providedIn: 'root' })
 export class ReviewService {
@@ -19,6 +20,24 @@ export class ReviewService {
       .set('page', String(page))
       .set('limit', String(limit));
     return this.http.get<ReviewsPage>('/api/reviews', { params });
+  }
+
+  /**
+   * GET /api/reviews/my
+   * Returns the authenticated user's own reviews (for cross-referencing with bookings).
+   */
+  getMyReviews(): Observable<Review[]> {
+    return this.http.get<Review[]>('/api/reviews/my').pipe(
+      map((res) => (Array.isArray(res) ? res : [])),
+    );
+  }
+
+  /**
+   * POST /api/reviews
+   * Submits a new review for a completed booking.
+   */
+  createReview(dto: CreateReviewDto): Observable<Review> {
+    return this.http.post<Review>('/api/reviews', dto);
   }
 
   /** PATCH /api/reviews/:id/reply */

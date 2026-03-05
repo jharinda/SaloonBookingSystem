@@ -104,9 +104,10 @@ export class BookingProcessor {
     }
 
     // Schedule reminders
-    const appointmentDateTime = new Date(
-      `${new Date(job.data.appointmentDate).toISOString().split('T')[0]}T${job.data.startTime}`,
-    );
+    // Explicitly anchor to Sri Lanka time (UTC+5:30) so delay calculations
+    // are correct regardless of the server's local timezone.
+    const dateStr = new Date(job.data.appointmentDate).toISOString().split('T')[0];
+    const appointmentDateTime = new Date(`${dateStr}T${job.data.startTime}:00+05:30`);
     const timeUntilDate = appointmentDateTime.getTime() - Date.now();
 
     const delay24hr = timeUntilDate - 24 * 60 * 60 * 1000;

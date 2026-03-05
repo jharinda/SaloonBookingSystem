@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -20,13 +21,7 @@ import {
   PaginatedBookingsDto,
 } from './dto/booking-response.dto';
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser, JwtUser, UserRole } from '@org/shared-auth';
-import { IsString, IsNotEmpty } from 'class-validator';
-
-class CancelBookingDto {
-  @IsString()
-  @IsNotEmpty()
-  reason: string;
-}
+import { CancelBookingDto } from './dto/cancel-booking.dto';
 
 @Controller('bookings')
 export class BookingController {
@@ -62,6 +57,7 @@ export class BookingController {
   @Get('my')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.CLIENT)
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   async myBookings(
     @Query() query: BookingListQueryDto,
     @CurrentUser() user: JwtUser,
@@ -95,6 +91,12 @@ export class BookingController {
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id') id: string): Promise<BookingResponseDto> {
+    return this.bookingService.findById(id);
+  }
+
+  /** Internal route — no auth guard, for service-to-service calls only */
+  @Get('internal/:id')
+  async findOneInternal(@Param('id') id: string): Promise<BookingResponseDto> {
     return this.bookingService.findById(id);
   }
 

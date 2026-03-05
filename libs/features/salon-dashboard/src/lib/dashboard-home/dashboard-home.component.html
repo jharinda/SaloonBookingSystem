@@ -1,55 +1,20 @@
-<!-- Two-column flex layout: sidebar w-64 + flex-1 content -->
+<!-- Two-column flex layout: slim sidebar + flex-1 content -->
 <div class="flex h-screen overflow-hidden">
 
   <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
-  <aside class="w-64 flex flex-col bg-gray-900 text-gray-100 shadow-xl flex-shrink-0 overflow-y-auto">
-
-    <!-- Header -->
-    <div class="flex items-center gap-3 px-5 py-5 border-b border-gray-700">
-      <span class="text-2xl leading-none">✂️</span>
-      <div class="min-w-0">
-        <div class="font-bold text-white text-base leading-tight">SnapSalon</div>
-        <div class="text-xs text-purple-400 uppercase tracking-wider">Owner Portal</div>
-      </div>
-    </div>
-
-    <!-- Salon name pill -->
-    @if (salon()) {
-      <div class="px-5 py-3 border-b border-gray-700">
-        <div class="font-semibold text-white text-sm truncate">{{ salon()!.name }}</div>
-        <div class="text-xs text-gray-400 mt-0.5">{{ salon()!.address.city }}</div>
-      </div>
-    }
-
-    <!-- PrimeNG PanelMenu navigation -->
-    <div class="flex-1 py-3 px-2">
-      <p-panelmenu
-        [model]="panelMenuItems"
-        styleClass="dashboard-panelmenu"
-      />
-    </div>
-
-    <!-- Footer: user info + logout -->
-    <div class="flex items-center justify-between gap-2 px-4 py-3 border-t border-gray-700">
-      <div class="flex items-center gap-2 min-w-0">
-        <i class="pi pi-user text-gray-400 text-lg"></i>
-        <span class="text-xs text-gray-400 truncate">{{ userEmail() }}</span>
-      </div>
-      <p-button
-        icon="pi pi-sign-out"
-        [rounded]="true"
-        [text]="true"
-        severity="secondary"
-        (onClick)="logout()"
-        aria-label="Sign out"
-        styleClass="text-gray-400"
-      />
-    </div>
-
-  </aside>
+  <lib-dashboard-sidebar
+    [salonName]="salon()?.name ?? null"
+    [userEmail]="userEmail()"
+    [isExpanded]="isExpanded()"
+    (expanded)="isExpanded.set(true)"
+    (collapsed)="isExpanded.set(false)"
+    (logoutClicked)="logout()"
+  />
 
   <!-- ── Main content area ──────────────────────────────────────────────── -->
-  <main class="flex-1 overflow-y-auto bg-zinc-50 dark:bg-zinc-950 p-8">
+  <main class="flex-1 overflow-y-auto bg-slate-100 dark:bg-zinc-950 p-8 transition-all duration-300"
+        [class.ml-56]="isExpanded()"
+        [class.ml-20]="!isExpanded()">
 
     @if (isLoading()) {
       <div class="flex flex-col items-center justify-center gap-4 h-1/2 text-gray-500">

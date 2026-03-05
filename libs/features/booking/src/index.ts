@@ -9,3 +9,4 @@ export * from './lib/services/calendar.service';
 export * from './lib/my-appointments/my-appointments.component';
 export * from './lib/my-appointments/appointment-card.component';
 export * from './lib/my-appointments/cancel-booking-dialog.component';
+export * from './lib/my-appointments/write-review-dialog.component';

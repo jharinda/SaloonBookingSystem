@@ -124,6 +124,17 @@ interface SlotSelection {
       min-width: 72px;
       font-size: 0.85rem;
     }
+
+    :host-context(.app-dark) {
+      h2 { color: #f4f4f5; }
+      .text-gray-900 { color: #f4f4f5; }
+      .text-gray-700 { color: #d4d4d8; }
+      .text-gray-600, .text-gray-500 { color: #a1a1aa; }
+      .text-gray-400 { color: #71717a; }
+      .bg-gray-200 { background-color: #3f3f46 !important; }
+      .bg-gray-100 { background-color: #27272a !important; }
+      .border-gray-200 { border-color: #3f3f46; }
+    }
   `],
 })
 export class SlotPickerComponent {

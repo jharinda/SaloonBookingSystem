@@ -18,8 +18,10 @@ export class SalonServiceItemDto {
   name: string;
   description?: string;
   price: number;
-  durationMinutes: number;
+  /** Duration in minutes — matches the frontend SalonServiceItem.duration field */
+  duration: number;
   category: string;
+  active: boolean;
 }
 
 export class SalonImageDto {

@@ -20,10 +20,10 @@ export interface UpdateProfileDto {
 }
 
 export interface NotificationPreferences {
-  emailBookingConfirmations: boolean;
-  emailReminders: boolean;
-  smsReminders: boolean;
-  whatsappMessages: boolean;
+  email: boolean;
+  sms: boolean;
+  whatsapp: boolean;
+  push: boolean;
 }
 
 export interface ConnectedAccounts {

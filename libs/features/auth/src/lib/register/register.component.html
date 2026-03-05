@@ -134,6 +134,24 @@
 
       </form>
 
+      <p-divider align="center">
+        <span class="text-zinc-400 text-sm px-2">or</span>
+      </p-divider>
+
+      <!-- Google sign-up -->
+      <p-button
+        label="Continue with Google"
+        icon="pi pi-google"
+        iconPos="left"
+        [outlined]="true"
+        styleClass="w-full justify-center bg-white"
+        (onClick)="loginWithGoogle()"
+      />
+
+      <p class="text-center text-xs text-zinc-400 mt-2 mb-0">
+        Signing up with Google creates a client account. Salon owners must register with email.
+      </p>
+
       <!-- Login link -->
       <p class="text-center text-sm text-zinc-500 mt-8 mb-0">
         Already have an account?

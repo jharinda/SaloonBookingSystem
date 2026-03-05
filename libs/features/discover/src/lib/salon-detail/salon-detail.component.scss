@@ -741,3 +741,15 @@ mat-divider {
   color: $text-secondary;
   &:hover { color: $brand; }
 }
+// ── Dark mode ──────────────────────────────────────────────────
+:host-context(.app-dark) {
+  .breadcrumb { color: #71717a; &__current { color: #d4d4d8; } }
+  .gallery__main { background: #27272a; }
+  .gallery__placeholder { color: #a1a1aa; }
+  .skeleton {
+    background: linear-gradient(90deg, #27272a 25%, #3f3f46 37%, #27272a 63%);
+    background-size: 800px 100%;
+  }
+  .error-state { color: #a1a1aa; h2 { color: #f4f4f5; } }
+  .mobile-cta { background: #18181b; border-color: #3f3f46; }
+}

@@ -35,6 +35,7 @@ class ServiceItem {
   @Prop({ required: true, min: 0 }) price: number;
   @Prop({ required: true, min: 1 }) durationMinutes: number;
   @Prop({ required: true }) category: string;
+  @Prop({ default: true }) active: boolean;
 }
 
 @Schema({ _id: true })

@@ -21,21 +21,17 @@ export class UpdateProfileDto {
 }
 
 export class UpdateNotificationPreferencesDto {
-  @IsOptional()
   @IsBoolean()
-  emailBookingConfirmations?: boolean;
+  email: boolean;
 
-  @IsOptional()
   @IsBoolean()
-  emailReminders?: boolean;
+  sms: boolean;
 
-  @IsOptional()
   @IsBoolean()
-  smsReminders?: boolean;
+  whatsapp: boolean;
 
-  @IsOptional()
   @IsBoolean()
-  whatsappMessages?: boolean;
+  push: boolean;
 }
 
 export class UserProfileResponseDto {
@@ -54,8 +50,8 @@ export class ConnectedAccountsResponseDto {
 }
 
 export class NotificationPreferencesResponseDto {
-  emailBookingConfirmations: boolean;
-  emailReminders: boolean;
-  smsReminders: boolean;
-  whatsappMessages: boolean;
+  email: boolean;
+  sms: boolean;
+  whatsapp: boolean;
+  push: boolean;
 }

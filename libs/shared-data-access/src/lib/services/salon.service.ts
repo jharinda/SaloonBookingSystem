@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-import { Salon, SalonSearchResponse } from '@org/models';
+import { Salon, SalonOperatingHours, SalonSearchResponse, SalonWorkingHours } from '@org/models';
 
 // ── Public search params ────────────────────────────────────────────────────
 
@@ -17,9 +17,32 @@ export interface SearchParams {
   limit?: number;
 }
 
-/** Normalise backend `id` → `_id` so the rest of the frontend is consistent. */
+const DAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as const;
+
+/** Convert the backend operatingHours array to the workingHours record the UI expects. */
+function normOperatingHours(raw: SalonOperatingHours[]): Record<string, SalonWorkingHours> {
+  const wh: Record<string, SalonWorkingHours> = {};
+  for (const h of raw) {
+    const name = DAY_NAMES[h.day];
+    if (name) wh[name] = { isOpen: !h.closed, open: h.open, close: h.close };
+  }
+  return wh;
+}
+
+/** Normalise backend `id` → `_id` and map operatingHours → workingHours. */
+function normSalon(s: Salon & { id?: string; operatingHours?: SalonOperatingHours[] }): Salon {
+  const rawOh = s.operatingHours ?? [];
+  const wh = rawOh.length ? normOperatingHours(rawOh) : (s.workingHours ?? undefined);
+  const services = (s.services ?? []).map((svc) => {
+    const item = svc as typeof svc & { id?: string };
+    return { ...item, _id: item._id || item.id || '' };
+  });
+  return { ...s, _id: s._id || s.id || '', operatingHours: rawOh, workingHours: wh, services };
+}
+
+/** @deprecated use normSalon */
 function normSalonId(s: Salon & { id?: string }): Salon {
-  return { ...s, _id: s._id || s.id || '' };
+  return normSalon(s as Salon & { id?: string; operatingHours?: SalonOperatingHours[] });
 }
 
 @Injectable({ providedIn: 'root' })
@@ -47,7 +70,7 @@ export class SalonService {
       '/api/salons/search', { params: p }
     ).pipe(
       map((res) => ({
-        data:  (res.salons ?? []).map(normSalonId),
+        data:  (res.salons ?? []).map(normSalon),
         total: res.total,
         page:  res.page,
         limit: params.limit ?? 10,
@@ -61,7 +84,7 @@ export class SalonService {
    */
   getFeaturedSalons(): Observable<Salon[]> {
     return this.http.get<Salon[]>('/api/salons/featured').pipe(
-      map((salons) => salons.map(normSalonId)),
+      map((salons) => salons.map(normSalon)),
     );
   }
 
@@ -70,6 +93,8 @@ export class SalonService {
    * GET /api/salons/:id
    */
   getSalonById(id: string): Observable<Salon> {
-    return this.http.get<Salon>(`/api/salons/${id}`);
+    return this.http.get<Salon & { operatingHours?: SalonOperatingHours[] }>(`/api/salons/${id}`).pipe(
+      map(normSalon),
+    );
   }
 }

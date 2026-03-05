@@ -1,8 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
-  <rect width="400" height="300" fill="#f5f5f5"/>
-  <rect x="150" y="80" width="100" height="80" rx="8" fill="#e0e0e0"/>
-  <circle cx="200" cy="105" r="18" fill="#bdbdbd"/>
-  <path d="M158 160 Q200 130 242 160" stroke="#bdbdbd" stroke-width="3" fill="none"/>
-  <rect x="120" y="175" width="160" height="12" rx="4" fill="#e0e0e0"/>
-  <rect x="155" y="197" width="90" height="10" rx="4" fill="#eeeeee"/>
+  <defs>
+    <style>
+      .ph-bg   { fill: #f3f4f6; }
+      .ph-card { fill: #e5e7eb; }
+      .ph-icon { fill: #9ca3af; }
+      .ph-bar1 { fill: #d1d5db; }
+      .ph-bar2 { fill: #e5e7eb; }
+      @media (prefers-color-scheme: dark) {
+        .ph-bg   { fill: #18181b; }
+        .ph-card { fill: #27272a; }
+        .ph-icon { fill: #52525b; }
+        .ph-bar1 { fill: #3f3f46; }
+        .ph-bar2 { fill: #27272a; }
+      }
+    </style>
+  </defs>
+  <rect width="400" height="300" class="ph-bg"/>
+  <rect x="150" y="75" width="100" height="85" rx="10" class="ph-card"/>
+  <circle cx="200" cy="103" r="20" class="ph-icon"/>
+  <path d="M160 162 Q200 135 240 162" stroke-width="3" fill="none" stroke-linecap="round" class="ph-icon" style="fill:none;stroke:#9ca3af"/>
+  <rect x="120" y="178" width="160" height="11" rx="5" class="ph-bar1"/>
+  <rect x="155" y="200" width="90" height="9" rx="4" class="ph-bar2"/>
 </svg>

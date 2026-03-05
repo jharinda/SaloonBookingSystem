@@ -57,13 +57,13 @@ type DayKey = (typeof DAYS)[number]['key'];
 
                 @if (form.controls.days.at(i).get('isOpen')?.value) {
                   <div class="time-field">
-                    <label class="time-label">Opens</label>
-                    <input type="time" class="time-input" formControlName="open" />
+                    <label class="time-label" [for]="'open-' + i">Opens</label>
+                    <input type="time" class="time-input" formControlName="open" [id]="'open-' + i" />
                   </div>
 
                   <div class="time-field">
-                    <label class="time-label">Closes</label>
-                    <input type="time" class="time-input" formControlName="close" />
+                    <label class="time-label" [for]="'close-' + i">Closes</label>
+                    <input type="time" class="time-input" formControlName="close" [id]="'close-' + i" />
                   </div>
                 } @else {
                   <span class="closed-label">Closed all day</span>

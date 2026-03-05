@@ -91,14 +91,14 @@
       </p-divider>
 
       <!-- Google -->
-      <a href="/api/auth/google" class="no-underline block">
-        <p-button
-          label="Continue with Google"
-          icon="pi pi-google"
-          [outlined]="true"
-          styleClass="w-full justify-center"
-        />
-      </a>
+      <p-button
+        label="Continue with Google"
+        icon="pi pi-google"
+        iconPos="left"
+        [outlined]="true"
+        styleClass="w-full justify-center bg-white"
+        (onClick)="loginWithGoogle()"
+      />
 
       <!-- Register link -->
       <p class="text-center text-sm text-zinc-500 mt-8 mb-0">

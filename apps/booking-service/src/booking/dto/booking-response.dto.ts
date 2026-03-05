@@ -9,9 +9,17 @@ export class BookedServiceResponseDto {
 
 export class BookingResponseDto {
   id: string;
+  /** Same as id — added so Angular models using _id work out of the box */
+  _id: string;
   clientId: string;
+  /** Denormalised client name stored at booking time */
+  clientName: string;
   salonId: string;
   stylistId?: string;
+  /** Denormalised salon name stored at booking time */
+  salonName: string;
+  /** Name of the first (primary) service — convenience field */
+  serviceName: string;
   services: BookedServiceResponseDto[];
   appointmentDate: Date;
   startTime: string;

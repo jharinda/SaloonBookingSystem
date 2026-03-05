@@ -72,6 +72,11 @@ export interface CancelDialogResult {
       gap: 8px;
       margin-top: 16px;
     }
+
+    :host-context(.app-dark) {
+      .confirm-msg { color: #d4d4d8; }
+      .warn-text { color: #f87171; }
+    }
   `],
 })
 export class CancelBookingDialogComponent {
