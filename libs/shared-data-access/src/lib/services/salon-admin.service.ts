@@ -137,6 +137,7 @@ export class SalonAdminService {
           _id:          s._id ?? s.id,
           services:     (s.services ?? []).map(normService),
           workingHours: Object.keys(workingHours).length ? workingHours : undefined,
+          images:       (s.images as unknown as import('@org/models').SalonImage[]) ?? [],
         } as Salon;
       }),
     );

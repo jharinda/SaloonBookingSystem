@@ -173,8 +173,8 @@ export class SalonController {
 
   // ── Image management routes ───────────────────────────────────────────────
 
-  @Post(':id/images')
-  @HttpCode(HttpStatus.CREATED)
+  @Patch(':id/images')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SALON_OWNER)
   async pushImage(

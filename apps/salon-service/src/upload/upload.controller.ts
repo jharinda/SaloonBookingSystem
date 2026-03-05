@@ -54,6 +54,32 @@ export class UploadController {
     private readonly salonService: SalonService,
   ) {}
 
+  // ── POST /salons/upload ─────────────────────────────────────────────────
+
+  /**
+   * Upload-only endpoint — stores the file in Cloudinary and returns
+   * { cloudinaryId, url } so the client can then PATCH the salon separately.
+   * Field name: "file"  (matches the Angular FormData key).
+   *
+   * IMPORTANT: this route must be declared before any :id routes so that
+   * NestJS does not treat the literal "upload" segment as a param value.
+   */
+  @Post('upload')
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.SALON_OWNER)
+  @UseInterceptors(FileInterceptor('file', multerConfig))
+  async uploadOnly(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Query('folder') folderParam: string | undefined,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file provided (field name: "file")');
+    }
+    const folder = resolveFolder(folderParam);
+    const { cloudinaryId, url } = await this.uploadService.uploadImage(file, folder);
+    return { cloudinaryId, url };
+  }
+
   // ── POST /salons/:id/images ─────────────────────────────────────────────
 
   /**

@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-import { Salon, SalonOperatingHours, SalonSearchResponse, SalonWorkingHours } from '@org/models';
+import { Salon, SalonImage, SalonOperatingHours, SalonSearchResponse, SalonWorkingHours } from '@org/models';
 
 // ── Public search params ────────────────────────────────────────────────────
 
@@ -29,7 +29,8 @@ function normOperatingHours(raw: SalonOperatingHours[]): Record<string, SalonWor
   return wh;
 }
 
-/** Normalise backend `id` → `_id` and map operatingHours → workingHours. */
+/** Normalise backend `id` → `_id`, map operatingHours → workingHours,
+ * and coerce legacy string images to SalonImage objects. */
 function normSalon(s: Salon & { id?: string; operatingHours?: SalonOperatingHours[] }): Salon {
   const rawOh = s.operatingHours ?? [];
   const wh = rawOh.length ? normOperatingHours(rawOh) : (s.workingHours ?? undefined);
@@ -37,7 +38,21 @@ function normSalon(s: Salon & { id?: string; operatingHours?: SalonOperatingHour
     const item = svc as typeof svc & { id?: string };
     return { ...item, _id: item._id || item.id || '' };
   });
-  return { ...s, _id: s._id || s.id || '', operatingHours: rawOh, workingHours: wh, services };
+  // Normalise images: backend returns objects {cloudinaryId,url,isPrimary};
+  // legacy data or search results might return plain URL strings — coerce both.
+  // Also guard against nested url objects from Cloudinary SDK.
+  const images: SalonImage[] = (s.images ?? []).map((img) => {
+    if (typeof img === 'string') return { cloudinaryId: '', url: img, isPrimary: false };
+    const raw = img as SalonImage & { url: unknown };
+    const url =
+      typeof raw.url === 'string'
+        ? raw.url
+        : (raw.url as Record<string, string> | undefined)?.['secure_url'] ??
+          (raw.url as Record<string, string> | undefined)?.['url'] ??
+          '';
+    return { cloudinaryId: raw.cloudinaryId || '', url, isPrimary: raw.isPrimary ?? false };
+  });
+  return { ...s, _id: s._id || s.id || '', operatingHours: rawOh, workingHours: wh, services, images };
 }
 
 /** @deprecated use normSalon */

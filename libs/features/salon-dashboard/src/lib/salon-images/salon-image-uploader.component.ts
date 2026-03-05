@@ -334,7 +334,7 @@ export class SalonImageUploaderComponent {
     valid.forEach((file) => {
       this.adminService.uploadSalonImage(this.salonId(), file).subscribe({
         next: (salon) => {
-          const updated = (salon.images as unknown as SalonImage[]) ?? [];
+          const updated = salon.images ?? [];
           this.images.set(updated);
           this.imagesChanged.emit(updated);
           this.messageService.add({
@@ -362,7 +362,7 @@ export class SalonImageUploaderComponent {
     this.markWorking(img.cloudinaryId);
     this.adminService.setPrimaryImage(this.salonId(), img.cloudinaryId).subscribe({
       next: (salon) => {
-        const updated = (salon.images as unknown as SalonImage[]) ?? [];
+        const updated = salon.images ?? [];
         this.images.set(updated);
         this.imagesChanged.emit(updated);
         this.messageService.add({
@@ -389,7 +389,7 @@ export class SalonImageUploaderComponent {
     this.markWorking(img.cloudinaryId);
     this.adminService.removeImage(this.salonId(), img.cloudinaryId).subscribe({
       next: (salon) => {
-        const updated = (salon.images as unknown as SalonImage[]) ?? [];
+        const updated = salon.images ?? [];
         this.images.set(updated);
         this.imagesChanged.emit(updated);
         this.messageService.add({

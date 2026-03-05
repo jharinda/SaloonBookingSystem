@@ -109,7 +109,7 @@ export class Discover implements OnInit {
   }
 
   coverImage(salon: Salon): string {
-    return salon.images?.[0] ?? 'https://placehold.co/600x400?text=No+Image';
+    return salon.images?.[0]?.url ?? 'https://placehold.co/600x400?text=No+Image';
   }
 
   onBookNow(salon: Salon): void {

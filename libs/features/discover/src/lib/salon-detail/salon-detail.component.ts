@@ -123,10 +123,13 @@ export class SalonDetailComponent implements OnInit {
   readonly coverImage = computed(() => {
     const s = this.salon();
     if (!s?.images?.length) return null;
-    return s.images[this.activeImageIdx()] ?? s.images[0];
+    const img = s.images[this.activeImageIdx()] ?? s.images[0];
+    return img?.url ?? null;
   });
 
-  readonly thumbnails = computed(() => this.salon()?.images ?? []);
+  readonly thumbnails = computed(() =>
+    (this.salon()?.images ?? []).map((img) => img.url).filter(Boolean) as string[],
+  );
 
   readonly salonStars = computed(() => toStars(this.salon()?.rating ?? 0));
 
@@ -242,8 +245,34 @@ export class SalonDetailComponent implements OnInit {
   }
 
   // ── Gallery ─────────────────────────────────────────────────────────────────
+  readonly imageCount = computed(() => this.salon()?.images?.length ?? 0);
+
   selectImage(idx: number): void {
     this.activeImageIdx.set(idx);
+  }
+
+  prevImage(): void {
+    const count = this.imageCount();
+    if (count < 2) return;
+    this.activeImageIdx.update((i) => (i - 1 + count) % count);
+  }
+
+  nextImage(): void {
+    const count = this.imageCount();
+    if (count < 2) return;
+    this.activeImageIdx.update((i) => (i + 1) % count);
+  }
+
+  private touchStartX = 0;
+
+  onTouchStart(e: TouchEvent): void {
+    this.touchStartX = e.changedTouches[0]?.clientX ?? 0;
+  }
+
+  onTouchEnd(e: TouchEvent): void {
+    const dx = (e.changedTouches[0]?.clientX ?? 0) - this.touchStartX;
+    if (Math.abs(dx) < 40) return; // ignore tiny taps
+    dx < 0 ? this.nextImage() : this.prevImage();
   }
 
   // ── Navigation / booking ────────────────────────────────────────────────────

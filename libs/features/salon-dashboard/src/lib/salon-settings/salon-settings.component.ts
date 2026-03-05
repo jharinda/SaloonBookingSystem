@@ -166,7 +166,7 @@ export class SalonSettingsComponent implements OnInit {
         this.salonId = salon._id;
         this.patchInfoForm(salon);
         this.patchHoursForm(salon);
-        this.salonImages.set((salon.images as unknown as SalonImage[]) ?? []);
+        this.salonImages.set(salon.images ?? []);
         this.loading.set(false);
         this.cdr.markForCheck();
       },

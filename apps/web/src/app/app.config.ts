@@ -6,10 +6,16 @@ import {
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { IMAGE_LOADER, ImageLoaderConfig } from '@angular/common';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { appRoutes } from './app.routes';
 import { provideServiceWorker } from '@angular/service-worker';
 import { AuthService, authInterceptor } from '@org/shared-data-access';
+
+// Images are already stored as full Cloudinary URLs — this pass-through loader
+// satisfies NgOptimizedImage and silences the missing-loader warning.
+const cloudinaryPassthroughLoader = (config: ImageLoaderConfig): string =>
+  config.width ? config.src.replace('/upload/', `/upload/w_${config.width}/`) : config.src;
 import { httpErrorInterceptor } from './core/interceptors/http-error.interceptor';
 import { MessageService } from 'primeng/api';
 import { DialogService } from 'primeng/dynamicdialog';
@@ -90,6 +96,7 @@ function provideAuthInit() {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    { provide: IMAGE_LOADER, useValue: cloudinaryPassthroughLoader },
     provideAnimationsAsync(),
     providePrimeNG({
       theme: {

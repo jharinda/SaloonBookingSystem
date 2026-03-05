@@ -29,6 +29,13 @@ export interface SalonWorkingHours {
   isOpen: boolean;
 }
 
+/** Shape of each image stored in the salon's images array */
+export interface SalonImage {
+  cloudinaryId: string;
+  url: string;
+  isPrimary?: boolean;
+}
+
 /** Shape of each entry in the backend's operatingHours array */
 export interface SalonOperatingHours {
   day: number;     // 0 = Sunday … 6 = Saturday
@@ -44,8 +51,8 @@ export interface Salon {
   address: SalonAddress;
   phone: string;
   email: string;
-  /** Ordered list of image URLs; first is the cover */
-  images?: string[];
+  /** Ordered list of salon images; the primary image comes first */
+  images?: SalonImage[];
   services: SalonServiceItem[];
   /** Raw operating-hours array as returned by the backend */
   operatingHours?: SalonOperatingHours[];

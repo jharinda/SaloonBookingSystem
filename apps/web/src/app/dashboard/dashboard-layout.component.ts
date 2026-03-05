@@ -109,7 +109,7 @@ export class DashboardLayoutComponent implements OnInit {
   /** Resolved URL to the salon's primary image (for avatar image mode) */
   readonly avatarImage = computed<string | undefined>(() => {
     const img = this.salon()?.images?.[0];
-    return img ?? undefined;
+    return img?.url ?? undefined;
   });
 
   // ── Menu model ────────────────────────────────────────────────────────────────

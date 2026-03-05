@@ -128,7 +128,7 @@ export class SalonCardComponent {
   readonly salon = input.required<Salon>();
 
   readonly coverImage = computed(() =>
-    this.salon().images?.[0] ?? null,
+    this.salon().images?.[0]?.url ?? null,
   );
 
   readonly topServices = computed<SalonServiceItem[]>(() =>

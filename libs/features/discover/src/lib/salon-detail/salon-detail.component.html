@@ -42,16 +42,44 @@
 
     <!--  Gallery  -->
     <section class="mb-6" aria-label="Salon photos">
-      <div class="relative w-full rounded-2xl overflow-hidden bg-gray-100 dark:bg-zinc-800" style="aspect-ratio:16/7">
+      <div
+        class="group relative w-full rounded-2xl overflow-hidden bg-gray-100 dark:bg-zinc-800 select-none"
+        style="aspect-ratio:16/7"
+        (touchstart)="onTouchStart($event)"
+        (touchend)="onTouchEnd($event)"
+      >
         @if (coverImage()) {
           <img
-            class="w-full h-full object-cover"
+            class="w-full h-full object-cover transition-opacity duration-300"
             [ngSrc]="coverImage()!"
             [alt]="s.name + '  photo ' + (activeImageIdx() + 1)"
             fill
-            sizes="(max-width: 768px) 100vw, 1000px"
+            sizes="(max-width: 768px) 100vw, 80vw"
             priority
           />
+
+          <!-- Prev / Next arrows (only when >1 image) -->
+          @if (imageCount() > 1) {
+            <button
+              class="absolute left-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white transition-all duration-200 opacity-0 group-hover:opacity-100"
+              aria-label="Previous photo"
+              (click)="prevImage()"
+            >
+              <i class="pi pi-chevron-left text-sm"></i>
+            </button>
+            <button
+              class="absolute right-2 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-black/40 hover:bg-black/60 text-white transition-all duration-200 opacity-0 group-hover:opacity-100"
+              aria-label="Next photo"
+              (click)="nextImage()"
+            >
+              <i class="pi pi-chevron-right text-sm"></i>
+            </button>
+
+            <!-- Image counter badge -->
+            <span class="absolute bottom-2 right-3 z-10 text-xs text-white bg-black/50 rounded-full px-2 py-0.5 tabular-nums">
+              {{ activeImageIdx() + 1 }}&thinsp;/&thinsp;{{ imageCount() }}
+            </span>
+          }
         } @else {
           <div class="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500 gap-2">
             <i class="pi pi-image text-5xl"></i>
@@ -76,7 +104,7 @@
                 [ngSrc]="img"
                 [alt]="s.name + ' thumbnail ' + ($index + 1)"
                 width="80"
-                height="60"
+                height="46"
                 class="object-cover"
               />
             </button>
@@ -256,7 +284,7 @@
                   <div class="flex items-center gap-3 flex-wrap">
                     <div class="flex items-center justify-center w-9 h-9 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-bold text-sm flex-shrink-0">
                       @if (review.clientAvatar) {
-                        <img [ngSrc]="review.clientAvatar" [alt]="review.clientName" width="36" height="36" class="rounded-full object-cover" />
+                        <img [src]="review.clientAvatar" [alt]="review.clientName" width="36" height="36" class="rounded-full object-cover" referrerpolicy="no-referrer" />
                       } @else {
                         {{ review.clientName.charAt(0).toUpperCase() }}
                       }

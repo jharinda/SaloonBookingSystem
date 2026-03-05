@@ -33,7 +33,7 @@
     <div class="wizard-salon-bar">
       <img
         class="salon-bar-img"
-        [src]="salon()!.images?.[0] ?? 'assets/images/salon-placeholder.svg'"
+        [src]="salon()!.images?.[0]?.url ?? 'assets/images/salon-placeholder.svg'"
         [alt]="salon()!.name"
         (error)="onImgError($event)"
       />
