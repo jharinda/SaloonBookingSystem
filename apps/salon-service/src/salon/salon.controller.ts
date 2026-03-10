@@ -16,8 +16,14 @@ import { SalonService } from './salon.service';
 import { CreateSalonDto, OperatingHoursDto } from './dto/create-salon.dto';
 import { UpdateSalonDto } from './dto/update-salon.dto';
 import { AddServiceDto } from './dto/add-service.dto';
+import { CreateStationDto, UpdateStationDto, StationsResponseDto } from './dto/station.dto';
 import { PaginationQueryDto, SearchSalonsDto } from './dto/salon-query.dto';
-import { PaginatedSalonsDto, SalonResponseDto, SalonSearchResultDto } from './dto/salon-response.dto';
+import {
+  PaginatedSalonsDto,
+  SalonResponseDto,
+  SalonSearchResultDto,
+} from './dto/salon-response.dto';
+import { StaffAnalyticsResponseDto } from './dto/staff-analytics.dto';
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser, JwtUser, UserRole } from '@org/shared-auth';
 
 @Controller('salons')
@@ -207,5 +213,61 @@ export class SalonController {
     @CurrentUser() user: JwtUser,
   ): Promise<SalonResponseDto> {
     return this.salonService.setPrimaryImage(id, imageId, user.sub);
+  }
+
+  @Get(':salonId/staff-analytics')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER, UserRole.ADMIN)
+  async getStaffAnalytics(
+    @Param('salonId') salonId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<StaffAnalyticsResponseDto> {
+    return this.salonService.getStaffAnalytics(salonId, user.sub);
+  }
+
+  // ── Station Management ──────────────────────────────────────
+
+  @Get(':id/stations')
+  @HttpCode(HttpStatus.OK)
+  async getStations(@Param('id') id: string): Promise<StationsResponseDto> {
+    return this.salonService.getStations(id);
+  }
+
+  @Post(':id/stations')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async addStation(
+    @Param('id') id: string,
+    @Body() dto: CreateStationDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.addStation(id, dto.name, user.sub);
+  }
+
+  @Patch(':id/stations/:stationId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async updateStation(
+    @Param('id') id: string,
+    @Param('stationId') stationId: string,
+    @Body() dto: UpdateStationDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.updateStation(id, stationId, dto, user.sub);
+  }
+
+  @Delete(':id/stations/:stationId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async deleteStation(
+    @Param('id') id: string,
+    @Param('stationId') stationId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.deleteStation(id, stationId, user.sub);
   }
 }

@@ -22,6 +22,13 @@ export const DASHBOARD_ROUTES: Routes = [
           ),
       },
       {
+        path: 'appointments',
+        loadComponent: () =>
+          import('./appointments/appointments.component').then(
+            (m) => m.AppointmentsComponent,
+          ),
+      },
+      {
         path: 'bookings',
         loadComponent: () =>
           import('./bookings-today/bookings-today.component').then(
@@ -40,6 +47,20 @@ export const DASHBOARD_ROUTES: Routes = [
         loadComponent: () =>
           import('./manage-staff/manage-staff.component').then(
             (m) => m.ManageStaffComponent,
+          ),
+      },
+      {
+        path: 'stations',
+        loadComponent: () =>
+          import('./stations/stations.component').then(
+            (m) => m.StationsComponent,
+          ),
+      },
+      {
+        path: 'analytics',
+        loadComponent: () =>
+          import('./analytics/analytics.component').then(
+            (m) => m.AnalyticsComponent,
           ),
       },
       {
@@ -66,3 +87,4 @@ export const DASHBOARD_ROUTES: Routes = [
     ],
   },
 ];
+

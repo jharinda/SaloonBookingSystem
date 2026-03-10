@@ -10,7 +10,8 @@ import { IMAGE_LOADER, ImageLoaderConfig } from '@angular/common';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { appRoutes } from './app.routes';
 import { provideServiceWorker } from '@angular/service-worker';
-import { AuthService, authInterceptor } from '@org/shared-data-access';
+import { AuthService, authInterceptor, FCM_CONFIG } from '@org/shared-data-access';
+import { environment } from '../environments/environment';
 
 // Images are already stored as full Cloudinary URLs — this pass-through loader
 // satisfies NgOptimizedImage and silences the missing-loader warning.
@@ -116,5 +117,13 @@ export const appConfig: ApplicationConfig = {
     MessageService,
     DialogService,
     provideAuthInit(),
+    // Provide FCM configuration for push notifications
+    {
+      provide: FCM_CONFIG,
+      useValue: {
+        firebaseConfig: environment.firebaseConfig,
+        fcmVapidKey: environment.fcmVapidKey,
+      },
+    },
   ],
 };

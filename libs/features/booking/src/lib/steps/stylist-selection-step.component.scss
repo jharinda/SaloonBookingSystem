@@ -1,0 +1,278 @@
+@use 'sass:color';
+
+// ─── Design Tokens ───────────────────────────────────────────────────────────
+$primary-color: #1A5276;
+$accent-color: #117A65;
+$border-radius: 12px;
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+$transition: all 0.2s ease-in-out;
+
+// ─── Stylist Selection ──────────────────────────────────────────────────────
+.stylist-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+
+  &__header {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  &__title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: $primary-color;
+    margin: 0 0 0.5rem 0;
+  }
+
+  &__subtitle {
+    font-size: 1rem;
+    color: #6b7280;
+    margin: 0;
+  }
+}
+
+// ─── Stylist Grid ───────────────────────────────────────────────────────────
+.stylist-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+// ─── Stylist Card ───────────────────────────────────────────────────────────
+.stylist-card {
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: $border-radius !important;
+  box-shadow: $shadow-md;
+  transition: $transition;
+
+  &:hover {
+    box-shadow: $shadow-xl;
+    transform: translateY(-2px);
+    border-color: rgba($primary-color, 0.3);
+  }
+
+  &:focus {
+    outline: 2px solid $primary-color;
+    outline-offset: 2px;
+  }
+
+  // Ring border highlight when selected
+  &--selected {
+    border-color: $primary-color;
+    border-width: 3px;
+    background-color: rgba($primary-color, 0.02);
+    box-shadow: $shadow-xl, 0 0 0 3px rgba($primary-color, 0.1);
+  }
+
+  mat-card-header {
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  mat-card-content {
+    padding: 0 1rem 1rem;
+    text-align: center;
+  }
+
+  &__header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  &__avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba($primary-color, 0.1) 0%, rgba($accent-color, 0.1) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #e5e7eb;
+    transition: $transition;
+
+    &--any {
+      background: linear-gradient(135deg, $primary-color 0%, $accent-color 100%);
+    }
+  }
+
+  &--selected &__avatar {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.2);
+  }
+
+  &__avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &__avatar-placeholder {
+    font-size: 3rem;
+    width: 3rem;
+    height: 3rem;
+    color: $primary-color;
+  }
+
+  &__any-icon {
+    font-size: 3rem;
+    width: 3rem;
+    height: 3rem;
+    color: white;
+  }
+
+  &__name {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: $primary-color;
+    margin: 0.5rem 0 0.25rem;
+  }
+
+  &__desc {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0.25rem 0 0.5rem;
+    line-height: 1.5;
+  }
+
+  &__rating {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    margin: 0.5rem 0;
+    color: #f59e0b;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  &__star {
+    font-size: 1rem;
+    width: 1rem;
+    height: 1rem;
+    color: #f59e0b;
+  }
+
+  &__specialties {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 0.75rem;
+  }
+
+  &__specialty-tag {
+    background-color: rgba($accent-color, 0.1);
+    color: $accent-color;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+}
+
+// ─── Placeholder Notice ─────────────────────────────────────────────────────
+.placeholder-notice {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  background-color: rgba($accent-color, 0.05);
+  border: 2px dashed rgba($accent-color, 0.3);
+  border-radius: $border-radius;
+  text-align: center;
+
+  &__icon {
+    font-size: 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    color: $accent-color;
+    flex-shrink: 0;
+  }
+
+  &__text {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0;
+    max-width: 400px;
+  }
+}
+
+// ─── Dark Mode Support ──────────────────────────────────────────────────────
+@media (prefers-color-scheme: dark) {
+  .stylist-selection {
+    &__title {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__subtitle {
+      color: #9ca3af;
+    }
+  }
+
+  .stylist-card {
+    background-color: #1f2937;
+    border-color: #374151;
+
+    &:hover {
+      border-color: rgba(color.adjust($primary-color, $lightness: 20%), 0.5);
+    }
+
+    &--selected {
+      border-color: color.adjust($primary-color, $lightness: 20%);
+      background-color: rgba(color.adjust($primary-color, $lightness: 20%), 0.1);
+      box-shadow: $shadow-xl, 0 0 0 3px rgba(color.adjust($primary-color, $lightness: 20%), 0.2);
+    }
+
+    &__avatar {
+      border-color: #374151;
+    }
+
+    &--selected &__avatar {
+      border-color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__name {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__desc {
+      color: #9ca3af;
+    }
+
+    &__specialty-tag {
+      background-color: rgba(color.adjust($accent-color, $lightness: 15%), 0.15);
+      color: color.adjust($accent-color, $lightness: 15%);
+    }
+  }
+
+  .placeholder-notice {
+    background-color: rgba(color.adjust($accent-color, $lightness: 15%), 0.08);
+    border-color: rgba(color.adjust($accent-color, $lightness: 15%), 0.3);
+
+    &__icon {
+      color: color.adjust($accent-color, $lightness: 15%);
+    }
+
+    &__text {
+      color: #9ca3af;
+    }
+  }
+}

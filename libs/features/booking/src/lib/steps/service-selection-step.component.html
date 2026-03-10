@@ -1,0 +1,101 @@
+<div class="service-selection">
+  <div class="service-selection__header">
+    <h2 class="service-selection__title">Choose Services</h2>
+    <p class="service-selection__subtitle">
+      Select one or more services at <strong>{{ salon()?.name }}</strong>
+    </p>
+  </div>
+
+  <!-- Category filter chips (if multiple categories exist) -->
+  @if (categories().length > 1) {
+    <div class="category-filter">
+      <mat-chip-listbox aria-label="Filter by category">
+        <mat-chip-option
+          selected
+          [value]="''"
+          (selectionChange)="activeCategory.set('')"
+        >
+          All Services
+        </mat-chip-option>
+        @for (cat of categories(); track cat) {
+          <mat-chip-option
+            [value]="cat"
+            (selectionChange)="activeCategory.set(cat)"
+          >
+            {{ cat }}
+          </mat-chip-option>
+        }
+      </mat-chip-listbox>
+    </div>
+  }
+
+  <!-- Service grid -->
+  <div class="service-grid">
+    @for (service of filteredServices(); track trackByServiceId($index, service)) {
+      <mat-card
+        class="service-card"
+        [class.service-card--selected]="isSelected(service)"
+        (click)="toggleService(service)"
+        tabindex="0"
+        role="checkbox"
+        [attr.aria-checked]="isSelected(service)"
+      >
+        <mat-card-header>
+          <div class="service-card__header">
+            <mat-checkbox
+              [checked]="isSelected(service)"
+              (change)="toggleService(service)"
+              (click)="$event.stopPropagation()"
+              color="primary"
+            />
+            <h3 class="service-card__name">{{ service.name }}</h3>
+          </div>
+        </mat-card-header>
+
+        <mat-card-content>
+          @if (service.description) {
+            <p class="service-card__desc">{{ service.description }}</p>
+          }
+
+          <div class="service-card__meta">
+            <span class="service-card__duration">
+              <mat-icon class="service-card__icon">schedule</mat-icon>
+              {{ service.duration }} min
+            </span>
+            <span class="service-card__price">
+              {{ service.price | number:'1.2-2' }} RON
+            </span>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    } @empty {
+      <div class="empty-state">
+        <mat-icon class="empty-state__icon">content_cut</mat-icon>
+        <p class="empty-state__text">No services available</p>
+      </div>
+    }
+  </div>
+
+  <!-- Sticky bottom bar with total -->
+  @if (selectedServices().length > 0) {
+    <div class="total-bar">
+      <div class="total-bar__content">
+        <div class="total-bar__summary">
+          <span class="total-bar__label">
+            {{ selectedServices().length }} service{{ selectedServices().length > 1 ? 's' : '' }} selected
+          </span>
+          <span class="total-bar__duration">
+            <mat-icon class="total-bar__icon">schedule</mat-icon>
+            {{ totalDuration() }} min
+          </span>
+        </div>
+        <div class="total-bar__price">
+          <span class="total-bar__price-label">Total:</span>
+          <span class="total-bar__price-value">
+            {{ totalPrice() | number:'1.2-2' }} RON
+          </span>
+        </div>
+      </div>
+    </div>
+  }
+</div>

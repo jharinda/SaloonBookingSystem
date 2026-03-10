@@ -12,9 +12,11 @@ import { InjectQueue } from '@nestjs/bull';
 import { HttpService } from '@nestjs/axios';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
+import { retry, timer } from 'rxjs';
 import { Model, Types } from 'mongoose';
 import { Queue } from 'bull';
 import Redis from 'ioredis';
+import { fromZonedTime } from 'date-fns-tz';
 
 import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -30,6 +32,7 @@ import { BOOKING_QUEUE, BookingEvent } from './constants/booking-events.constant
 const SLOT_INTERVAL_MINUTES = 30;
 const BOOKING_BUFFER_MINUTES = 15;
 const CACHE_TTL_SECONDS = 60;
+const SALON_TIMEZONE = 'Asia/Colombo';
 
 /** Shape of the operatingHours entry returned by salon-service */
 interface SalonOperatingHours {
@@ -44,6 +47,27 @@ interface SalonResponse {
   operatingHours: SalonOperatingHours[];
   cancellationWindowHours?: number;
   autoConfirmBookings?: boolean;
+}
+
+/** Shape of the station returned by salon-service GET /api/salons/:id/stations */
+interface StationInfo {
+  _id: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface StationsResponse {
+  stations: StationInfo[];
+  stationCount: number;
+}
+
+/** Shape of staff member returned by auth-service */
+interface StaffMember {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl?: string;
 }
 
 /** Convert "HH:mm" to total minutes since midnight */
@@ -109,6 +133,14 @@ export class BookingService {
       const { data } = await firstValueFrom(
         this.httpService.get<SalonResponse>(
           `${salonServiceUrl}/api/salons/${salonId}`,
+        ).pipe(
+          retry({
+            count: 2,
+            delay: (error, retryCount) => {
+              this.logger.warn(`Retry ${retryCount}/2 for salon fetch: ${error.message}`);
+              return timer(retryCount * 500);
+            },
+          }),
         ),
       );
       salon = data;
@@ -155,6 +187,7 @@ export class BookingService {
       status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
     };
 
+    // When stylistId is provided, show only that stylist's bookings.
     if (stylistId) {
       bookingQuery['stylistId'] = new Types.ObjectId(stylistId);
     }
@@ -164,17 +197,56 @@ export class BookingService {
       .lean()
       .exec();
 
-    // ── Step 4: Build blocked ranges (endTime + 15 min buffer) ───────────
-    const blocked = existingBookings.map((b) => ({
-      start: toMinutes(b.startTime),
-      end:   toMinutes(b.endTime) + BOOKING_BUFFER_MINUTES,
-    }));
+    // ── Step 4: Fetch station count from salon-service ───────────────────
+    let stationCount = 1; // Default to 1 if unable to fetch
+    try {
+      const { data: stationsData } = await firstValueFrom(
+        this.httpService.get<StationsResponse>(
+          `${salonServiceUrl}/api/salons/${salonId}/stations`,
+        ),
+      );
+      stationCount = stationsData.stationCount || 1;
+    } catch (err) {
+      this.logger.warn(
+        `Failed to fetch station count for salon ${salonId}: ${(err as Error).message}. Using default of 1.`,
+      );
+    }
 
-    // ── Step 5: Filter slots that overlap any blocked range ───────────────
+    // ── Step 5: Build booking count per time slot ────────────────────────
+    // For stylist-specific queries, we still use the old blocking logic.
+    // For salon-level queries, we count concurrent bookings per slot.
+    if (stylistId) {
+      // Original logic for stylist-specific availability
+      const blocked = existingBookings.map((b) => ({
+        start: toMinutes(b.startTime),
+        end:   toMinutes(b.endTime) + BOOKING_BUFFER_MINUTES,
+      }));
+
+      const available = allSlots.filter((slot) => {
+        const slotStart = toMinutes(slot);
+        const slotEnd   = slotStart + durationMinutes;
+        return !blocked.some((b) => slotStart < b.end && slotEnd > b.start);
+      });
+
+      const result: AvailableSlotsResponseDto = { salonId, date, slots: available };
+      await this.cacheResult(cacheKey, result);
+      return result;
+    }
+
+    // ── Step 6: Filter slots based on station capacity ───────────────────
+    // A slot is available if concurrent bookings < stationCount
     const available = allSlots.filter((slot) => {
       const slotStart = toMinutes(slot);
       const slotEnd   = slotStart + durationMinutes;
-      return !blocked.some((b) => slotStart < b.end && slotEnd > b.start);
+
+      // Count how many bookings overlap with this slot
+      const concurrentBookings = existingBookings.filter((b) => {
+        const bookingStart = toMinutes(b.startTime);
+        const bookingEnd = toMinutes(b.endTime);
+        return slotStart < bookingEnd && slotEnd > bookingStart;
+      }).length;
+
+      return concurrentBookings < stationCount;
     });
 
     const result: AvailableSlotsResponseDto = { salonId, date, slots: available };
@@ -204,7 +276,7 @@ export class BookingService {
     const totalPrice = dto.services.reduce((acc, s) => acc + s.price, 0);
 
     // Acquire a distributed lock to prevent double-booking races
-    const lockKey = `booking-lock:${dto.salonId}:${dto.appointmentDate}:${dto.startTime}`;
+    const lockKey = `booking-lock:${dto.salonId}:${dto.appointmentDate}:${dto.startTime}:${dto.stylistId ?? 'any'}`;
     const lockValue = await this.acquireLock(lockKey, 5, 3, 100);
     if (!lockValue) {
       throw new BadRequestException(
@@ -215,18 +287,39 @@ export class BookingService {
     try {
       // Validate the slot is still free
       const appointmentDate = new Date(`${dto.appointmentDate}T00:00:00.000Z`);
-      const clash = await this.bookingModel.findOne({
+
+      const clashQuery: Record<string, unknown> = {
         salonId: new Types.ObjectId(dto.salonId),
         appointmentDate,
         status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
-        $or: [
+      };
+
+      // If booking for a specific stylist, check only that stylist's schedule
+      if (dto.stylistId) {
+        clashQuery['$and'] = [
+          { stylistId: new Types.ObjectId(dto.stylistId) },
+          {
+            $or: [
+              {
+                // New booking starts during an existing one
+                startTime: { $lt: endTime },
+                endTime: { $gt: dto.startTime },
+              },
+            ],
+          },
+        ];
+      } else {
+        // No stylist specified, check salon-level availability
+        clashQuery['$or'] = [
           {
             // New booking starts during an existing one
             startTime: { $lt: endTime },
             endTime: { $gt: dto.startTime },
           },
-        ],
-      });
+        ];
+      }
+
+      const clash = await this.bookingModel.findOne(clashQuery);
 
       if (clash) {
         throw new BadRequestException(
@@ -234,12 +327,185 @@ export class BookingService {
         );
       }
 
+      // ── Auto-assign station ────────────────────────────────────────────
+      let assignedStationId: Types.ObjectId | null = null;
+      let assignedStationName = '';
+
+      try {
+        const salonServiceUrl = this.configService.get<string>(
+          'services.salonUrl',
+          'http://salon-service:3001',
+        );
+
+        // Fetch all active stations
+        const { data: stationsData } = await firstValueFrom(
+          this.httpService.get<StationsResponse>(
+            `${salonServiceUrl}/api/salons/${dto.salonId}/stations`,
+          ).pipe(
+            retry({
+              count: 2,
+              delay: (error, retryCount) => {
+                this.logger.warn(`Retry ${retryCount}/2 for stations fetch: ${error.message}`);
+                return timer(retryCount * 500);
+              },
+            }),
+          ),
+        );
+
+        if (stationsData.stations.length === 0) {
+          throw new BadRequestException('No stations available at this salon');
+        }
+
+        // Find bookings that overlap with the requested time slot
+        const occupiedQuery: Record<string, unknown> = {
+          salonId: new Types.ObjectId(dto.salonId),
+          appointmentDate,
+          status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+          stationId: { $ne: null },
+          $or: [
+            {
+              startTime: { $lt: endTime },
+              endTime: { $gt: dto.startTime },
+            },
+          ],
+        };
+
+        const overlappingBookings = await this.bookingModel.find(occupiedQuery).lean().exec();
+        const occupiedStationIds = new Set(
+          overlappingBookings.map((b) => b.stationId?.toString()).filter(Boolean),
+        );
+
+        // Find first available station
+        const availableStation = stationsData.stations.find(
+          (station) => !occupiedStationIds.has(station._id),
+        );
+
+        if (!availableStation) {
+          throw new BadRequestException(
+            'No available stations at this time. Please choose a different time slot.',
+          );
+        }
+
+        assignedStationId = new Types.ObjectId(availableStation._id);
+        assignedStationName = availableStation.name;
+      } catch (err) {
+        if (err instanceof BadRequestException) {
+          throw err;
+        }
+        this.logger.error(
+          `Station auto-assignment failed: ${(err as Error).message}`,
+        );
+        throw new BadRequestException('Unable to assign a station at this time');
+      }
+
+      // ── Auto-assign stylist (if not specified) ────────────────────────
+      let assignedStylistId: Types.ObjectId | null = dto.stylistId ? new Types.ObjectId(dto.stylistId) : null;
+      let assignedStylistName = '';
+      let wasAssignedAutomatically = false;
+
+      if (!dto.stylistId) {
+        try {
+          const authServiceUrl = this.configService.get<string>(
+            'services.authUrl',
+            'http://localhost:3003',
+          );
+
+          // Fetch all approved staff for this salon
+          const { data: staffMembers } = await firstValueFrom(
+            this.httpService.get<StaffMember[]>(
+              `${authServiceUrl}/api/auth/salons/${dto.salonId}/staff`,
+            ).pipe(
+              retry({
+                count: 2,
+                delay: (error, retryCount) => {
+                  this.logger.warn(`Retry ${retryCount}/2 for staff fetch: ${error.message}`);
+                  return timer(retryCount * 500);
+                },
+              }),
+            ),
+          );
+
+          if (staffMembers.length > 0) {
+            // For each stylist, count bookings on this date that overlap the timeslot
+            const stylistBookingCounts: Array<{ stylistId: string; name: string; count: number }> = [];
+
+            for (const staff of staffMembers) {
+              // Check if this stylist is already booked at this exact time
+              const overlapQuery: Record<string, unknown> = {
+                salonId: new Types.ObjectId(dto.salonId),
+                appointmentDate,
+                stylistId: new Types.ObjectId(staff._id),
+                status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+                $or: [
+                  {
+                    startTime: { $lt: endTime },
+                    endTime: { $gt: dto.startTime },
+                  },
+                ],
+              };
+
+              const hasOverlap = await this.bookingModel.findOne(overlapQuery).lean().exec();
+
+              // If stylist is free at this time, count their total bookings that day
+              if (!hasOverlap) {
+                const dayBookingsCount = await this.bookingModel.countDocuments({
+                  salonId: new Types.ObjectId(dto.salonId),
+                  appointmentDate,
+                  stylistId: new Types.ObjectId(staff._id),
+                  status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+                });
+
+                stylistBookingCounts.push({
+                  stylistId: staff._id,
+                  name: `${staff.firstName} ${staff.lastName}`.trim(),
+                  count: dayBookingsCount,
+                });
+              }
+            }
+
+            // Pick the stylist with the fewest bookings (load balancing)
+            if (stylistBookingCounts.length > 0) {
+              stylistBookingCounts.sort((a, b) => a.count - b.count);
+              const leastBusy = stylistBookingCounts[0];
+
+              assignedStylistId = new Types.ObjectId(leastBusy.stylistId);
+              assignedStylistName = leastBusy.name;
+              wasAssignedAutomatically = true;
+
+              this.logger.log(
+                `Auto-assigned stylist ${leastBusy.name} (${leastBusy.count} bookings) to booking at ${dto.startTime}`,
+              );
+            } else {
+              this.logger.log(
+                `No available stylists for ${dto.appointmentDate} at ${dto.startTime} — stylist will remain unassigned`,
+              );
+            }
+          }
+        } catch (err) {
+          this.logger.warn(
+            `Stylist auto-assignment failed: ${(err as Error).message} — proceeding without stylist`,
+          );
+          // Non-fatal: continue with stylistId = null
+        }
+      } else {
+        // Stylist was manually selected, fetch their name
+        try {
+          assignedStylistName = await this.fetchStylistName(dto.stylistId);
+        } catch (err) {
+          this.logger.warn(`Failed to fetch stylist name: ${(err as Error).message}`);
+        }
+      }
+
       const booking = await this.bookingModel.create({
         clientId: new Types.ObjectId(clientId),
         salonId: new Types.ObjectId(dto.salonId),
         salonName: dto.salonName ?? '',
         clientName: await this.fetchClientName(clientId),
-        stylistId: dto.stylistId ? new Types.ObjectId(dto.stylistId) : null,
+        stylistId: assignedStylistId,
+        stylistName: assignedStylistName,
+        assignedAutomatically: wasAssignedAutomatically,
+        stationId: assignedStationId,
+        stationName: assignedStationName,
         services: dto.services.map((s) => ({
           ...s,
           serviceId: new Types.ObjectId(s.serviceId),
@@ -254,6 +520,17 @@ export class BookingService {
 
       const response = this.toResponse(booking);
       await this.bookingQueue.add(BookingEvent.CREATED, response);
+
+      // Invalidate slot cache since availability has changed
+      try {
+        await this.invalidateSlotCache(
+          dto.salonId,
+          dto.appointmentDate,
+        );
+      } catch (err) {
+        // Cache invalidation errors are non-fatal
+        this.logger.warn(`Cache invalidation failed: ${(err as Error).message}`);
+      }
 
       // ── Auto-confirm if the salon has enabled it ─────────────────────
       try {
@@ -413,6 +690,19 @@ export class BookingService {
 
     const response = this.toResponse(booking);
     await this.bookingQueue.add(BookingEvent.CANCELLED, { booking: response, reason });
+
+    // Invalidate slot cache since availability has changed
+    try {
+      const appointmentDateStr = booking.appointmentDate.toISOString().split('T')[0];
+      await this.invalidateSlotCache(
+        booking.salonId.toString(),
+        appointmentDateStr,
+      );
+    } catch (err) {
+      // Cache invalidation errors are non-fatal
+      this.logger.warn(`Cache invalidation failed: ${(err as Error).message}`);
+    }
+
     return response;
   }
 
@@ -463,15 +753,43 @@ export class BookingService {
     const newEndTime = addMinutes(dto.startTime, totalDuration);
     const newAppointmentDate = new Date(`${dto.appointmentDate}T00:00:00.000Z`);
 
+    // Save old date before updating
+    const oldAppointmentDateStr = booking.appointmentDate.toISOString().split('T')[0];
+
+    // Store old appointment date for audit trail
+    booking.rescheduledFrom = booking.appointmentDate;
+
     booking.appointmentDate = newAppointmentDate;
     booking.startTime = dto.startTime;
     booking.endTime = newEndTime;
+
+    // Revert CONFIRMED bookings to PENDING so salon owner can re-confirm the new time
+    if (wasConfirmed) {
+      booking.status = BookingStatus.PENDING;
+    }
+
     await booking.save();
 
     const response = this.toResponse(booking);
 
-    if (wasConfirmed) {
-      await this.bookingQueue.add(BookingEvent.RESCHEDULED, response);
+    // Always emit RESCHEDULED event so notifications fire
+    await this.bookingQueue.add(BookingEvent.RESCHEDULED, response);
+
+    // Invalidate slot cache for both old and new dates
+    try {
+      // Invalidate old date
+      await this.invalidateSlotCache(
+        booking.salonId.toString(),
+        oldAppointmentDateStr,
+      );
+      // Invalidate new date
+      await this.invalidateSlotCache(
+        booking.salonId.toString(),
+        dto.appointmentDate,
+      );
+    } catch (err) {
+      // Cache invalidation errors are non-fatal
+      this.logger.warn(`Cache invalidation failed: ${(err as Error).message}`);
     }
 
     return response;
@@ -523,6 +841,103 @@ export class BookingService {
     return response;
   }
 
+  /**
+   * Assign a booking to a different station (salon owner only).
+   * Validates that the new station is free at the booking's time.
+   */
+  async assignStation(
+    bookingId: string,
+    stationId: string,
+    userId: string,
+  ): Promise<BookingResponseDto> {
+    const booking = await this.bookingModel.findById(bookingId);
+    if (!booking) {
+      throw new NotFoundException(`Booking ${bookingId} not found`);
+    }
+
+    // Validate ownership by fetching salon details
+    const salonServiceUrl = this.configService.get<string>(
+      'services.salonUrl',
+      'http://salon-service:3001',
+    );
+
+    let salon: { ownerId: string };
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get<{ ownerId: string }>(
+          `${salonServiceUrl}/api/salons/${booking.salonId.toString()}`,
+        ),
+      );
+      salon = data;
+    } catch (err) {
+      this.logger.error(
+        `Failed to fetch salon ${booking.salonId.toString()}: ${(err as Error).message}`,
+      );
+      throw new ForbiddenException('Unable to verify salon ownership');
+    }
+
+    if (salon.ownerId !== userId) {
+      throw new ForbiddenException('Only the salon owner can reassign stations');
+    }
+
+    // Fetch station details to validate it exists and get its name
+    let stationInfo: StationInfo;
+    try {
+      const { data: stationsData } = await firstValueFrom(
+        this.httpService.get<StationsResponse>(
+          `${salonServiceUrl}/api/salons/${booking.salonId.toString()}/stations`,
+        ),
+      );
+
+      const station = stationsData.stations.find((s) => s._id === stationId);
+      if (!station) {
+        throw new NotFoundException(`Station ${stationId} not found`);
+      }
+      if (!station.isActive) {
+        throw new BadRequestException(`Station ${station.name} is not active`);
+      }
+      stationInfo = station;
+    } catch (err) {
+      if (err instanceof NotFoundException || err instanceof BadRequestException) {
+        throw err;
+      }
+      this.logger.error(
+        `Failed to fetch stations for salon ${booking.salonId.toString()}: ${(err as Error).message}`,
+      );
+      throw new BadRequestException('Unable to validate station');
+    }
+
+    // Check if the new station is occupied at this time
+    const appointmentDateStr = booking.appointmentDate.toISOString().split('T')[0];
+    const clashQuery: Record<string, unknown> = {
+      salonId: booking.salonId,
+      appointmentDate: new Date(`${appointmentDateStr}T00:00:00.000Z`),
+      stationId: new Types.ObjectId(stationId),
+      status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+      _id: { $ne: booking._id }, // Exclude the current booking
+      $or: [
+        {
+          startTime: { $lt: booking.endTime },
+          endTime: { $gt: booking.startTime },
+        },
+      ],
+    };
+
+    const clash = await this.bookingModel.findOne(clashQuery);
+    if (clash) {
+      throw new BadRequestException(
+        `Station ${stationInfo.name} is occupied during ${booking.startTime}–${booking.endTime}`,
+      );
+    }
+
+    // Update the booking
+    booking.stationId = new Types.ObjectId(stationId);
+    booking.stationName = stationInfo.name;
+    await booking.save();
+
+    return this.toResponse(booking);
+  }
+
   // ── Scheduled: auto-complete overdue bookings ─────────────────────────────
 
   /**
@@ -530,6 +945,10 @@ export class BookingService {
    * Finds CONFIRMED / IN_PROGRESS bookings whose end time has passed and marks
    * them COMPLETED so the client's appointment list stays accurate without
    * needing manual intervention.
+   *
+   * Timezone handling: appointmentDate is stored as UTC midnight (e.g., 2026-03-10T00:00:00.000Z),
+   * and endTime is "HH:mm" in the salon's local timezone (Asia/Colombo).
+   * We reconstruct the actual UTC moment using zonedTimeToUtc() to avoid offset errors.
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async autoCompleteOverdueBookings(): Promise<void> {
@@ -549,19 +968,16 @@ export class BookingService {
       .lean()
       .exec();
 
-    // Reconstruct end datetime from the stored UTC-midnight date + "HH:mm" endTime
-    // (endTime is stored in local/salon time, so we use local Date constructor)
+    // Reconstruct end datetime from the stored UTC-midnight date + "HH:mm" endTime.
+    // endTime is in local salon time, so we parse it in the salon's timezone and
+    // convert to UTC for accurate comparison.
     const overdue = candidates.filter((b) => {
       const apptDate = new Date(b.appointmentDate);
-      const [hStr, mStr = '0'] = b.endTime.split(':');
-      const endDt = new Date(
-        apptDate.getUTCFullYear(),
-        apptDate.getUTCMonth(),
-        apptDate.getUTCDate(),
-        parseInt(hStr, 10),
-        parseInt(mStr, 10),
-      );
-      return endDt.getTime() < now.getTime();
+      // Format as YYYY-MM-DD in UTC
+      const dateStr = apptDate.toISOString().split('T')[0];
+      // Combine with endTime to get a local datetime string, then convert to UTC
+      const endUtc = fromZonedTime(`${dateStr}T${b.endTime}:00`, SALON_TIMEZONE);
+      return endUtc.getTime() < now.getTime();
     });
 
     if (!overdue.length) return;
@@ -589,6 +1005,10 @@ export class BookingService {
    * marks them CANCELLED.  These are bookings the salon never confirmed — the
    * client should see them as cancelled, not pending, and must NOT be able to
    * leave a review for them.
+   *
+   * Timezone handling: appointmentDate is stored as UTC midnight (e.g., 2026-03-10T00:00:00.000Z),
+   * and startTime is "HH:mm" in the salon's local timezone (Asia/Colombo).
+   * We reconstruct the actual UTC moment using zonedTimeToUtc() to avoid offset errors.
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async autoCancelExpiredPendingBookings(): Promise<void> {
@@ -608,17 +1028,15 @@ export class BookingService {
 
     // Use startTime (not endTime) — if the appointment start has passed and it
     // was never confirmed, there is no point waiting for the end time.
+    // startTime is in local salon time, so we parse it in the salon's timezone and
+    // convert to UTC for accurate comparison.
     const expired = candidates.filter((b) => {
       const apptDate = new Date(b.appointmentDate);
-      const [hStr, mStr = '0'] = b.startTime.split(':');
-      const startDt = new Date(
-        apptDate.getUTCFullYear(),
-        apptDate.getUTCMonth(),
-        apptDate.getUTCDate(),
-        parseInt(hStr, 10),
-        parseInt(mStr, 10),
-      );
-      return startDt.getTime() < now.getTime();
+      // Format as YYYY-MM-DD in UTC
+      const dateStr = apptDate.toISOString().split('T')[0];
+      // Combine with startTime to get a local datetime string, then convert to UTC
+      const startUtc = fromZonedTime(`${dateStr}T${b.startTime}:00`, SALON_TIMEZONE);
+      return startUtc.getTime() < now.getTime();
     });
 
     if (!expired.length) return;
@@ -682,6 +1100,30 @@ export class BookingService {
     }
   }
 
+  /**
+   * Invalidate Redis cache for available slots on a given date.
+   * Deletes all cached slot entries matching the salon and date.
+   */
+  private async invalidateSlotCache(
+    salonId: string,
+    date: string,
+  ): Promise<void> {
+    try {
+      const pattern = `slots:${salonId}:${date}:*`;
+      const keys = await this.redis.keys(pattern);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+        this.logger.debug(
+          `Invalidated ${keys.length} slot cache key(s) for salon ${salonId} on ${date}`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to invalidate slot cache for salon ${salonId} on ${date}: ${(err as Error).message}`,
+      );
+    }
+  }
+
   private async fetchClientName(clientId: string): Promise<string> {
     const authUrl = this.configService.get<string>('services.authUrl', 'http://localhost:3003');
     try {
@@ -692,6 +1134,18 @@ export class BookingService {
         data.name ??
         (`${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() || 'Unknown')
       );
+    } catch {
+      return '';
+    }
+  }
+
+  private async fetchStylistName(stylistId: string): Promise<string> {
+    const authUrl = this.configService.get<string>('services.authUrl', 'http://localhost:3003');
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(`${authUrl}/api/auth/users/${stylistId}`),
+      );
+      return `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim() || 'Unknown';
     } catch {
       return '';
     }
@@ -718,6 +1172,10 @@ export class BookingService {
       salonName: booking.salonName ?? '',
       serviceName: services[0]?.name ?? '',
       stylistId: booking.stylistId?.toString() ?? undefined,
+      stylistName: booking.stylistName ?? undefined,
+      assignedAutomatically: booking.assignedAutomatically ?? false,
+      stationId: booking.stationId?.toString() ?? undefined,
+      stationName: booking.stationName ?? '',
       services,
       appointmentDate: booking.appointmentDate,
       startTime: booking.startTime,

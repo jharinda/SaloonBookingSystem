@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
 import { HttpModule } from '@nestjs/axios';
+import { SubscriptionCheckModule } from '@org/subscription-check';
 
 import {
   BOOKING_QUEUE,
@@ -24,6 +25,8 @@ import { EmailService } from './providers/email.service';
 import { SmsService } from './providers/sms.service';
 import { WhatsAppService } from './providers/whatsapp.service';
 import { SsePushService } from './providers/sse-push.service';
+import { PushNotificationService } from './providers/push-notification.service';
+import { fcmProvider } from './providers/fcm.provider';
 import { InboxNotificationService } from './inbox-notification.service';
 import { BookingNotificationProcessor } from './processors/booking-notification.processor';
 import { ReminderNotificationProcessor } from './processors/reminder-notification.processor';
@@ -32,7 +35,11 @@ import { NotificationController } from './notification.controller';
 
 @Module({
   imports: [
-    HttpModule,
+    HttpModule.register({
+      timeout: 5000,
+      maxRedirects: 3,
+    }),
+    SubscriptionCheckModule.forRoot(),
     MongooseModule.forFeature([
       { name: NotificationTemplate.name, schema: NotificationTemplateSchema },
       { name: NotificationLog.name, schema: NotificationLogSchema },
@@ -50,6 +57,8 @@ import { NotificationController } from './notification.controller';
     SmsService,
     WhatsAppService,
     SsePushService,
+    PushNotificationService,
+    fcmProvider,
     InboxNotificationService,
     BookingNotificationProcessor,
     ReminderNotificationProcessor,

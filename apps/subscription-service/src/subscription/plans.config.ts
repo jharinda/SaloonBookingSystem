@@ -10,6 +10,8 @@ export interface PlanConfig {
   maxLocations: number;
   /** -1 = unlimited */
   maxStaff: number;
+  /** -1 = unlimited */
+  maxStations: number;
   features: string[];
 }
 
@@ -20,6 +22,7 @@ export const PLANS: Record<SubscriptionPlan, PlanConfig> = {
     trialDays: 30,
     maxLocations: 1,
     maxStaff: 3,
+    maxStations: 2,
     features: ['basic_booking', 'email_notifications'],
   },
   basic: {
@@ -27,6 +30,7 @@ export const PLANS: Record<SubscriptionPlan, PlanConfig> = {
     price: 2500,
     maxLocations: 1,
     maxStaff: 5,
+    maxStations: 3,
     features: ['basic_booking', 'email_notifications', 'sms_notifications', 'google_calendar'],
   },
   pro: {
@@ -34,6 +38,7 @@ export const PLANS: Record<SubscriptionPlan, PlanConfig> = {
     price: 5500,
     maxLocations: 1,
     maxStaff: -1,
+    maxStations: 5,
     features: [
       'basic_booking',
       'email_notifications',
@@ -49,6 +54,7 @@ export const PLANS: Record<SubscriptionPlan, PlanConfig> = {
     price: 12000,
     maxLocations: 10,
     maxStaff: -1,
+    maxStations: -1,
     features: ['all'],
   },
 };

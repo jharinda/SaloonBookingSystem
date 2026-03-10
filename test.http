@@ -30,4 +30,22 @@ Content-Type: application/json
   "role": "admin"
 }
 
+### Push test SSE notification
+### Push test SSE notification
+POST http://localhost:3000/api/notifications/push
+Content-Type: application/json
+X-Internal-Token: dev-secret-token-123
+
+{
+  "userId": "69a6ad2a9e30218e0681ee79",
+  "event": "booking.new",
+  "data": {
+    "bookingId": "test-001",
+    "clientName": "Kasun Perera",
+    "serviceName": "Haircut",
+    "startTime": "10:00",
+    "appointmentDate": "2026-03-10"
+  }
+}
+
 

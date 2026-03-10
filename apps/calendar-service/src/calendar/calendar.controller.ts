@@ -11,16 +11,16 @@ import {
 import { Response } from 'express';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 
 import { GoogleOAuthService } from './google-oauth.service';
 import { ICalService } from './ical.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard, CurrentUser, JwtUser } from '@org/shared-auth';
+import { SubscriptionGuard, RequiresFeature } from '@org/subscription-check';
 import {
   Booking,
   BookingDocument,
 } from './schemas/booking-ref.schema';
-import { ConfigService } from '@nestjs/config';
 
 @Controller('calendar')
 export class CalendarController {
@@ -39,7 +39,8 @@ export class CalendarController {
    * Redirects the authenticated user to Google's OAuth consent screen.
    */
   @Get('auth')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SubscriptionGuard)
+  @RequiresFeature('google_calendar')
   @Redirect()
   initiateOAuth(@CurrentUser() user: JwtUser) {
     const url = this.oAuth.getAuthUrl();
@@ -76,7 +77,8 @@ export class CalendarController {
    * Remove stored Google tokens for the authenticated user.
    */
   @Get('disconnect')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SubscriptionGuard)
+  @RequiresFeature('google_calendar')
   async disconnect(
     @CurrentUser() user: JwtUser,
   ): Promise<{ message: string }> {
@@ -89,7 +91,8 @@ export class CalendarController {
    * Check whether the current user has Google Calendar connected.
    */
   @Get('status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, SubscriptionGuard)
+  @RequiresFeature('google_calendar')
   async status(
     @CurrentUser() user: JwtUser,
   ): Promise<{ connected: boolean }> {

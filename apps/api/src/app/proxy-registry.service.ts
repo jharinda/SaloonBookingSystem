@@ -12,12 +12,13 @@ export interface RouteEntry {
 
 export const ROUTES: RouteEntry[] = [
   { prefix: '/api/auth',                name: 'auth-service',         configKey: 'services.authUrl' },
-  { prefix: '/api/users',               name: 'auth-service',         configKey: 'services.authUrl' },
+  { prefix: '/api/users',               name: 'user-service',         configKey: 'services.userUrl' },
   { prefix: '/api/salons',              name: 'salon-service',        configKey: 'services.salonUrl' },
   { prefix: '/api/bookings',            name: 'booking-service',      configKey: 'services.bookingUrl' },
   { prefix: '/api/reviews',             name: 'review-service',       configKey: 'services.reviewUrl' },
   { prefix: '/api/calendar',            name: 'calendar-service',     configKey: 'services.calendarUrl' },
   { prefix: '/api/subscriptions',       name: 'subscription-service', configKey: 'services.subscriptionUrl' },
+  { prefix: '/api/chat',                name: 'chat-service',         configKey: 'services.chatUrl' },
   // Notification inbox — proxied to notification-service.
   // /api/notifications/stream and /api/notifications/push are handled directly
   // by NotificationSseController and never reach this catch-all.
@@ -80,7 +81,21 @@ export class ProxyRegistryService implements OnModuleInit {
         // connection that the upstream closed while idle (common during
         // NX watch-mode restarts or after cold starts).
         headers: { 'x-forwarded-by': 'snap-salon-gateway', 'connection': 'close' },
+        // Pass all headers from the original request to the upstream service
+        // including authorization, correlation ID, etc.
+        // http-proxy-middleware preserves headers by default, but we
+        // explicitly ensure x-correlation-id makes it through.
         on: {
+          proxyReq: (proxyReq, req) => {
+            // Ensure correlation ID is forwarded
+            const correlationId = (req as Request).headers['x-correlation-id'];
+            if (correlationId && !proxyReq.hasHeader('x-correlation-id')) {
+              proxyReq.setHeader('x-correlation-id', correlationId);
+            }
+            if (!proxyReq.getHeader('content-type')) {
+              proxyReq.setHeader('content-type', 'application/json');
+            }
+          },
           error: (err, req, res) => {
             const e = err as NodeJS.ErrnoException;
             const detail = e.code ? `${e.code}${e.message ? ': ' + e.message : ''}` : (e.message || String(err));
@@ -89,11 +104,6 @@ export class ProxyRegistryService implements OnModuleInit {
             const r = res as Response;
             if (r && typeof r.headersSent !== 'undefined' && !r.headersSent) {
               r.status(502).json({ statusCode: 502, message: 'Bad Gateway' });
-            }
-          },
-          proxyReq: (proxyReq) => {
-            if (!proxyReq.getHeader('content-type')) {
-              proxyReq.setHeader('content-type', 'application/json');
             }
           },
         },

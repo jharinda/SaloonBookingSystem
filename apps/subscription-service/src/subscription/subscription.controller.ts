@@ -4,7 +4,9 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -23,6 +25,21 @@ export class SubscriptionController {
   @Get('plans')
   getPlans(): typeof PLANS {
     return this.subscriptionService.getAllPlans();
+  }
+
+  /** GET /api/subscriptions/:salonId/check-feature?feature=X */
+  @Get(':salonId/check-feature')
+  checkFeature(
+    @Param('salonId') salonId: string,
+    @Query('feature') feature: string,
+  ) {
+    return this.subscriptionService.checkFeature(salonId, feature);
+  }
+
+  /** GET /api/subscriptions/:salonId/plan-limits */
+  @Get(':salonId/plan-limits')
+  getPlanLimits(@Param('salonId') salonId: string) {
+    return this.subscriptionService.getPlanLimits(salonId);
   }
 
   // ── Authenticated ─────────────────────────────────────────────────────────

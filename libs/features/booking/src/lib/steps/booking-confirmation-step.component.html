@@ -1,0 +1,131 @@
+<div class="booking-confirmation">
+  <div class="booking-confirmation__header">
+    <h2 class="booking-confirmation__title">Review & Confirm</h2>
+    <p class="booking-confirmation__subtitle">
+      Please review your booking details before confirming
+    </p>
+  </div>
+
+  <!-- Booking Summary Card -->
+  <mat-card class="summary-card">
+    <mat-card-header>
+      <mat-icon class="summary-card__icon">event_available</mat-icon>
+      <div class="summary-card__header-text">
+        <h3 class="summary-card__title">Booking Summary</h3>
+        <p class="summary-card__subtitle">{{ salon()?.name }}</p>
+      </div>
+    </mat-card-header>
+
+    <mat-card-content>
+      <!-- Services -->
+      <div class="summary-section">
+        <div class="summary-section__label">
+          <mat-icon>content_cut</mat-icon>
+          <span>Services</span>
+        </div>
+        <div class="summary-section__content">
+          @for (service of selectedServices(); track service._id) {
+            <div class="service-item">
+              <span class="service-item__name">{{ service.name }}</span>
+              <span class="service-item__duration">{{ service.duration }} min</span>
+              <span class="service-item__price">{{ service.price | number:'1.2-2' }} RON</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Stylist -->
+      <div class="summary-section">
+        <div class="summary-section__label">
+          <mat-icon>person</mat-icon>
+          <span>Stylist</span>
+        </div>
+        <div class="summary-section__content">
+          <p class="summary-section__value">{{ getStylistLabel() }}</p>
+        </div>
+      </div>
+
+      <!-- Date & Time -->
+      <div class="summary-section">
+        <div class="summary-section__label">
+          <mat-icon>schedule</mat-icon>
+          <span>Date & Time</span>
+        </div>
+        <div class="summary-section__content">
+          <p class="summary-section__value">
+            {{ selectedDate() | date:'EEEE, MMMM d, y' }} at {{ selectedTime() }}
+          </p>
+          <p class="summary-section__meta">Duration: {{ totalDuration() }} minutes</p>
+        </div>
+      </div>
+
+      <!-- Total Price -->
+      <div class="summary-section summary-section--total">
+        <div class="summary-section__label">
+          <mat-icon>paid</mat-icon>
+          <span>Total</span>
+        </div>
+        <div class="summary-section__content">
+          <p class="summary-section__total-price">
+            {{ totalPrice() | number:'1.2-2' }} RON
+          </p>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Notes Section -->
+  <mat-card class="notes-card">
+    <mat-card-header>
+      <mat-icon class="notes-card__icon">comment</mat-icon>
+      <h3 class="notes-card__title">Special Requests (Optional)</h3>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-form-field class="notes-field" appearance="outline">
+        <mat-label>Add any special requests or notes</mat-label>
+        <textarea
+          matInput
+          [value]="notes()"
+          (input)="updateNotes($any($event.target).value)"
+          rows="4"
+          placeholder="E.g., parking preferences, specific styling requests, allergies..."
+        ></textarea>
+        <mat-icon matSuffix>edit_note</mat-icon>
+      </mat-form-field>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Error Message -->
+  @if (submitError()) {
+    <div class="error-message">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ submitError() }}</p>
+    </div>
+  }
+
+  <!-- Confirm Button -->
+  <div class="confirm-actions">
+    <button
+      mat-raised-button
+      color="primary"
+      class="confirm-button"
+      [disabled]="submitting()"
+      (click)="confirmBooking()"
+    >
+      @if (submitting()) {
+        <mat-spinner diameter="20" class="confirm-button__spinner"></mat-spinner>
+        <span>Confirming...</span>
+      } @else {
+        <ng-container>
+          <mat-icon>check_circle</mat-icon>
+          <span>Confirm Booking</span>
+        </ng-container>
+      }
+    </button>
+
+    <p class="confirm-disclaimer">
+      By confirming, you agree to the salon's cancellation policy.
+      You will receive a confirmation email shortly.
+    </p>
+  </div>
+</div>

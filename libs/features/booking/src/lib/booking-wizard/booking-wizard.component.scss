@@ -1,0 +1,325 @@
+@use 'sass:color';
+
+// ─── Design Tokens ───────────────────────────────────────────────────────────
+$primary-color: #1A5276;
+$accent-color: #117A65;
+$border-radius: 12px;
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+$transition: all 0.2s ease-in-out;
+
+// ─── Wizard Container ───────────────────────────────────────────────────────
+.wizard-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+
+  @media (max-width: 640px) {
+    padding: 1rem;
+  }
+}
+
+// ─── Wizard State (Loading/Error) ───────────────────────────────────────────
+.wizard-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 5rem 1.5rem;
+  text-align: center;
+
+  &__icon {
+    font-size: 4rem;
+    width: 4rem;
+    height: 4rem;
+    color: #d1d5db;
+  }
+
+  &__message {
+    font-size: 1rem;
+    color: #6b7280;
+    margin: 0;
+    max-width: 400px;
+  }
+
+  &--loading {
+    p {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin: 0;
+    }
+  }
+
+  &--error {
+    .wizard-state__icon {
+      color: #ef4444;
+    }
+
+    .wizard-state__message {
+      color: #991b1b;
+    }
+  }
+}
+
+// ─── Wizard Header (Salon Info) ─────────────────────────────────────────────
+.wizard-header {
+  margin-bottom: 2rem;
+}
+
+.salon-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: $border-radius;
+  box-shadow: $shadow-md;
+
+  &__image {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: linear-gradient(135deg, rgba($primary-color, 0.1) 0%, rgba($accent-color, 0.1) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    mat-icon {
+      font-size: 2rem;
+      width: 2rem;
+      height: 2rem;
+      color: $primary-color;
+    }
+  }
+
+  &__details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: $primary-color;
+    margin: 0 0 0.25rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__address {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0;
+
+    mat-icon {
+      font-size: 1rem;
+      width: 1rem;
+      height: 1rem;
+      color: $accent-color;
+    }
+  }
+}
+
+// ─── Material Stepper Customization ─────────────────────────────────────────
+.booking-stepper {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: $border-radius;
+  box-shadow: $shadow-md;
+  padding: 1.5rem;
+
+  @media (max-width: 640px) {
+    padding: 1rem;
+  }
+
+  // Stepper header customization
+  ::ng-deep .mat-horizontal-stepper-header {
+    padding: 1rem 0.5rem;
+
+    &:hover {
+      background-color: rgba($primary-color, 0.03);
+      border-radius: 8px;
+    }
+  }
+
+  ::ng-deep .mat-step-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  ::ng-deep .mat-step-icon {
+    background-color: #e5e7eb;
+    color: #6b7280;
+  }
+
+  ::ng-deep .mat-step-icon-state-number {
+    background-color: #e5e7eb;
+  }
+
+  ::ng-deep .mat-step-icon-selected {
+    background-color: $primary-color;
+    color: white;
+  }
+
+  ::ng-deep .mat-step-icon-state-done {
+    background-color: $accent-color;
+    color: white;
+  }
+
+  ::ng-deep .mat-step-label-selected {
+    font-weight: 600;
+    color: $primary-color;
+  }
+
+  ::ng-deep .mat-horizontal-stepper-content {
+    padding: 2rem 0.5rem 1rem;
+
+    @media (max-width: 640px) {
+      padding: 1.5rem 0 0.5rem;
+    }
+  }
+
+  ::ng-deep .mat-horizontal-content-container {
+    overflow: visible;
+  }
+}
+
+// ─── Step Label ──────────────────────────────────────────────────────────────
+.step-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  mat-icon {
+    font-size: 1.25rem;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  &__text {
+    @media (max-width: 640px) {
+      display: none;
+    }
+  }
+}
+
+// ─── Step Actions (Navigation Buttons) ──────────────────────────────────────
+.step-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem !important;
+    border-radius: 50px !important;
+    font-weight: 600 !important;
+    transition: $transition !important;
+
+    &:not([disabled]):hover {
+      transform: translateY(-2px);
+      box-shadow: $shadow-md;
+    }
+
+    mat-icon {
+      font-size: 1.125rem;
+      width: 1.125rem;
+      height: 1.125rem;
+    }
+  }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+
+    button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
+
+// ─── Dark Mode Support ──────────────────────────────────────────────────────
+@media (prefers-color-scheme: dark) {
+  .wizard-state {
+    &__message {
+      color: #9ca3af;
+    }
+
+    &--error {
+      .wizard-state__message {
+        color: #dc2626;
+      }
+    }
+  }
+
+  .salon-info {
+    background-color: #1f2937;
+    border-color: #374151;
+
+    &__name {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__address {
+      color: #9ca3af;
+
+      mat-icon {
+        color: color.adjust($accent-color, $lightness: 15%);
+      }
+    }
+  }
+
+  .booking-stepper {
+    background-color: #1f2937;
+    border-color: #374151;
+
+    ::ng-deep .mat-horizontal-stepper-header:hover {
+      background-color: rgba(color.adjust($primary-color, $lightness: 20%), 0.05);
+    }
+
+    ::ng-deep .mat-step-icon {
+      background-color: #374151;
+      color: #9ca3af;
+    }
+
+    ::ng-deep .mat-step-icon-state-number {
+      background-color: #374151;
+    }
+
+    ::ng-deep .mat-step-icon-selected {
+      background-color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    ::ng-deep .mat-step-icon-state-done {
+      background-color: color.adjust($accent-color, $lightness: 15%);
+    }
+
+    ::ng-deep .mat-step-label-selected {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+  }
+
+  .step-actions {
+    border-top-color: #374151;
+  }
+}

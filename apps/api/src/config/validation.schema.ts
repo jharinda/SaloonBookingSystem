@@ -15,7 +15,7 @@ export const validationSchema = Joi.object({
   }),
 
   // Internal service-to-service token for the /notifications/push endpoint
-  INTERNAL_TOKEN: Joi.string().optional(),
+  INTERNAL_TOKEN: Joi.string().default(''),
 
   // Upstream service URLs — optional with localhost defaults for local development
   AUTH_SERVICE_URL:         Joi.string().uri().default('http://localhost:3003'),
@@ -25,4 +25,5 @@ export const validationSchema = Joi.object({
   CALENDAR_SERVICE_URL:     Joi.string().uri().default('http://localhost:3005'),
   SUBSCRIPTION_SERVICE_URL: Joi.string().uri().default('http://localhost:3007'),
   NOTIFICATION_SERVICE_URL: Joi.string().uri().default('http://localhost:3004'),
+  CHAT_SERVICE_URL:         Joi.string().uri().default('http://localhost:3009'),
 });

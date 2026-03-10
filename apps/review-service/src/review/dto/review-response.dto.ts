@@ -9,7 +9,7 @@ export class ReviewResponseDto {
   bookingId: string;
   clientId: string;
   clientName: string;
-  stylistId?: string;
+  stylistIds: string[];
   rating: number;
   comment?: string;
   images: ReviewImageResponseDto[];

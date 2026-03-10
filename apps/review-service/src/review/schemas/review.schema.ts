@@ -24,9 +24,9 @@ export class Review extends Document {
   @Prop({ type: String, default: '' })
   clientName: string;
 
-  /** Optional — set when the booking was with a specific stylist */
-  @Prop({ type: String, default: null })
-  stylistId: string | null;
+  /** Optional — set when the booking was with specific stylist(s) */
+  @Prop({ type: [String], default: [] })
+  stylistIds: string[];
 
   @Prop({ required: true, min: 1, max: 5 })
   rating: number;
@@ -52,7 +52,7 @@ export const ReviewSchema = SchemaFactory.createForClass(Review);
 
 // One review per booking
 ReviewSchema.index({ bookingId: 1 }, { unique: true });
-// Fast paginated queries for a salon's reviews, newest first
-ReviewSchema.index({ salonId: 1, createdAt: -1 });
-// Fast paginated queries for a stylist's reviews
-ReviewSchema.index({ stylistId: 1, createdAt: -1 });
+// Fast paginated queries for a salon's visible reviews, newest first
+ReviewSchema.index({ salonId: 1, isVisible: 1, createdAt: -1 });
+// Fast paginated queries for a stylist's visible reviews
+ReviewSchema.index({ stylistIds: 1, isVisible: 1 });

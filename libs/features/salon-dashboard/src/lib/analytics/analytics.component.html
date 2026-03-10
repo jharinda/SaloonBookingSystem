@@ -1,0 +1,153 @@
+<div class="analytics-container">
+  <p-toast />
+
+  <h2 class="page-title">Analytics & Performance</h2>
+
+  <!-- Key Metrics -->
+  <div class="metrics-grid">
+    <p-card styleClass="metric-card revenue">
+      <div class="metric-content">
+        <i class="pi pi-dollar metric-icon"></i>
+        <div>
+          <h3>{{ formatCurrency(totalRevenue()) }}</h3>
+          <p>Total Revenue (30 days)</p>
+        </div>
+      </div>
+    </p-card>
+
+    <p-card styleClass="metric-card bookings">
+      <div class="metric-content">
+        <i class="pi pi-calendar metric-icon"></i>
+        <div>
+          <h3>{{ totalBookings() }}</h3>
+          <p>Total Bookings</p>
+        </div>
+      </div>
+    </p-card>
+
+    <p-card styleClass="metric-card rating">
+      <div class="metric-content">
+        <i class="pi pi-star-fill metric-icon"></i>
+        <div>
+          <h3>{{ averageRating().toFixed(1) }}</h3>
+          <p>Average Rating</p>
+        </div>
+      </div>
+    </p-card>
+
+    <p-card styleClass="metric-card top-performer">
+      <div class="metric-content">
+        <i class="pi pi-trophy metric-icon"></i>
+        <div>
+          @if (getTopPerformer(); as top) {
+            <h3>{{ top.staffName }}</h3>
+            <p>Top Performer</p>
+          } @else {
+            <h3>-</h3>
+            <p>No data</p>
+          }
+        </div>
+      </div>
+    </p-card>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="charts-section">
+    <!-- Revenue Chart -->
+    <p-card styleClass="chart-card">
+      <ng-template pTemplate="header">
+        <div class="card-header">
+          <h3>Revenue Trend (Last 30 Days)</h3>
+          <p-button
+            icon="pi pi-refresh"
+            [text]="true"
+            [rounded]="true"
+            (onClick)="loadRevenueData()"
+            pTooltip="Refresh"
+          />
+        </div>
+      </ng-template>
+      <div class="chart-container">
+        <canvas #revenueChart></canvas>
+      </div>
+    </p-card>
+
+    <!-- Booking Status Chart -->
+    <p-card styleClass="chart-card">
+      <ng-template pTemplate="header">
+        <div class="card-header">
+          <h3>Booking Status Breakdown</h3>
+          <p-button
+            icon="pi pi-refresh"
+            [text]="true"
+            [rounded]="true"
+            (onClick)="loadBookingStats()"
+            pTooltip="Refresh"
+          />
+        </div>
+      </ng-template>
+      <div class="chart-container donut">
+        <canvas #bookingStatusChart></canvas>
+      </div>
+    </p-card>
+  </div>
+
+  <!-- Staff Performance Section -->
+  <p-card styleClass="staff-performance-card">
+    <ng-template pTemplate="header">
+      <div class="card-header">
+        <h3>Staff Performance</h3>
+      </div>
+    </ng-template>
+
+    <div class="staff-performance-grid">
+      @for (staff of staffPerformance(); track staff.staffId) {
+        <div class="staff-card">
+          <div class="staff-header">
+            <div class="staff-avatar">
+              {{ staff.staffName.charAt(0) }}
+            </div>
+            <div class="staff-info">
+              <h4>{{ staff.staffName }}</h4>
+              <div class="staff-rating">
+                <i class="pi pi-star-fill"></i>
+                <span>{{ staff.rating }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="staff-metrics">
+            <div class="staff-metric">
+              <span class="metric-label">Total Bookings</span>
+              <strong>{{ staff.totalBookings }}</strong>
+            </div>
+            <div class="staff-metric">
+              <span class="metric-label">Total Revenue</span>
+              <strong>{{ formatCurrency(staff.totalRevenue) }}</strong>
+            </div>
+            <div class="staff-metric">
+              <span class="metric-label">Completion Rate</span>
+              <strong>{{ staff.completionRate }}%</strong>
+            </div>
+          </div>
+
+          <!-- Completion Rate Bar -->
+          <div class="completion-bar-container">
+            <div
+              class="completion-bar"
+              [style.width.%]="staff.completionRate"
+              [class.excellent]="staff.completionRate >= 95"
+              [class.good]="staff.completionRate >= 90 && staff.completionRate < 95"
+              [class.average]="staff.completionRate < 90"
+            ></div>
+          </div>
+        </div>
+      } @empty {
+        <div class="empty-state">
+          <i class="pi pi-users" style="font-size: 3rem"></i>
+          <p>No staff performance data available</p>
+        </div>
+      }
+    </div>
+  </p-card>
+</div>

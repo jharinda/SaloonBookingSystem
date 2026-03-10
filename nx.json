@@ -100,6 +100,13 @@
         "watchDepsTargetName": "watch-deps",
         "serveStaticTargetName": "serve-static"
       }
+    },
+    {
+      "plugin": "@nx/jest/plugin",
+      "options": {
+        "targetName": "test"
+      },
+      "exclude": ["chat-service-e2e/**/*", "user-service-e2e/**/*"]
     }
   ],
   "generators": {

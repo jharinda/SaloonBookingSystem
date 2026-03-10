@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -16,7 +18,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
-import { IsEnum, IsString } from 'class-validator';
+import { IsEmail, IsEnum, IsString } from 'class-validator';
 
 interface AuthenticatedRequest extends Request {
   user: { sub: string; email: string; role: string };
@@ -29,6 +31,16 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RefreshResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
+import { CurrentUser, JwtUser } from './decorators/current-user.decorator';
+import {
+  CreateJoinRequestDto,
+  StylistJoinRequestResponseDto,
+  SalonStaffResponseDto,
+} from './dto/stylist-join-request.dto';
+import { AddPortfolioReviewDto, StylistPortfolioResponseDto } from './dto/portfolio.dto';
+import { AddFcmTokenDto, RemoveFcmTokenDto, FcmTokensResponseDto } from './dto/fcm-token.dto';
 import { UserDocument } from './schemas/user.schema';
 import { GooglePendingProfile } from './strategies/google.strategy';
 import { ConfigService } from '@nestjs/config';
@@ -36,6 +48,10 @@ import { ConfigService } from '@nestjs/config';
 class CompleteGoogleRegistrationDto {
   @IsString() pendingToken!: string;
   @IsEnum(UserRole) role!: UserRole;
+}
+
+class ResendVerificationDto {
+  @IsEmail() email!: string;
 }
 
 const REFRESH_COOKIE = 'refresh_token';
@@ -110,6 +126,22 @@ export class AuthController {
     await this.authService.resetPassword(dto);
   }
 
+  @Get('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Query('token') token: string): Promise<{ message: string }> {
+    if (!token) {
+      throw new UnauthorizedException('Verification token is required.');
+    }
+    return this.authService.verifyEmail(token);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  async resendVerification(@Body() dto: ResendVerificationDto): Promise<{ message: string }> {
+    return this.authService.resendVerification(dto.email);
+  }
+
   // ── Internal user lookup (consumed by other microservices) ─────────────────
 
   @Get('users/:id')
@@ -131,7 +163,7 @@ export class AuthController {
    *  redirects away — the Passport guard runs on the next route below. */
   @Get('google/init')
   googleInit(
-    @Query('intent') intent: string = 'register',
+    @Query('intent') intent = 'register',
     @Res() res: Response,
   ): void {
     res.cookie('google_intent', intent === 'login' ? 'login' : 'register', {
@@ -189,6 +221,112 @@ export class AuthController {
     );
     this.setRefreshCookie(res, refreshToken);
     return body;
+  }
+
+  // ── Stylist join request endpoints ─────────────────────────────────────
+
+  @Post('stylist/join-request')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STYLIST)
+  async createJoinRequest(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: CreateJoinRequestDto,
+  ): Promise<{ message: string }> {
+    return this.authService.createJoinRequest(user.sub, dto.salonId, dto.message);
+  }
+
+  @Get('stylist/join-requests')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async getStylistJoinRequests(
+    @CurrentUser() user: JwtUser,
+    @Query('salonId') salonId?: string,
+  ): Promise<StylistJoinRequestResponseDto[]> {
+    return this.authService.getStylistJoinRequests(user.sub, salonId);
+  }
+
+  @Patch('stylist/join-requests/:stylistId/approve')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async approveJoinRequest(
+    @Param('stylistId') stylistId: string,
+  ): Promise<{ message: string }> {
+    return this.authService.approveJoinRequest(stylistId);
+  }
+
+  @Patch('stylist/join-requests/:stylistId/reject')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async rejectJoinRequest(
+    @Param('stylistId') stylistId: string,
+  ): Promise<{ message: string }> {
+    return this.authService.rejectJoinRequest(stylistId);
+  }
+
+  @Get('salons/:salonId/staff')
+  @HttpCode(HttpStatus.OK)
+  async getSalonStaff(
+    @Param('salonId') salonId: string,
+  ): Promise<SalonStaffResponseDto[]> {
+    return this.authService.getSalonStaff(salonId);
+  }
+
+  // ── Stylist portfolio endpoints ────────────────────────────────────────
+
+  @Patch('users/:stylistId/portfolio-review')
+  @HttpCode(HttpStatus.OK)
+  async addPortfolioReview(
+    @Param('stylistId') stylistId: string,
+    @Body() dto: AddPortfolioReviewDto,
+    @Headers('x-internal-token') token: string | undefined,
+  ): Promise<{ message: string }> {
+    const expected = this.configService.get<string>('internalToken');
+    if (!expected || !token || token !== expected) {
+      throw new UnauthorizedException('Internal access only');
+    }
+    return this.authService.addPortfolioReview(stylistId, dto);
+  }
+
+  @Get('stylists/:id/portfolio')
+  @HttpCode(HttpStatus.OK)
+  async getStylistPortfolio(@Param('id') id: string): Promise<StylistPortfolioResponseDto> {
+    return this.authService.getStylistPortfolio(id);
+  }
+
+  // ── FCM Token Management ──────────────────────────────────────────────────
+
+  @Post('fcm-token')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async addFcmToken(
+    @Body() dto: AddFcmTokenDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<{ message: string }> {
+    return this.authService.addFcmToken(user.sub, dto.token, dto.device);
+  }
+
+  @Delete('fcm-token')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async removeFcmToken(
+    @Body() dto: RemoveFcmTokenDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<{ message: string }> {
+    return this.authService.removeFcmToken(user.sub, dto.token);
+  }
+
+  /**
+   * Internal endpoint for notification-service to fetch user FCM tokens.
+   * No JWT required — network-only access.
+   */
+  @Get('users/:userId/fcm-tokens')
+  @HttpCode(HttpStatus.OK)
+  async getFcmTokens(@Param('userId') userId: string): Promise<FcmTokensResponseDto> {
+    return this.authService.getFcmTokens(userId);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

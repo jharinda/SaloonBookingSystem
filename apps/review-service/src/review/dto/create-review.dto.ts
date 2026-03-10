@@ -30,8 +30,9 @@ export class CreateReviewDto {
   bookingId: string;
 
   @IsOptional()
-  @IsMongoId()
-  stylistId?: string;
+  @IsArray()
+  @IsMongoId({ each: true })
+  stylistIds?: string[];
 
   @IsInt()
   @Min(1)

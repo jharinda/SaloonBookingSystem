@@ -1,0 +1,369 @@
+@use 'sass:color';
+
+// ─── Design Tokens ───────────────────────────────────────────────────────────
+$primary-color: #1A5276;
+$accent-color: #117A65;
+$border-radius: 12px;
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+$transition: all 0.2s ease-in-out;
+
+// ─── Booking Confirmation ───────────────────────────────────────────────────
+.booking-confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+
+  &__header {
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+
+  &__title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: $primary-color;
+    margin: 0 0 0.5rem 0;
+  }
+
+  &__subtitle {
+    font-size: 1rem;
+    color: #6b7280;
+    margin: 0;
+  }
+}
+
+// ─── Summary Card ───────────────────────────────────────────────────────────
+.summary-card {
+  border-radius: $border-radius !important;
+  box-shadow: $shadow-md;
+
+  mat-card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem 1.5rem 1rem;
+  }
+
+  mat-card-content {
+    padding: 0 1.5rem 1.5rem;
+  }
+
+  &__icon {
+    font-size: 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    color: $accent-color;
+  }
+
+  &__header-text {
+    flex: 1;
+  }
+
+  &__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: $primary-color;
+    margin: 0 0 0.25rem 0;
+  }
+
+  &__subtitle {
+    font-size: 0.875rem;
+    color: $accent-color;
+    font-weight: 600;
+    margin: 0;
+  }
+}
+
+// ─── Summary Section ────────────────────────────────────────────────────────
+.summary-section {
+  padding: 1rem 0;
+  border-bottom: 1px solid #e5e7eb;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: $primary-color;
+    margin-bottom: 0.75rem;
+
+    mat-icon {
+      font-size: 1.25rem;
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+  }
+
+  &__content {
+    padding-left: 2rem;
+  }
+
+  &__value {
+    font-size: 1rem;
+    color: #1f2937;
+    margin: 0;
+  }
+
+  &__meta {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin: 0.25rem 0 0 0;
+  }
+
+  &--total {
+    background: linear-gradient(135deg, rgba($primary-color, 0.05) 0%, rgba($accent-color, 0.05) 100%);
+    margin: 1rem -1.5rem -0.5rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: none;
+    border-radius: 0 0 $border-radius $border-radius;
+
+    .summary-section__label {
+      margin-bottom: 0;
+      font-size: 1.125rem;
+
+      mat-icon {
+        font-size: 1.5rem;
+        width: 1.5rem;
+        height: 1.5rem;
+      }
+    }
+  }
+
+  &__total-price {
+    font-size: 2rem;
+    font-weight: 700;
+    color: $accent-color;
+    margin: 0;
+  }
+}
+
+// ─── Service Item ───────────────────────────────────────────────────────────
+.service-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px dashed #e5e7eb;
+  }
+
+  &__name {
+    flex: 1;
+    font-weight: 500;
+    color: #1f2937;
+  }
+
+  &__duration {
+    font-size: 0.875rem;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+
+  &__price {
+    font-weight: 600;
+    color: $accent-color;
+    white-space: nowrap;
+  }
+}
+
+// ─── Notes Card ─────────────────────────────────────────────────────────────
+.notes-card {
+  border-radius: $border-radius !important;
+  box-shadow: $shadow-md;
+
+  mat-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem 0.75rem;
+  }
+
+  mat-card-content {
+    padding: 0 1.5rem 1.5rem;
+  }
+
+  &__icon {
+    font-size: 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    color: $accent-color;
+  }
+
+  &__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: $primary-color;
+    margin: 0;
+  }
+}
+
+.notes-field {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+// ─── Error Message ──────────────────────────────────────────────────────────
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: $border-radius;
+  color: #991b1b;
+
+  mat-icon {
+    font-size: 1.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    color: #dc2626;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+}
+
+// ─── Confirm Actions ────────────────────────────────────────────────────────
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.confirm-button {
+  width: 100%;
+  max-width: 400px;
+  padding: 1rem 2rem !important;
+  border-radius: 50px !important;
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+  box-shadow: $shadow-md;
+  transition: $transition !important;
+
+  &:hover:not([disabled]) {
+    box-shadow: $shadow-xl;
+    transform: translateY(-2px);
+  }
+
+  &[disabled] {
+    opacity: 0.7;
+  }
+
+  mat-icon {
+    margin-right: 0.5rem;
+  }
+
+  &__spinner {
+    margin-right: 0.75rem;
+  }
+
+  @media (min-width: 640px) {
+    width: auto;
+    min-width: 300px;
+  }
+}
+
+.confirm-disclaimer {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-align: center;
+  max-width: 500px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+// ─── Dark Mode Support ──────────────────────────────────────────────────────
+@media (prefers-color-scheme: dark) {
+  .booking-confirmation {
+    &__title {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__subtitle {
+      color: #9ca3af;
+    }
+  }
+
+  .summary-card {
+    background-color: #1f2937;
+
+    &__title {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__subtitle {
+      color: color.adjust($accent-color, $lightness: 15%);
+    }
+  }
+
+  .summary-section {
+    border-bottom-color: #374151;
+
+    &__label {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__value {
+      color: #e5e7eb;
+    }
+
+    &__meta {
+      color: #9ca3af;
+    }
+
+    &--total {
+      background: linear-gradient(
+        135deg,
+        rgba(color.adjust($primary-color, $lightness: 20%), 0.1) 0%,
+        rgba(color.adjust($accent-color, $lightness: 15%), 0.1) 100%
+      );
+    }
+
+    &__total-price {
+      color: color.adjust($accent-color, $lightness: 15%);
+    }
+  }
+
+  .service-item {
+    &:not(:last-child) {
+      border-bottom-color: #374151;
+    }
+
+    &__name {
+      color: #e5e7eb;
+    }
+
+    &__duration {
+      color: #9ca3af;
+    }
+
+    &__price {
+      color: color.adjust($accent-color, $lightness: 15%);
+    }
+  }
+
+  .notes-card {
+    background-color: #1f2937;
+
+    &__title {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+  }
+
+  .confirm-disclaimer {
+    color: #9ca3af;
+  }
+}

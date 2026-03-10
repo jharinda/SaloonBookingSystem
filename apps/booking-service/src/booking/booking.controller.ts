@@ -23,6 +23,7 @@ import {
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser, JwtUser, UserRole } from '@org/shared-auth';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
+import { AssignStationDto } from './dto/assign-station.dto';
 
 @Controller('bookings')
 export class BookingController {
@@ -144,5 +145,16 @@ export class BookingController {
   @Roles(UserRole.SALON_OWNER, UserRole.ADMIN)
   async complete(@Param('id') id: string): Promise<BookingResponseDto> {
     return this.bookingService.completeBooking(id);
+  }
+
+  @Patch(':id/station')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async assignStation(
+    @Param('id') id: string,
+    @Body() dto: AssignStationDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<BookingResponseDto> {
+    return this.bookingService.assignStation(id, dto.stationId, user.sub);
   }
 }

@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { CorrelationLoggingMiddleware } from '@org/shared-auth';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ReviewModule } from '../review/review.module';
@@ -29,4 +30,8 @@ import { validationSchema } from '../config/validation.schema';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(CorrelationLoggingMiddleware).forRoutes('*');
+  }
+}

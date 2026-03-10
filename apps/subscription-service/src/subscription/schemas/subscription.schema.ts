@@ -65,3 +65,5 @@ export class Subscription {
 }
 
 export const SubscriptionSchema = SchemaFactory.createForClass(Subscription);
+
+// Index already enforced via @Prop({ unique: true }) on salonId field

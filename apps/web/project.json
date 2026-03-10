@@ -25,6 +25,11 @@
             "glob": "*.png",
             "input": "node_modules/leaflet/dist/images",
             "output": "assets/leaflet"
+          },
+          {
+            "glob": "firebase-messaging-sw.js",
+            "input": "apps/web/src",
+            "output": "/"
           }
         ],
         "styles": [
@@ -43,7 +48,7 @@
             {
               "type": "anyComponentStyle",
               "maximumWarning": "4kb",
-              "maximumError": "8kb"
+              "maximumError": "12kb"
             }
           ],
           "outputHashing": "all",

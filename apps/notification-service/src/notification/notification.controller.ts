@@ -7,6 +7,10 @@ import {
   HttpStatus,
   Logger,
   Post,
+  Patch,
+  Param,
+  Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { HttpService } from '@nestjs/axios';
@@ -21,7 +25,7 @@ import {
   RecipientInfo,
 } from './interfaces/notification-payload.interface';
 import { SsePushService } from './providers/sse-push.service';
-import { InboxNotificationService, InboxNotificationDto } from './inbox-notification.service';
+import { InboxNotificationService, PaginatedInboxDto } from './inbox-notification.service';
 
 @Controller('notifications')
 export class NotificationController {
@@ -109,21 +113,80 @@ export class NotificationController {
   }
 
   /**
-   * GET /notifications/inbox
+   * GET /notifications/inbox?page=1&limit=20
    *
-   * Returns the 50 most-recent persisted in-app notifications for the
-   * requesting user.  The gateway JWT middleware stamps `x-user-id` on every
-   * authenticated request, so no JWT parsing is needed here.
+   * Returns paginated persisted notifications for the requesting user.
+   * The gateway JWT middleware stamps `x-user-id` on every authenticated request.
    *
-   * Called by the Angular frontend on login / page refresh to populate the
-   * notification bell with events the user missed while offline.
+   * Called by the Angular frontend to populate the notification inbox.
    */
   @Get('inbox')
   async getInbox(
     @Headers('x-user-id') userId: string,
-  ): Promise<InboxNotificationDto[]> {
-    if (!userId) return [];
-    return this.inboxService.findForUser(userId);
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<PaginatedInboxDto> {
+    if (!userId) {
+      throw new UnauthorizedException('User ID missing from request headers');
+    }
+
+    const pageNum = parseInt(page || '1', 10);
+    const limitNum = parseInt(limit || '20', 10);
+
+    return this.inboxService.findForUser(userId, pageNum, limitNum);
+  }
+
+  /**
+   * GET /notifications/inbox/unread-count
+   *
+   * Returns the count of unread notifications for the requesting user.
+   * Used to display the notification bell badge.
+   */
+  @Get('inbox/unread-count')
+  async getUnreadCount(
+    @Headers('x-user-id') userId: string,
+  ): Promise<{ count: number }> {
+    if (!userId) {
+      throw new UnauthorizedException('User ID missing from request headers');
+    }
+
+    const count = await this.inboxService.getUnreadCount(userId);
+    return { count };
+  }
+
+  /**
+   * PATCH /notifications/inbox/:id/read
+   *
+   * Marks a single notification as read.
+   */
+  @Patch('inbox/:id/read')
+  async markAsRead(
+    @Headers('x-user-id') userId: string,
+    @Param('id') notificationId: string,
+  ): Promise<{ success: boolean }> {
+    if (!userId) {
+      throw new UnauthorizedException('User ID missing from request headers');
+    }
+
+    const success = await this.inboxService.markAsRead(userId, notificationId);
+    return { success };
+  }
+
+  /**
+   * PATCH /notifications/inbox/read-all
+   *
+   * Marks all notifications as read for the requesting user.
+   */
+  @Patch('inbox/read-all')
+  async markAllAsRead(
+    @Headers('x-user-id') userId: string,
+  ): Promise<{ count: number }> {
+    if (!userId) {
+      throw new UnauthorizedException('User ID missing from request headers');
+    }
+
+    const count = await this.inboxService.markAllAsRead(userId);
+    return { count };
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────────

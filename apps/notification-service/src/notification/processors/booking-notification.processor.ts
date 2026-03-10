@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bull';
+import { SubscriptionCheckService } from '@org/subscription-check';
 
 import {
   BOOKING_QUEUE,
@@ -16,8 +17,11 @@ import { EmailService } from '../providers/email.service';
 import { SmsService } from '../providers/sms.service';
 import { WhatsAppService } from '../providers/whatsapp.service';
 import { SsePushService } from '../providers/sse-push.service';
+import { PushNotificationService } from '../providers/push-notification.service';
 import { TemplateService, TemplateVariables } from '../template.service';
 import { NotificationStatus } from '../schemas/notification-log.schema';
+import { InboxNotificationService } from '../inbox-notification.service';
+import { NotificationType } from '../schemas/inbox-notification.schema';
 
 const TWO_HOURS_MS   = 2 * 60 * 60 * 1000;
 const FIFTEEN_MIN_MS = 15 * 60 * 1000;
@@ -39,6 +43,9 @@ export class BookingNotificationProcessor {
     private readonly templates: TemplateService,
     private readonly config: ConfigService,
     private readonly ssePush: SsePushService,
+    private readonly inboxService: InboxNotificationService,
+    private readonly pushNotification: PushNotificationService,
+    private readonly subscriptionCheck: SubscriptionCheckService,
     @InjectQueue(BOOKING_QUEUE)
     private readonly bookingQueue: Queue,
     @InjectQueue(NOTIFICATION_QUEUE)
@@ -70,12 +77,16 @@ export class BookingNotificationProcessor {
         client.email,
         { ...vars, clientName: client.name },
         booking.id,
+        booking.clientId,
       ),
       this.sendWhatsApp(
+        NotificationEvent.BOOKING_CREATED,
         TemplateType.BOOKING_CREATED,
         client.phone,
         { ...vars, clientName: client.name },
         booking.id,
+        booking.clientId,
+        booking.salonId,
       ),
     ]);
 
@@ -87,12 +98,16 @@ export class BookingNotificationProcessor {
         salonOwner.email,
         { ...vars, clientName: salonOwner.name },
         booking.id,
+        salonOwnerId,
       ),
       this.sendWhatsApp(
+        NotificationEvent.BOOKING_CREATED,
         TemplateType.BOOKING_CREATED,
         salonOwner.phone,
         { ...vars, clientName: salonOwner.name },
         booking.id,
+        salonOwnerId,
+        booking.salonId,
       ),
     ]);
     // ── SSE: push booking.new to salon owner in real-time ─────────────────────
@@ -155,12 +170,22 @@ export class BookingNotificationProcessor {
         client.email,
         vars,
         booking.id,
+        booking.clientId,
       ),
       this.sendSms(
+        NotificationEvent.BOOKING_CONFIRMED,
         TemplateType.BOOKING_CONFIRMED,
         client.phone,
         vars,
         booking.id,
+        booking.clientId,
+        booking.salonId,
+      ),
+      this.pushNotification.sendToUser(
+        booking.clientId,
+        'Booking Confirmed',
+        `Your booking at ${salonName} has been confirmed for ${vars.date} at ${vars.time}.`,
+        { bookingId: booking.id, event: NotificationEvent.BOOKING_CONFIRMED },
       ),
     ]);
   }
@@ -171,7 +196,7 @@ export class BookingNotificationProcessor {
   async handleBookingCancelled(
     job: Job<BookingNotificationPayload>,
   ): Promise<void> {
-    const { booking, client, salonOwner, salonName, salonAddress } = job.data;
+    const { booking, client, salonOwner, salonName, salonAddress, salonOwnerId } = job.data;
 
     const vars: TemplateVariables = {
       salonName,
@@ -189,6 +214,7 @@ export class BookingNotificationProcessor {
         client.email,
         { ...vars, clientName: client.name },
         booking.id,
+        booking.clientId,
       ),
       this.sendEmail(
         NotificationEvent.BOOKING_CANCELLED,
@@ -196,7 +222,22 @@ export class BookingNotificationProcessor {
         salonOwner.email,
         { ...vars, clientName: salonOwner.name },
         booking.id,
+        salonOwnerId,
       ),
+      this.pushNotification.sendToUser(
+        booking.clientId,
+        'Booking Cancelled',
+        `Your booking at ${salonName} for ${vars.date} at ${vars.time} has been cancelled. Reason: ${vars.reason}`,
+        { bookingId: booking.id, event: NotificationEvent.BOOKING_CANCELLED },
+      ),
+      salonOwnerId
+        ? this.pushNotification.sendToUser(
+            salonOwnerId,
+            'Booking Cancelled',
+            `Booking by ${client.name} for ${vars.date} at ${vars.time} has been cancelled.`,
+            { bookingId: booking.id, event: NotificationEvent.BOOKING_CANCELLED },
+          )
+        : Promise.resolve(),
     ]);
   }
 
@@ -248,13 +289,22 @@ export class BookingNotificationProcessor {
       reviewLink: `${frontendUrl ?? 'https://snapsalon.lk'}/review/${booking.id}`,
     };
 
-    await this.sendEmail(
-      NotificationEvent.REVIEW_REQUEST,
-      TemplateType.BOOKING_REVIEW_REQUEST,
-      client.email,
-      vars,
-      booking.id,
-    );
+    await Promise.allSettled([
+      this.sendEmail(
+        NotificationEvent.REVIEW_REQUEST,
+        TemplateType.BOOKING_REVIEW_REQUEST,
+        client.email,
+        vars,
+        booking.id,
+        booking.clientId,
+      ),
+      this.pushNotification.sendToUser(
+        booking.clientId,
+        'Review Your Experience',
+        `How was your visit to ${salonName}? Share your experience with others!`,
+        { bookingId: booking.id, event: NotificationEvent.REVIEW_REQUEST, reviewLink: vars.reviewLink },
+      ),
+    ]);
   }
 
   // ── Queue error handler ────────────────────────────────────────────────────
@@ -274,6 +324,7 @@ export class BookingNotificationProcessor {
     recipient: string,
     vars: TemplateVariables,
     bookingId: string,
+    userId?: string,
   ): Promise<void> {
     try {
       const { subject, body } = await this.templates.render(
@@ -296,6 +347,11 @@ export class BookingNotificationProcessor {
         error: null,
         bookingId,
       });
+
+      // Save to inbox if userId provided
+      if (userId) {
+        await this.saveToInbox(userId, subject, body, event, { bookingId });
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Email failed [${event}] → ${recipient}: ${message}`);
@@ -312,12 +368,26 @@ export class BookingNotificationProcessor {
   }
 
   private async sendSms(
+    event: string,
     type: TemplateType,
     recipient: string,
     vars: TemplateVariables,
     bookingId: string,
+    userId?: string,
+    salonId?: string,
   ): Promise<void> {
     try {
+      // Check subscription feature if salonId provided
+      if (salonId) {
+        const allowed = await this.subscriptionCheck.checkFeature(salonId, 'sms_notifications');
+        if (!allowed) {
+          this.logger.warn(
+            `SMS skipped for salon ${salonId} - feature 'sms_notifications' not available in plan`,
+          );
+          return;
+        }
+      }
+
       const { body } = await this.templates.render(
         type,
         NotificationChannel.SMS,
@@ -333,6 +403,12 @@ export class BookingNotificationProcessor {
         error: null,
         bookingId,
       });
+
+      // Save to inbox if userId provided
+      if (userId) {
+        const title = this.getNotificationTitle(event);
+        await this.saveToInbox(userId, title, body, event, { bookingId });
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`SMS failed [${type}] → ${recipient}: ${message}`);
@@ -349,12 +425,26 @@ export class BookingNotificationProcessor {
   }
 
   private async sendWhatsApp(
+    event: string,
     type: TemplateType,
     recipient: string,
     vars: TemplateVariables,
     bookingId: string,
+    userId?: string,
+    salonId?: string,
   ): Promise<void> {
     try {
+      // Check subscription feature if salonId provided
+      if (salonId) {
+        const allowed = await this.subscriptionCheck.checkFeature(salonId, 'whatsapp');
+        if (!allowed) {
+          this.logger.warn(
+            `WhatsApp skipped for salon ${salonId} - feature 'whatsapp' not available in plan`,
+          );
+          return;
+        }
+      }
+
       const { body } = await this.templates.render(
         type,
         NotificationChannel.WHATSAPP,
@@ -373,6 +463,12 @@ export class BookingNotificationProcessor {
         error: null,
         bookingId,
       });
+
+      // Save to inbox if userId provided
+      if (userId) {
+        const title = this.getNotificationTitle(event);
+        await this.saveToInbox(userId, title, body, event, { bookingId });
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`WhatsApp failed [${type}] → ${recipient}: ${message}`);
@@ -385,6 +481,73 @@ export class BookingNotificationProcessor {
         error: message,
         bookingId,
       });
+    }
+  }
+
+  /**
+   * Save notification to persistent inbox storage
+   */
+  private async saveToInbox(
+    userId: string,
+    title: string,
+    body: string,
+    event: string,
+    data?: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      const notificationType = this.mapToNotificationType(event);
+      await this.inboxService.save(userId, title, body, notificationType, data);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to save inbox notification for userId=${userId}: ${message}`);
+      // Don't throw - inbox saving failure shouldn't break notification sending
+    }
+  }
+
+  /**
+   * Map NotificationEvent to NotificationType for inbox storage
+   */
+  private mapToNotificationType(event: string): NotificationType {
+    switch (event) {
+      case NotificationEvent.BOOKING_CREATED:
+        return NotificationType.BOOKING_CREATED;
+      case NotificationEvent.BOOKING_CONFIRMED:
+        return NotificationType.BOOKING_CONFIRMED;
+      case NotificationEvent.BOOKING_CANCELLED:
+        return NotificationType.BOOKING_CANCELLED;
+      case NotificationEvent.BOOKING_COMPLETED:
+        return NotificationType.BOOKING_COMPLETED;
+      case NotificationEvent.REMINDER_15MIN:
+      case NotificationEvent.REMINDER_NOW:
+        return NotificationType.BOOKING_REMINDER;
+      case NotificationEvent.REVIEW_REQUEST:
+        return NotificationType.REVIEW_REQUEST;
+      default:
+        return NotificationType.SYSTEM;
+    }
+  }
+
+  /**
+   * Generate user-friendly notification title from event
+   */
+  private getNotificationTitle(event: string): string {
+    switch (event) {
+      case NotificationEvent.BOOKING_CREATED:
+        return 'Booking Created';
+      case NotificationEvent.BOOKING_CONFIRMED:
+        return 'Booking Confirmed';
+      case NotificationEvent.BOOKING_CANCELLED:
+        return 'Booking Cancelled';
+      case NotificationEvent.BOOKING_COMPLETED:
+        return 'Booking Completed';
+      case NotificationEvent.REMINDER_15MIN:
+        return 'Appointment Reminder (15 min)';
+      case NotificationEvent.REMINDER_NOW:
+        return 'Appointment Starting Now';
+      case NotificationEvent.REVIEW_REQUEST:
+        return 'Review Request';
+      default:
+        return 'Notification';
     }
   }
 }

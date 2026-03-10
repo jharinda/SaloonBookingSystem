@@ -1,0 +1,98 @@
+<div class="stylist-selection">
+  <div class="stylist-selection__header">
+    <h2 class="stylist-selection__title">Choose Your Stylist</h2>
+    <p class="stylist-selection__subtitle">
+      Select a preferred stylist or let us assign one for you
+    </p>
+  </div>
+
+  <div class="stylist-grid">
+    <!-- "Any Available" Option (Default) -->
+    <mat-card
+      class="stylist-card"
+      [class.stylist-card--selected]="selectedStylistId() === null"
+      (click)="selectStylist(null)"
+      tabindex="0"
+      role="radio"
+      [attr.aria-checked]="selectedStylistId() === null"
+    >
+      <mat-card-header>
+        <div class="stylist-card__header">
+          <mat-radio-button
+            [checked]="selectedStylistId() === null"
+            (change)="selectStylist(null)"
+            (click)="$event.stopPropagation()"
+            color="primary"
+          />
+          <div class="stylist-card__avatar stylist-card__avatar--any">
+            <mat-icon class="stylist-card__any-icon">people</mat-icon>
+          </div>
+        </div>
+      </mat-card-header>
+
+      <mat-card-content>
+        <h3 class="stylist-card__name">Any Available Stylist</h3>
+        <p class="stylist-card__desc">
+          We'll assign the first available stylist based on your selected time
+        </p>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Staff Members (when staff data is available) -->
+    @for (staff of staffMembers; track trackByStaffId($index, staff)) {
+      <mat-card
+        class="stylist-card"
+        [class.stylist-card--selected]="selectedStylistId() === staff._id"
+        (click)="selectStylist(staff._id)"
+        tabindex="0"
+        role="radio"
+        [attr.aria-checked]="selectedStylistId() === staff._id"
+      >
+        <mat-card-header>
+          <div class="stylist-card__header">
+            <mat-radio-button
+              [checked]="selectedStylistId() === staff._id"
+              (change)="selectStylist(staff._id)"
+              (click)="$event.stopPropagation()"
+              color="primary"
+            />
+            <div class="stylist-card__avatar">
+              @if (staff.avatar) {
+                <img [src]="staff.avatar" [alt]="staff.name" class="stylist-card__avatar-img">
+              } @else {
+                <mat-icon class="stylist-card__avatar-placeholder">person</mat-icon>
+              }
+            </div>
+          </div>
+        </mat-card-header>
+
+        <mat-card-content>
+          <h3 class="stylist-card__name">{{ staff.name }}</h3>
+
+          @if (staff.rating) {
+            <div class="stylist-card__rating">
+              <mat-icon class="stylist-card__star">star</mat-icon>
+              <span>{{ staff.rating | number:'1.1-1' }}</span>
+            </div>
+          }
+
+          @if (staff.specialties && staff.specialties.length > 0) {
+            <div class="stylist-card__specialties">
+              @for (specialty of staff.specialties; track specialty) {
+                <span class="stylist-card__specialty-tag">{{ specialty }}</span>
+              }
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    } @empty {
+      <!-- Placeholder when no staff data -->
+      <div class="placeholder-notice">
+        <mat-icon class="placeholder-notice__icon">info</mat-icon>
+        <p class="placeholder-notice__text">
+          Staff profiles will be shown here once the salon owner adds team members.
+        </p>
+      </div>
+    }
+  </div>
+</div>

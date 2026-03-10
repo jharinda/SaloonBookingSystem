@@ -16,8 +16,15 @@ export class BookingResponseDto {
   clientName: string;
   salonId: string;
   stylistId?: string;
+  /** Denormalised stylist name stored at booking time */
+  stylistName?: string;
+  /** Indicates if stylist was auto-assigned (not manually selected) */
+  assignedAutomatically?: boolean;
+  stationId?: string;
   /** Denormalised salon name stored at booking time */
   salonName: string;
+  /** Denormalised station name stored at booking time */
+  stationName: string;
   /** Name of the first (primary) service — convenience field */
   serviceName: string;
   services: BookedServiceResponseDto[];

@@ -1,0 +1,191 @@
+<div class="stations-container">
+  <p-toast />
+
+  <!-- Toolbar -->
+  <p-toolbar styleClass="mb-4">
+    <ng-template pTemplate="start">
+      <h2 class="m-0">Station Management</h2>
+    </ng-template>
+
+    <ng-template pTemplate="end">
+      <p-button
+        label="Add Station"
+        icon="pi pi-plus"
+        (onClick)="openAddDialog()"
+      />
+    </ng-template>
+  </p-toolbar>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <i class="pi pi-check-circle stat-icon success"></i>
+      <div class="stat-content">
+        <h3>{{ getActiveStationsCount() }}</h3>
+        <p>Active Stations</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <i class="pi pi-times-circle stat-icon danger"></i>
+      <div class="stat-content">
+        <h3>{{ getInactiveStationsCount() }}</h3>
+        <p>Inactive Stations</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <i class="pi pi-box stat-icon info"></i>
+      <div class="stat-content">
+        <h3>{{ stations().length }}</h3>
+        <p>Total Stations</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stations Table -->
+  <div class="stations-table">
+    <p-table
+      [value]="stations()"
+      [loading]="loading()"
+      responsiveLayout="scroll"
+      styleClass="p-datatable-gridlines"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Station Name</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th style="width: 250px">Actions</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-station>
+        <tr>
+          <!-- Station Name -->
+          <td>
+            @if (editingStationId() === station._id) {
+              <div class="edit-input-group">
+                <input
+                  type="text"
+                  pInputText
+                  [(ngModel)]="editingStationName"
+                  [ngModelOptions]="{standalone: true}"
+                  class="w-full"
+                  (keyup.enter)="saveStationName(station)"
+                  (keyup.escape)="cancelEditing()"
+                />
+              </div>
+            } @else {
+              <strong>{{ station.name }}</strong>
+            }
+          </td>
+
+          <!-- Status Toggle -->
+          <td>
+            <div class="status-toggle">
+              <p-toggleSwitch
+                [ngModel]="station.status === 'active'"
+                [ngModelOptions]="{standalone: true}"
+                (onChange)="toggleStatus(station, $event)"
+              />
+              <span class="status-label" [class.active]="station.status === 'active'">
+                {{ station.status === 'active' ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+          </td>
+
+          <!-- Created Date -->
+          <td>
+            {{ station.createdAt ? (station.createdAt | date: 'MMM d, y') : 'N/A' }}
+          </td>
+
+          <!-- Actions -->
+          <td>
+            <div class="action-buttons">
+              @if (editingStationId() === station._id) {
+                <p-button
+                  icon="pi pi-check"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="success"
+                  (onClick)="saveStationName(station)"
+                  pTooltip="Save"
+                />
+                <p-button
+                  icon="pi pi-times"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="danger"
+                  (onClick)="cancelEditing()"
+                  pTooltip="Cancel"
+                />
+              } @else {
+                <p-button
+                  icon="pi pi-pencil"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="info"
+                  (onClick)="startEditing(station)"
+                  pTooltip="Rename"
+                />
+                <p-button
+                  icon="pi pi-trash"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="danger"
+                  (onClick)="deleteStation(station)"
+                  pTooltip="Delete"
+                />
+              }
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="4" class="text-center">
+            <div class="empty-state">
+              <i class="pi pi-inbox" style="font-size: 3rem"></i>
+              <p>No stations found. Add your first station to get started.</p>
+            </div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <!-- Add Station Dialog -->
+  <p-dialog
+    header="Add New Station"
+    [(visible)]="showAddDialog"
+    [modal]="true"
+    [style]="{width: '450px'}"
+    (onHide)="closeAddDialog()"
+  >
+    <div class="dialog-content">
+      <label for="stationName">Station Name</label>
+      <input
+        id="stationName"
+        type="text"
+        pInputText
+        [(ngModel)]="newStationName"
+        placeholder="e.g., Station 1, VIP Room"
+        class="w-full"
+        (keyup.enter)="addStation()"
+      />
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Cancel"
+        icon="pi pi-times"
+        [text]="true"
+        (onClick)="closeAddDialog()"
+      />
+      <p-button
+        label="Add Station"
+        icon="pi pi-check"
+        (onClick)="addStation()"
+        [disabled]="!newStationName().trim()"
+      />
+    </ng-template>
+  </p-dialog>
+</div>

@@ -54,11 +54,14 @@ services:
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
       CORS_ORIGIN: '${CORS_ORIGIN:-http://localhost:4200}'
       AUTH_SERVICE_URL: 'http://auth-service:3003'
+      USER_SERVICE_URL: 'http://user-service:3008'
       SALON_SERVICE_URL: 'http://salon-service:3001'
       BOOKING_SERVICE_URL: 'http://booking-service:3002'
+      NOTIFICATION_SERVICE_URL: 'http://notification-service:3004'
       REVIEW_SERVICE_URL: 'http://review-service:3006'
       CALENDAR_SERVICE_URL: 'http://calendar-service:3005'
       SUBSCRIPTION_SERVICE_URL: 'http://subscription-service:3007'
+      CHAT_SERVICE_URL: 'http://chat-service:3009'
     networks:
       - snapsalon
     depends_on:
@@ -83,6 +86,28 @@ services:
       JWT_EXPIRES_IN: '${JWT_EXPIRES_IN:-7d}'
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
       JWT_REFRESH_SECRET: '${JWT_REFRESH_SECRET}'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── User Service ───────────────────────────────────────────────────────────
+  user-service:
+    build:
+      context: .
+      dockerfile: apps/user-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3008:3008'
+    environment:
+      USER_PORT: '3008'
+      USER_MONGODB_URI: 'mongodb://mongodb:27017/user-db'
+      REDIS_HOST: 'redis'
+      REDIS_PORT: '6379'
+      JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
     networks:
       - snapsalon
     depends_on:
@@ -229,3 +254,36 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # ─── Chat Service ───────────────────────────────────────────────────────────
+  chat-service:
+    build:
+      context: .
+      dockerfile: chat-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3009:3009'
+    environment:
+      CHAT_PORT: '3009'
+      MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-chat'
+      REDIS_URL: 'redis://redis:6379'
+      JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
+      INTERNAL_SERVICE_TOKEN: '${INTERNAL_SERVICE_TOKEN}'
+      NOTIFICATION_SERVICE_URL: 'http://notification-service:3004'
+      # WhatsApp Integration (optional - configure if using WhatsApp)
+      WHATSAPP_VERIFY_TOKEN: '${WHATSAPP_VERIFY_TOKEN:-}'
+      WHATSAPP_ACCESS_TOKEN: '${WHATSAPP_ACCESS_TOKEN:-}'
+      WHATSAPP_PHONE_NUMBER_ID: '${WHATSAPP_PHONE_NUMBER_ID:-}'
+      WHATSAPP_PHONE_TO_SALON_ID: '${WHATSAPP_PHONE_TO_SALON_ID:-}'
+      # Instagram Integration (optional - configure if using Instagram)
+      INSTAGRAM_VERIFY_TOKEN: '${INSTAGRAM_VERIFY_TOKEN:-}'
+      INSTAGRAM_PAGE_ACCESS_TOKEN: '${INSTAGRAM_PAGE_ACCESS_TOKEN:-}'
+      INSTAGRAM_PAGE_TO_SALON_ID: '${INSTAGRAM_PAGE_TO_SALON_ID:-}'
+    networks:
+      - snapsalon
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+

@@ -36,7 +36,8 @@ export type {
   ChangePasswordDto,
 } from './lib/services/user.service';
 
-export { PushNotificationService } from './lib/services/push-notification.service';
+export { PushNotificationService, FCM_CONFIG } from './lib/services/push-notification.service';
+export type { FCMConfig } from './lib/services/push-notification.service';
 export { RealtimeNotificationService } from './lib/services/realtime-notification.service';
 export type { RealtimeNotification } from './lib/services/realtime-notification.service';
 

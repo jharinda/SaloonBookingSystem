@@ -14,11 +14,13 @@ export default () => ({
   internalToken: process.env['INTERNAL_TOKEN'],
   services: {
     authUrl:         process.env['AUTH_SERVICE_URL']         ?? 'http://localhost:3003',
+    userUrl:         process.env['USER_SERVICE_URL']         ?? 'http://localhost:3008',
     salonUrl:        process.env['SALON_SERVICE_URL']        ?? 'http://localhost:3001',
     bookingUrl:      process.env['BOOKING_SERVICE_URL']      ?? 'http://localhost:3002',
     reviewUrl:       process.env['REVIEW_SERVICE_URL']       ?? 'http://localhost:3006',
     calendarUrl:     process.env['CALENDAR_SERVICE_URL']     ?? 'http://localhost:3005',
     subscriptionUrl: process.env['SUBSCRIPTION_SERVICE_URL'] ?? 'http://localhost:3007',
     notificationUrl: process.env['NOTIFICATION_SERVICE_URL'] ?? 'http://localhost:3004',
+    chatUrl:         process.env['CHAT_SERVICE_URL']         ?? 'http://localhost:3009',
   },
 });

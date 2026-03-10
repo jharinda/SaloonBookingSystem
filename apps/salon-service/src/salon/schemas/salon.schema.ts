@@ -45,6 +45,12 @@ class SalonImage {
   @Prop({ default: false }) isPrimary: boolean;
 }
 
+@Schema({ _id: true })
+class Station {
+  @Prop({ required: true, trim: true }) name: string;
+  @Prop({ default: true }) isActive: boolean;
+}
+
 // ── Root schema ─────────────────────────────────────────────────────────────
 
 @Schema({ timestamps: true })
@@ -85,6 +91,9 @@ export class Salon extends Document {
 
   @Prop({ type: [SalonImage], default: [] })
   images: SalonImage[];
+
+  @Prop({ type: [Station], default: [] })
+  stations: Station[];
 
   /** Denormalised from the JWT at creation time — avoids inter-service calls */
   @Prop({ default: '' })
@@ -134,3 +143,14 @@ SalonSchema.index(
   { name: 'text', 'services.name': 'text', 'services.category': 'text' },
   { weights: { name: 3, 'services.name': 2, 'services.category': 1 } },
 );
+
+// Admin approval and active status filtering
+SalonSchema.index({ isApproved: 1, isActive: 1 });
+
+// Owner-specific salon queries
+SalonSchema.index({ ownerId: 1 });
+
+// Virtual for active station count
+SalonSchema.virtual('stationCount').get(function (this: SalonDocument) {
+  return this.stations?.filter((s) => s.isActive).length ?? 0;
+});

@@ -1,22 +1,24 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { PassportModule } from '@nestjs/passport';
 import { HttpModule } from '@nestjs/axios';
 
 import { ReviewController } from './review.controller';
 import { ReviewService } from './review.service';
 import { Review, ReviewSchema } from './schemas/review.schema';
-import { JwtStrategy, JwtAuthGuard, RolesGuard } from '@org/shared-auth';
+import { SharedAuthModule } from '@org/shared-auth';
 import { AdminReviewsController } from '../admin/admin-reviews.controller';
 
 @Module({
   imports: [
-    PassportModule.register({ defaultStrategy: 'jwt' }),
+    SharedAuthModule.forRoot(),
     MongooseModule.forFeature([{ name: Review.name, schema: ReviewSchema }]),
-    HttpModule,
+    HttpModule.register({
+      timeout: 5000,
+      maxRedirects: 3,
+    }),
   ],
   controllers: [ReviewController, AdminReviewsController],
-  providers: [ReviewService, JwtStrategy, JwtAuthGuard, RolesGuard],
+  providers: [ReviewService],
   exports: [ReviewService],
 })
 export class ReviewModule {}

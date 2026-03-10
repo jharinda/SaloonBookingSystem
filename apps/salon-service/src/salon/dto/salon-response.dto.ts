@@ -30,6 +30,12 @@ export class SalonImageDto {
   isPrimary: boolean;
 }
 
+export class SalonStationDto {
+  _id: string;
+  name: string;
+  isActive: boolean;
+}
+
 export class SalonResponseDto {
   id: string;
   name: string;
@@ -43,6 +49,8 @@ export class SalonResponseDto {
   services: SalonServiceItemDto[];
   staff: string[];
   images: SalonImageDto[];
+  stations: SalonStationDto[];
+  stationCount: number;
   isApproved: boolean;
   isActive: boolean;
   rejectionReason?: string;

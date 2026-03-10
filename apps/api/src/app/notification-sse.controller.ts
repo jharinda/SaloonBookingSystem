@@ -92,11 +92,14 @@ export class NotificationSseController {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   private assertInternalToken(provided: string | undefined): void {
-    const expected = this.configService.get<string>('internalToken');
+    const expected = this.configService.get<string>('internalToken') ?? '';
 
-    // If no token is configured (e.g. local dev), allow all internal pushes.
-    if (!expected) return;
+    // If no token is configured (empty or undefined), allow all internal pushes in dev mode.
+    if (!expected || expected === '') {
+      return;
+    }
 
+    // In production with a token set, enforce strict matching
     if (!provided || provided !== expected) {
       throw new ForbiddenException('Invalid or missing X-Internal-Token');
     }

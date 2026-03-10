@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { HttpService } from '@nestjs/axios';
 import { Model } from 'mongoose';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, timeout } from 'rxjs';
 
 import { Review, ReviewDocument } from './schemas/review.schema';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -104,7 +104,7 @@ export class ReviewService {
       bookingId: dto.bookingId,
       clientId,
       clientName: booking.clientName || '',
-      stylistId: dto.stylistId ?? null,
+      stylistIds: dto.stylistIds ?? [],
       rating: dto.rating,
       comment: dto.comment ?? null,
       images: dto.images ?? [],
@@ -115,7 +115,16 @@ export class ReviewService {
     // 5. Recalculate and push salon rating (best-effort)
     await this.syncSalonRating(dto.salonId);
 
-    // 6. Notify salon owner of the new review (best-effort, fire-and-forget)
+    // 6. Update stylist portfolios (best-effort, fire-and-forget)
+    if (dto.stylistIds && dto.stylistIds.length > 0) {
+      this.updateStylistPortfolios(
+        review,
+        dto.stylistIds,
+        booking.clientName || '',
+      ).catch(() => { /* swallow */ });
+    }
+
+    // 7. Notify salon owner of the new review (best-effort, fire-and-forget)
     this.notifyReviewPosted(review, booking.clientName).catch(() => { /* swallow */ });
 
     return this.toResponse(review);
@@ -147,7 +156,7 @@ export class ReviewService {
     page: number,
     limit: number,
   ): Promise<PaginatedReviewsDto> {
-    return this.paginate({ stylistId, isVisible: true }, page, limit);
+    return this.paginate({ stylistIds: stylistId, isVisible: true }, page, limit);
   }
 
   async addOwnerReply(
@@ -184,17 +193,29 @@ export class ReviewService {
       this.reviewModel.countDocuments({}),
     ]);
 
-    return {
+    // Enrich reviews with salon and client names in parallel
+    const enrichedReviews = await Promise.all(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: reviews.map((r: any) => ({
-        _id:        r._id?.toString(),
-        salonName:  r.salonId,   // Enrichment with actual names can be added later
-        clientName: r.clientId,
-        rating:     r.rating,
-        comment:    r.comment ?? '',
-        isVisible:  r.isVisible,
-        createdAt:  r.createdAt,
-      })),
+      reviews.map(async (r: any) => {
+        const [salonName, clientName] = await Promise.all([
+          this.fetchSalonName(r.salonId),
+          this.fetchClientName(r.clientId),
+        ]);
+
+        return {
+          _id:        r._id?.toString(),
+          salonName,
+          clientName,
+          rating:     r.rating,
+          comment:    r.comment ?? '',
+          isVisible:  r.isVisible,
+          createdAt:  r.createdAt,
+        };
+      }),
+    );
+
+    return {
+      data: enrichedReviews,
       total,
       page,
       limit,
@@ -202,6 +223,50 @@ export class ReviewService {
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  private async fetchSalonName(salonId: string): Promise<string> {
+    const salonServiceUrl = this.config.get<string>(
+      'services.salonUrl',
+      'http://localhost:3001',
+    );
+
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(`${salonServiceUrl}/api/salons/${salonId}`).pipe(
+          timeout(500),
+        ),
+      );
+      return data.name ?? salonId;
+    } catch (err) {
+      this.logger.warn(
+        `Failed to fetch salon name for ${salonId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return salonId;
+    }
+  }
+
+  private async fetchClientName(clientId: string): Promise<string> {
+    const authServiceUrl = this.config.get<string>(
+      'services.authUrl',
+      'http://localhost:3003',
+    );
+
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(`${authServiceUrl}/api/auth/users/${clientId}`).pipe(
+          timeout(500),
+        ),
+      );
+      const firstName = data.firstName ?? '';
+      const lastName = data.lastName ?? '';
+      return `${firstName} ${lastName}`.trim() || clientId;
+    } catch (err) {
+      this.logger.warn(
+        `Failed to fetch client name for ${clientId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return clientId;
+    }
+  }
 
   private async notifyReviewPosted(
     review: ReviewDocument,
@@ -232,6 +297,52 @@ export class ReviewService {
         }`,
       );
     }
+  }
+
+  private async updateStylistPortfolios(
+    review: ReviewDocument,
+    stylistIds: string[],
+    clientName: string,
+  ): Promise<void> {
+    const authServiceUrl = this.config.get<string>(
+      'services.authUrl',
+      'http://localhost:3003',
+    );
+    const internalToken = this.config.get<string>('internalToken', '');
+
+    const portfolioData = {
+      reviewId: review.id,
+      salonId: review.salonId,
+      rating: review.rating,
+      comment: review.comment ?? '',
+      serviceName: '', // TODO: Get from booking service if available
+      clientName: clientName || review.clientName,
+      date: review.createdAt,
+    };
+
+    // Update each stylist's portfolio in parallel
+    await Promise.allSettled(
+      stylistIds.map(async (stylistId) => {
+        try {
+          await firstValueFrom(
+            this.httpService.patch(
+              `${authServiceUrl}/api/auth/users/${stylistId}/portfolio-review`,
+              portfolioData,
+              {
+                headers: { 'x-internal-token': internalToken },
+                timeout: 2000,
+              },
+            ),
+          );
+        } catch (err) {
+          this.logger.warn(
+            `Failed to update portfolio for stylist ${stylistId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }),
+    );
   }
 
   private async paginate(
@@ -315,7 +426,7 @@ export class ReviewService {
       bookingId: review.bookingId,
       clientId: review.clientId,
       clientName: review.clientName || '',
-      stylistId: review.stylistId ?? undefined,
+      stylistIds: review.stylistIds ?? [],
       rating: review.rating,
       comment: review.comment ?? undefined,
       images,

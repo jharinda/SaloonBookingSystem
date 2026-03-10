@@ -1,0 +1,338 @@
+@use 'sass:color';
+
+// ─── Design Tokens ───────────────────────────────────────────────────────────
+$primary-color: #1A5276;
+$accent-color: #117A65;
+$border-radius: 12px;
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+$transition: all 0.2s ease-in-out;
+
+// ─── DateTime Selection ─────────────────────────────────────────────────────
+.datetime-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+
+  &__header {
+    text-align: center;
+  }
+
+  &__title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: $primary-color;
+    margin: 0 0 0.5rem 0;
+  }
+
+  &__subtitle {
+    font-size: 1rem;
+    color: #6b7280;
+    margin: 0;
+  }
+}
+
+// ─── Custom Calendar ────────────────────────────────────────────────────────
+.calendar {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: $border-radius;
+  padding: 1.5rem;
+  box-shadow: $shadow-md;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+
+  &__month {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: $primary-color;
+    margin: 0;
+  }
+
+  &__nav {
+    color: $primary-color;
+
+    &:hover {
+      background-color: rgba($primary-color, 0.05);
+    }
+  }
+
+  &__weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  &__weekday {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    padding: 0.5rem 0;
+    text-transform: uppercase;
+  }
+
+  &__days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+  }
+
+  &__day {
+    aspect-ratio: 1;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1f2937;
+    cursor: pointer;
+    transition: $transition;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover:not(&--disabled):not(&--selected) {
+      background-color: rgba($primary-color, 0.05);
+      border-color: $primary-color;
+    }
+
+    &:focus {
+      outline: 2px solid $primary-color;
+      outline-offset: 2px;
+    }
+
+    &--empty {
+      border: none;
+      cursor: default;
+    }
+
+    &--disabled {
+      color: #d1d5db;
+      background-color: #f9fafb;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    &--selected {
+      background-color: $primary-color;
+      color: white;
+      border-color: $primary-color;
+      font-weight: 700;
+      box-shadow: 0 0 0 3px rgba($primary-color, 0.2);
+    }
+  }
+}
+
+// ─── Time Slots ─────────────────────────────────────────────────────────────
+.time-slots {
+  &__title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: $primary-color;
+    margin: 0 0 1rem 0;
+    text-align: center;
+  }
+
+  &__date {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: $accent-color;
+    margin-top: 0.25rem;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); // 3 columns on mobile per requirement
+    gap: 0.75rem;
+
+    @media (min-width: 640px) {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    @media (min-width: 1024px) {
+      grid-template-columns: repeat(6, 1fr);
+    }
+  }
+
+  &__loading,
+  &__error,
+  &__empty,
+  &__placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    text-align: center;
+    gap: 1rem;
+
+    mat-icon {
+      font-size: 3rem;
+      width: 3rem;
+      height: 3rem;
+      color: #d1d5db;
+    }
+
+    p {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin: 0;
+      max-width: 400px;
+    }
+  }
+
+  &__error mat-icon {
+    color: #ef4444;
+  }
+
+  &__placeholder {
+    background-color: rgba($accent-color, 0.05);
+    border: 2px dashed rgba($accent-color, 0.3);
+    border-radius: $border-radius;
+
+    &-icon {
+      color: $accent-color !important;
+    }
+
+    &-text {
+      color: #6b7280;
+    }
+  }
+}
+
+// ─── Time Slot Pill Button ─────────────────────────────────────────────────
+.time-slot {
+  border: 2px solid #e5e7eb !important;
+  border-radius: 20px !important;
+  padding: 0.75rem 1rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  color: $primary-color !important;
+  background: white !important;
+  transition: $transition !important;
+  box-shadow: none !important;
+
+  &:hover:not(&--unavailable):not(&--selected) {
+    background-color: rgba($primary-color, 0.05) !important;
+    border-color: $primary-color !important;
+    transform: translateY(-2px);
+    box-shadow: $shadow-md !important;
+  }
+
+  &--selected {
+    background-color: $primary-color !important;
+    color: white !important;
+    border-color: $primary-color !important;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.2) !important;
+  }
+
+  &--unavailable {
+    background-color: #f9fafb !important;
+    color: #d1d5db !important;
+    border-color: #f3f4f6 !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+  }
+}
+
+// ─── Dark Mode Support ──────────────────────────────────────────────────────
+@media (prefers-color-scheme: dark) {
+  .datetime-selection {
+    &__title {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__subtitle {
+      color: #9ca3af;
+    }
+  }
+
+  .calendar {
+    background-color: #1f2937;
+    border-color: #374151;
+
+    &__month {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__weekday {
+      color: #9ca3af;
+    }
+
+    &__day {
+      background-color: #1f2937;
+      border-color: #374151;
+      color: #e5e7eb;
+
+      &:hover:not(&--disabled):not(&--selected) {
+        background-color: rgba(color.adjust($primary-color, $lightness: 20%), 0.1);
+        border-color: color.adjust($primary-color, $lightness: 20%);
+      }
+
+      &--disabled {
+        background-color: #111827;
+        color: #4b5563;
+      }
+
+      &--selected {
+        background-color: color.adjust($primary-color, $lightness: 20%);
+        border-color: color.adjust($primary-color, $lightness: 20%);
+      }
+    }
+  }
+
+  .time-slots {
+    &__title {
+      color: color.adjust($primary-color, $lightness: 20%);
+    }
+
+    &__date {
+      color: color.adjust($accent-color, $lightness: 15%);
+    }
+
+    &__loading,
+    &__error,
+    &__empty,
+    &__placeholder {
+      p {
+        color: #9ca3af;
+      }
+    }
+
+    &__placeholder {
+      background-color: rgba(color.adjust($accent-color, $lightness: 15%), 0.08);
+      border-color: rgba(color.adjust($accent-color, $lightness: 15%), 0.3);
+    }
+  }
+
+  .time-slot {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: color.adjust($primary-color, $lightness: 20%) !important;
+
+    &:hover:not(&--unavailable):not(&--selected) {
+      background-color: rgba(color.adjust($primary-color, $lightness: 20%), 0.1) !important;
+      border-color: color.adjust($primary-color, $lightness: 20%) !important;
+    }
+
+    &--selected {
+      background-color: color.adjust($primary-color, $lightness: 20%) !important;
+      color: white !important;
+      border-color: color.adjust($primary-color, $lightness: 20%) !important;
+    }
+
+    &--unavailable {
+      background-color: #111827 !important;
+      color: #4b5563 !important;
+      border-color: #1f2937 !important;
+    }
+  }
+}

@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { Observable, catchError, finalize, map, of, shareReplay, tap } from 'rxjs';
 import { jwtDecode } from 'jwt-decode';
+import { PushNotificationService } from './push-notification.service';
 
 export interface JwtPayload {
   sub: string;
@@ -33,6 +34,7 @@ export interface AuthResponse {
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly pushNotification = inject(PushNotificationService);
 
   // ── State ──────────────────────────────────────────────────────────────────
   private readonly accessToken = signal<string | null>(null);
@@ -67,6 +69,12 @@ export class AuthService {
       .post<AuthResponse>('/api/auth/login', { email, password } satisfies LoginDto)
       .pipe(
         tap((res) => this.accessToken.set(res.accessToken)),
+        tap(() => {
+          // Initialize FCM after successful login
+          this.pushNotification.initializeFCM().catch((err) => {
+            console.error('Failed to initialize FCM after login:', err);
+          });
+        }),
       );
   }
 
@@ -75,10 +83,21 @@ export class AuthService {
       .post<AuthResponse>('/api/auth/register', dto)
       .pipe(
         tap((res) => this.accessToken.set(res.accessToken)),
+        tap(() => {
+          // Initialize FCM after successful registration
+          this.pushNotification.initializeFCM().catch((err) => {
+            console.error('Failed to initialize FCM after registration:', err);
+          });
+        }),
       );
   }
 
   logout(): Observable<void> {
+    // Unregister FCM token before logout
+    this.pushNotification.unregisterToken().catch((err) => {
+      console.error('Failed to unregister FCM token:', err);
+    });
+
     return this.http
       .post<void>('/api/auth/logout', {}, { withCredentials: true })
       .pipe(

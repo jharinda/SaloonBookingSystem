@@ -195,6 +195,70 @@ export class SubscriptionService {
     return planFeatures.includes('all') || planFeatures.includes(feature);
   }
 
+  async checkFeature(
+    salonId: string,
+    feature: string,
+  ): Promise<{ allowed: boolean; plan: string; reason?: string }> {
+    try {
+      const sub = await this.getSubscription(salonId);
+      const planConfig = PLANS[sub.plan];
+
+      // Check if subscription is active or in trial
+      if (sub.status !== 'trial' && sub.status !== 'active') {
+        return {
+          allowed: false,
+          plan: sub.plan,
+          reason: `Subscription is ${sub.status}. Please renew your subscription.`,
+        };
+      }
+
+      // Check if feature is included in plan
+      const planFeatures = planConfig?.features ?? [];
+      const hasFeature = planFeatures.includes('all') || planFeatures.includes(feature);
+
+      if (!hasFeature) {
+        return {
+          allowed: false,
+          plan: sub.plan,
+          reason: `Feature '${feature}' is not available in your ${planConfig.name} plan. Please upgrade.`,
+        };
+      }
+
+      return {
+        allowed: true,
+        plan: sub.plan,
+      };
+    } catch {
+      // Subscription not found
+      return {
+        allowed: false,
+        plan: 'none',
+        reason: 'No active subscription found. Please start a trial or subscribe.',
+      };
+    }
+  }
+
+  async getPlanLimits(
+    salonId: string,
+  ): Promise<{ plan: string; maxStaff: number; maxLocations: number; maxStations: number; status: string }> {
+    try {
+      const sub = await this.getSubscription(salonId);
+      const planConfig = PLANS[sub.plan];
+
+      return {
+        plan: sub.plan,
+        maxStaff: planConfig.maxStaff,
+        maxLocations: planConfig.maxLocations,
+        maxStations: planConfig.maxStations,
+        status: sub.status,
+      };
+    } catch {
+      throw new NotFoundException(
+        `No subscription found for salon ${salonId}`,
+      );
+    }
+  }
+
   // ── Cron: expiring trials ─────────────────────────────────────────────────
 
   @Cron('0 9 * * *')

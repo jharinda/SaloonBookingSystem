@@ -12,6 +12,7 @@ import { SseService } from './sse.service';
 import { ProxyRegistryService } from './proxy-registry.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtValidationMiddleware } from './middleware/jwt-validation.middleware';
+import { CorrelationIdMiddleware } from './middleware/correlation-id.middleware';
 import configuration from '../config/configuration';
 import { validationSchema } from '../config/validation.schema';
 
@@ -35,6 +36,7 @@ import { validationSchema } from '../config/validation.schema';
     },
     ProxyRegistryService,
     JwtValidationMiddleware,
+    CorrelationIdMiddleware,
     SseService,
     JwtAuthGuard,
   ],
@@ -42,6 +44,9 @@ import { validationSchema } from '../config/validation.schema';
 })
 export class GatewayModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
+    // Apply correlation ID middleware first (all routes)
+    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+
     // Parse JSON body only for the internal push endpoint.
     // All other routes pass through without body buffering so that
     // http-proxy-middleware can stream the raw request body upstream.

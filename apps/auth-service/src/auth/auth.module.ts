@@ -14,6 +14,7 @@ import { User, UserSchema } from './schemas/user.schema';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     JwtStrategy,
     GoogleStrategy,
     JwtAuthGuard,
+    RolesGuard,
     {
       provide: 'REDIS_CLIENT',
       inject: [ConfigService],

@@ -1,17 +1,24 @@
 /* ─────────────────────────────────────────────────────────────
-   Salon Detail Page
+   Salon Detail Page — Mobile-First with Scroll-Snap Gallery
+   Design System: Primary #1A5276, Accent #117A65
    ───────────────────────────────────────────────────────────── */
 
 @use 'sass:color';
 
-$brand: #6750a4;
-$brand-light: #f5f3ff;
+// Design tokens matching the design system
+$primary: #1A5276;      // Deep blue
+$accent: #117A65;       // Teal
+$primary-light: #EDF2F7; // Light blue for backgrounds
+$warm-grey-50: #FAFAF9;
+$warm-grey-600: #57534E;
+$warm-grey-900: #1C1917;
 $text-primary: #1f2937;
 $text-secondary: #6b7280;
 $border: #e5e7eb;
 $error: #dc2626;
-$success: #16a34a;
+$success: $accent;
 $mobile: 768px;
+$border-radius: 12px;
 
 // ── Utilities ─────────────────────────────────────────────────
 .sr-only {
@@ -122,7 +129,7 @@ $mobile: 768px;
   flex-wrap: wrap;
 
   &__link {
-    color: $brand;
+    color: $primary;
     text-decoration: none;
     font-weight: 500;
     &:hover { text-decoration: underline; }
@@ -135,7 +142,7 @@ $mobile: 768px;
   &__actions { margin-left: auto; }
 }
 
-// ── Image gallery ─────────────────────────────────────────────
+// ── Image gallery with CSS scroll-snap ────────────────────────
 .gallery {
   margin-bottom: 24px;
 
@@ -144,9 +151,26 @@ $mobile: 768px;
     width: 100%;
     max-height: 400px;
     height: 300px;
-    border-radius: 12px;
-    overflow: hidden;
+    border-radius: $border-radius;
+    overflow-x: scroll;
+    overflow-y: hidden;
     background: #f3f4f6;
+
+    // CSS scroll-snap for swipe gallery
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+
+    // Hide scrollbar but keep functionality
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    img {
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+    }
 
     @media (min-width: $mobile) { height: 400px; }
   }
@@ -194,8 +218,8 @@ $mobile: 768px;
     transition: border-color 0.2s;
     overflow: hidden;
 
-    &--active { border-color: $brand; }
-    &:hover:not(&--active) { border-color: color.adjust($brand, $lightness: 25%); }
+    &--active { border-color: $primary; }
+    &:hover:not(&--active) { border-color: color.adjust($primary, $lightness: 25%); }
   }
 
   &__thumb-img {
@@ -236,7 +260,7 @@ $mobile: 768px;
   &__phone {
     display: inline-flex;
     align-items: center;
-    color: $brand;
+    color: $primary;
     text-decoration: none;
     font-size: 0.9rem;
     font-weight: 500;
@@ -253,7 +277,7 @@ $mobile: 768px;
 
 // ── Book button ───────────────────────────────────────────────
 .book-btn {
-  background: $brand;
+  background: $primary;
   color: #fff;
   font-size: 1rem;
   font-weight: 700;
@@ -267,7 +291,7 @@ $mobile: 768px;
 
   mat-icon { font-size: 20px; width: 20px; height: 20px; }
 
-  &:hover { background: color.adjust($brand, $lightness: -8%); }
+  &:hover { background: color.adjust($primary, $lightness: -8%); }
 }
 
 // ── Rating row ────────────────────────────────────────────────
@@ -348,7 +372,7 @@ mat-divider {
   &__title {
     font-size: 1rem;
     font-weight: 700;
-    color: $brand;
+    color: $primary;
     margin: 0 0 12px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -390,8 +414,8 @@ mat-divider {
 
   &__badge {
     flex-shrink: 0;
-    background: $brand-light;
-    color: $brand;
+    background: $primary-light;
+    color: $primary;
     font-size: 0.7rem;
     font-weight: 600;
     border-radius: 12px;
@@ -433,14 +457,14 @@ mat-divider {
   &__book-btn {
     width: 100%;
     margin-top: 4px;
-    border-color: $brand;
-    color: $brand;
+    border-color: $primary;
+    color: $primary;
     border-radius: 8px;
     font-weight: 600;
     font-size: 0.85rem;
 
     &:hover {
-      background: $brand-light;
+      background: $primary-light;
     }
   }
 }
@@ -460,9 +484,9 @@ mat-divider {
   border-bottom: 1px solid $border;
 
   &--today {
-    background: $brand-light;
+    background: $primary-light;
 
-    .hours-cell { font-weight: 700; color: $brand; }
+    .hours-cell { font-weight: 700; color: $primary; }
   }
 }
 
@@ -480,7 +504,7 @@ mat-divider {
 }
 
 .today-chip {
-  background: $brand;
+  background: $primary;
   color: #fff;
   font-size: 0.7rem;
   font-weight: 700;
@@ -563,7 +587,7 @@ mat-divider {
   height: 8px;
   border-radius: 4px;
 
-  --mdc-linear-progress-active-indicator-color: #{$brand};
+  --mdc-linear-progress-active-indicator-color: #{$primary};
   --mdc-linear-progress-track-color: #{$border};
 }
 
@@ -636,7 +660,7 @@ mat-divider {
   height: 40px;
   border-radius: 50%;
   overflow: hidden;
-  background: $brand-light;
+  background: $primary-light;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -651,7 +675,7 @@ mat-divider {
   &__initials {
     font-size: 1rem;
     font-weight: 700;
-    color: $brand;
+    color: $primary;
     text-transform: uppercase;
   }
 }
@@ -661,18 +685,18 @@ mat-divider {
   display: flex;
   gap: 10px;
   background: #f9f9f9;
-  border-left: 3px solid $brand;
+  border-left: 3px solid $primary;
   border-radius: 0 8px 8px 0;
   padding: 12px;
   margin-top: 8px;
 
-  &__icon { color: $brand; flex-shrink: 0; }
+  &__icon { color: $primary; flex-shrink: 0; }
 
   &__label {
     display: block;
     font-size: 0.78rem;
     font-weight: 700;
-    color: $brand;
+    color: $primary;
     margin-bottom: 4px;
   }
 
@@ -692,8 +716,8 @@ mat-divider {
 }
 
 .load-more-btn {
-  border-color: $brand;
-  color: $brand;
+  border-color: $primary;
+  color: $primary;
   border-radius: 24px;
   font-weight: 600;
   padding: 8px 32px;
@@ -718,7 +742,7 @@ mat-divider {
   @media (min-width: $mobile) { display: none; }
 
   &__btn {
-    background: $brand;
+    background: $primary;
     color: #fff;
     font-weight: 700;
     border-radius: 32px;
@@ -732,14 +756,14 @@ mat-divider {
 
     mat-icon { font-size: 20px; width: 20px; height: 20px; }
 
-    &:hover { background: color.adjust($brand, $lightness: -8%); }
+    &:hover { background: color.adjust($primary, $lightness: -8%); }
   }
 }
 
 // ── Share button ──────────────────────────────────────────────
 .share-btn {
   color: $text-secondary;
-  &:hover { color: $brand; }
+  &:hover { color: $primary; }
 }
 // ── Dark mode ──────────────────────────────────────────────────
 :host-context(.app-dark) {

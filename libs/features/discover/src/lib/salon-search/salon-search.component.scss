@@ -1,0 +1,508 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Salon Search Page — Mobile-First Design
+   Design System: Primary #1A5276 (deep blue), Accent #117A65 (teal)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@use 'sass:color';
+@use '@angular/material' as mat;
+
+// ─── Design Tokens ─────────────────────────────────────────────────────────────
+$primary-color: #1A5276;
+$accent-color: #117A65;
+$warm-grey-50: #FAFAF9;
+$warm-grey-100: #F5F5F4;
+$warm-grey-200: #E7E5E4;
+$warm-grey-400: #A8A29E;
+$warm-grey-600: #57534E;
+$warm-grey-900: #1C1917;
+
+$border-radius: 12px;
+$shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+$shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+$mobile: 640px;
+$tablet: 768px;
+$desktop: 1024px;
+
+// ─── Page Layout ───────────────────────────────────────────────────────────────
+
+.discover-page {
+  min-height: 100vh;
+  background: $warm-grey-50;
+}
+
+.content-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 16px 64px;
+
+  @media (min-width: $tablet) {
+    padding: 0 24px 80px;
+  }
+
+  @media (min-width: $desktop) {
+    padding: 0 32px 96px;
+  }
+}
+
+// ─── Hero Section ──────────────────────────────────────────────────────────────
+
+.hero-section {
+  background: linear-gradient(135deg, $primary-color 0%, color.adjust($primary-color, $lightness: -10%) 100%);
+  color: white;
+  padding: 48px 16px;
+  margin-bottom: 32px;
+
+  @media (min-width: $tablet) {
+    padding: 64px 24px;
+    margin-bottom: 40px;
+  }
+}
+
+.hero-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.hero-title {
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  font-weight: 700;
+  margin: 0 0 12px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-size: clamp(1rem, 2vw, 1.125rem);
+  opacity: 0.95;
+  margin: 0 0 32px;
+  text-align: center;
+  font-weight: 300;
+}
+
+// ─── Search Bar ────────────────────────────────────────────────────────────────
+
+.search-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: white;
+  border-radius: $border-radius;
+  padding: 16px;
+  box-shadow: $shadow-lg;
+
+  @media (min-width: $tablet) {
+    flex-direction: row;
+    align-items: center;
+    padding: 12px;
+  }
+
+  &.sticky {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    margin: -48px 16px 24px;
+    box-shadow: $shadow-xl;
+
+    @media (min-width: $tablet) {
+      margin: -64px 24px 32px;
+    }
+  }
+}
+
+.search-field {
+  flex: 1;
+  min-width: 0;
+
+  ::ng-deep .mat-mdc-form-field-flex {
+    align-items: center;
+  }
+
+  ::ng-deep .mat-mdc-text-field-wrapper {
+    background-color: white;
+  }
+}
+
+.search-icon {
+  color: $accent-color;
+  margin-right: 8px;
+}
+
+.search-btn {
+  height: 48px;
+  border-radius: 24px;
+  font-weight: 600;
+  padding: 0 24px;
+  background-color: $primary-color;
+  color: white;
+
+  &:hover:not([disabled]) {
+    background-color: color.adjust($primary-color, $lightness: -5%);
+  }
+
+  @media (max-width: $mobile) {
+    width: 100%;
+  }
+}
+
+.near-me-btn {
+  height: 48px;
+  border-radius: 24px;
+  border-color: $accent-color;
+  color: $accent-color;
+
+  &:hover:not([disabled]) {
+    background-color: rgba($accent-color, 0.08);
+  }
+
+  @media (max-width: $mobile) {
+    width: 100%;
+  }
+}
+
+// ─── Filter Section ────────────────────────────────────────────────────────────
+
+.filter-section {
+  margin-bottom: 32px;
+}
+
+.filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  @media (max-width: $mobile) {
+    flex-direction: column;
+  }
+}
+
+.filter-select {
+  flex: 1;
+  min-width: 160px;
+
+  @media (max-width: $mobile) {
+    width: 100%;
+  }
+}
+
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: white;
+  border-radius: $border-radius;
+  box-shadow: $shadow-sm;
+  border: 1px solid $warm-grey-200;
+
+  mat-chip-set {
+    flex: 1;
+  }
+
+  ::ng-deep .mat-mdc-chip {
+    background-color: rgba($primary-color, 0.1);
+    color: $primary-color;
+    border-radius: 16px;
+
+    .mat-icon {
+      color: $primary-color;
+    }
+  }
+}
+
+.clear-all-btn {
+  flex-shrink: 0;
+  color: #DC2626;
+
+  @media (max-width: $mobile) {
+    width: 100%;
+  }
+}
+
+// ─── View Controls ─────────────────────────────────────────────────────────────
+
+.view-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: white;
+  border-radius: $border-radius;
+  box-shadow: $shadow-sm;
+
+  @media (max-width: $mobile) {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+.results-count {
+  font-size: 0.9375rem;
+  color: $warm-grey-600;
+
+  strong {
+    color: $primary-color;
+    font-weight: 600;
+  }
+}
+
+::ng-deep .mat-button-toggle-group {
+  border-radius: $border-radius;
+  overflow: hidden;
+  box-shadow: $shadow-sm;
+}
+
+::ng-deep .mat-button-toggle {
+  font-weight: 500;
+
+  &.mat-button-toggle-checked {
+    background-color: $primary-color;
+    color: white;
+  }
+}
+
+// ─── Section Heading ───────────────────────────────────────────────────────────
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: $warm-grey-900;
+  margin: 0 0 24px;
+
+  .section-icon {
+    color: $accent-color;
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+  }
+}
+
+// ─── Salon Grid ────────────────────────────────────────────────────────────────
+
+.salon-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+
+  @media (min-width: $tablet) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: $desktop) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+// ─── Skeleton Loaders ──────────────────────────────────────────────────────────
+
+@keyframes shimmer {
+  0% {
+    background-position: -600px 0;
+  }
+  100% {
+    background-position: 600px 0;
+  }
+}
+
+.skeleton-card {
+  border-radius: $border-radius;
+  overflow: hidden;
+  box-shadow: $shadow-sm;
+
+  mat-card-content {
+    padding: 16px;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    $warm-grey-100 25%,
+    $warm-grey-200 50%,
+    $warm-grey-100 75%
+  );
+  background-size: 1200px 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+.skeleton-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0;
+}
+
+.skeleton-line {
+  height: 14px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+
+  &.skeleton-title {
+    height: 18px;
+    width: 65%;
+  }
+
+  &.skeleton-subtitle {
+    height: 14px;
+    width: 45%;
+  }
+
+  &.skeleton-short {
+    width: 55%;
+  }
+}
+
+.skeleton-btn {
+  height: 36px;
+  width: 110px;
+  border-radius: 18px;
+  margin-top: 8px;
+  margin-left: auto;
+}
+
+// ─── Map View ──────────────────────────────────────────────────────────────────
+
+.map-container {
+  border-radius: $border-radius;
+  overflow: hidden;
+  box-shadow: $shadow-md;
+
+  google-map {
+    width: 100%;
+    height: 600px;
+  }
+}
+
+// ─── Empty State ───────────────────────────────────────────────────────────────
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 24px;
+  gap: 16px;
+
+  .empty-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: $warm-grey-400;
+    opacity: 0.7;
+  }
+
+  .empty-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: $warm-grey-900;
+    margin: 0;
+  }
+
+  .empty-message {
+    font-size: 1rem;
+    color: $warm-grey-600;
+    max-width: 480px;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  button {
+    margin-top: 8px;
+  }
+}
+
+// ─── Error State ───────────────────────────────────────────────────────────────
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 80px 24px;
+  gap: 16px;
+
+  .error-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    color: #DC2626;
+    opacity: 0.8;
+  }
+
+  .error-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: $warm-grey-900;
+    margin: 0;
+  }
+
+  .error-message {
+    font-size: 1rem;
+    color: $warm-grey-600;
+    max-width: 480px;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  button {
+    margin-top: 8px;
+  }
+}
+
+// ─── Dark Mode Support ─────────────────────────────────────────────────────────
+
+@media (prefers-color-scheme: dark) {
+  .discover-page {
+    background: #0F172A;
+  }
+
+  .hero-title,
+  .section-heading,
+  .empty-title,
+  .error-title {
+    color: #F1F5F9;
+  }
+
+  .hero-subtitle {
+    opacity: 0.9;
+  }
+
+  .search-bar-wrapper,
+  .active-filters,
+  .view-controls {
+    background: #1E293B;
+    border-color: #334155;
+  }
+
+  .results-count {
+    color: #CBD5E1;
+  }
+
+  .empty-message,
+  .error-message {
+    color: #94A3B8;
+  }
+
+  .skeleton-card {
+    background: #1E293B;
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      #1E293B 25%,
+      #334155 50%,
+      #1E293B 75%
+    );
+    background-size: 1200px 100%;
+  }
+}

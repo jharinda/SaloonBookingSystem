@@ -1,10 +1,10 @@
 import {
   IsBoolean,
   IsOptional,
-  IsPhoneNumber,
   IsString,
   MaxLength,
 } from 'class-validator';
+import { StylistProfileResponse } from './auth-response.dto';
 
 export class UpdateProfileDto {
   @IsString()
@@ -43,6 +43,7 @@ export class UserProfileResponseDto {
   avatarUrl?: string;
   role: string;
   createdAt: string;
+  stylistProfile?: StylistProfileResponse;
 }
 
 export class ConnectedAccountsResponseDto {

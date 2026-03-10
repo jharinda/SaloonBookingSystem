@@ -1,8 +1,51 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, HydratedDocument } from 'mongoose';
+import { Document, HydratedDocument, Schema as MongooseSchema } from 'mongoose';
 import { UserRole } from '../dto/register.dto';
 
 export type UserDocument = HydratedDocument<User>;
+
+export type JoinRequestStatus = 'none' | 'pending' | 'approved' | 'rejected';
+
+export interface WorkingHours {
+  day: number; // 0-6 (Sunday to Saturday)
+  start: string;
+  end: string;
+  isOff: boolean;
+}
+
+export interface PortfolioImage {
+  cloudinaryId: string;
+  url: string;
+  caption?: string;
+}
+
+export interface PortfolioReview {
+  reviewId: string;
+  salonId: string;
+  rating: number;
+  comment: string;
+  serviceName: string;
+  clientName: string;
+  date: Date;
+}
+
+export interface StylistProfile {
+  bio?: string;
+  specialties: string[];
+  yearsExperience: number;
+  portfolioImages: PortfolioImage[];
+  portfolioReviews: PortfolioReview[];
+  currentSalonId?: MongooseSchema.Types.ObjectId | null;
+  joinRequestStatus: JoinRequestStatus;
+  isAvailable: boolean;
+  workingHours: WorkingHours[];
+}
+
+export interface FcmToken {
+  token: string;
+  device: string; // 'web' | 'android' | 'ios'
+  createdAt: Date;
+}
 
 @Schema({ timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } })
 export class User extends Document {
@@ -49,6 +92,24 @@ export class User extends Document {
     whatsapp: boolean;
     push: boolean;
   };
+
+  @Prop({
+    type: Object,
+    default: null,
+  })
+  stylistProfile?: StylistProfile | null;
+
+  @Prop({
+    type: [
+      {
+        token: { type: String, required: true },
+        device: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    default: [],
+  })
+  fcmTokens: FcmToken[];
 
   createdAt: Date;
   updatedAt: Date;
