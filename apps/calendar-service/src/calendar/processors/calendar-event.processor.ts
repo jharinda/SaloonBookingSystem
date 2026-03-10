@@ -37,15 +37,17 @@ export class CalendarEventProcessor {
         this.logger.log(
           `Calendar event created: bookingId=${booking.id} googleEventId=${result.googleEventId}`,
         );
-        // Write the googleEventId back to booking-service so it can be
-        // included in future notification payloads and used for deletion.
+        // Write the googleEventId back to booking-service (also marks calendarSyncStatus=synced)
         await this.patchGoogleEventId(booking.id, result.googleEventId);
+      } else {
+        await this.patchCalendarSyncStatus(booking.id, 'synced');
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(
         `Failed to create Google Calendar event for bookingId=${booking.id}: ${message}`,
       );
+      await this.patchCalendarSyncStatus(booking.id, 'failed');
       throw err; // Re-throw so Bull marks the job as failed and retries
     }
   }
@@ -65,11 +67,13 @@ export class CalendarEventProcessor {
 
     try {
       await this.googleCalendar.deleteEvent(booking.clientId, booking.googleEventId);
+      await this.patchCalendarSyncStatus(booking.id, 'synced');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(
         `Failed to delete Google Calendar event for bookingId=${booking.id}: ${message}`,
       );
+      await this.patchCalendarSyncStatus(booking.id, 'failed');
       throw err;
     }
   }
@@ -115,4 +119,34 @@ export class CalendarEventProcessor {
       );
     }
   }
-}
+
+  /**
+   * Report the calendar sync outcome to booking-service.
+   * Best-effort — failures are logged but not re-thrown.
+   */
+  private async patchCalendarSyncStatus(
+    bookingId: string,
+    status: 'synced' | 'failed',
+  ): Promise<void> {
+    const bookingServiceUrl = this.config.get<string>(
+      'BOOKING_SERVICE_URL',
+      'http://booking-service',
+    );
+    try {
+      await firstValueFrom(
+        this.httpService.patch(
+          `${bookingServiceUrl}/api/bookings/${bookingId}/calendar-sync-status`,
+          { status },
+        ),
+      );
+      this.logger.log(
+        `calendarSyncStatus=${status} persisted on bookingId=${bookingId}`,
+      );
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Failed to persist calendarSyncStatus for bookingId=${bookingId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }}

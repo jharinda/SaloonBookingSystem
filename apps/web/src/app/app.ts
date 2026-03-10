@@ -10,6 +10,7 @@ import { ToastModule } from 'primeng/toast';
 import { NavbarComponent } from './components/navbar/navbar.component';
 import { PwaInstallBannerComponent } from './components/pwa-install-banner/pwa-install-banner.component';
 import { PwaInstallService } from './shared/services/pwa-install.service';
+import { NotificationInboxService } from './core/services/notification-inbox.service';
 
 @Component({
   selector: 'app-root',
@@ -21,6 +22,9 @@ import { PwaInstallService } from './shared/services/pwa-install.service';
 export class App {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly pwaInstall = inject(PwaInstallService);
+  // Eagerly instantiate so the SSE inbox starts collecting
+  // notifications as soon as the app loads.
+  private readonly _notifInbox = inject(NotificationInboxService);
 
   constructor() {
     // Register the beforeinstallprompt listener only in the browser

@@ -15,12 +15,19 @@ import {
   NotificationLog,
   NotificationLogSchema,
 } from './schemas/notification-log.schema';
+import {
+  InboxNotification,
+  InboxNotificationSchema,
+} from './schemas/inbox-notification.schema';
 import { TemplateService } from './template.service';
 import { EmailService } from './providers/email.service';
 import { SmsService } from './providers/sms.service';
 import { WhatsAppService } from './providers/whatsapp.service';
+import { SsePushService } from './providers/sse-push.service';
+import { InboxNotificationService } from './inbox-notification.service';
 import { BookingNotificationProcessor } from './processors/booking-notification.processor';
 import { ReminderNotificationProcessor } from './processors/reminder-notification.processor';
+import { AuthNotificationProcessor } from './processors/auth-notification.processor';
 import { NotificationController } from './notification.controller';
 
 @Module({
@@ -29,6 +36,7 @@ import { NotificationController } from './notification.controller';
     MongooseModule.forFeature([
       { name: NotificationTemplate.name, schema: NotificationTemplateSchema },
       { name: NotificationLog.name, schema: NotificationLogSchema },
+      { name: InboxNotification.name, schema: InboxNotificationSchema },
     ]),
     // Consume events emitted by booking-service
     BullModule.registerQueue({ name: BOOKING_QUEUE }),
@@ -41,8 +49,11 @@ import { NotificationController } from './notification.controller';
     EmailService,
     SmsService,
     WhatsAppService,
+    SsePushService,
+    InboxNotificationService,
     BookingNotificationProcessor,
     ReminderNotificationProcessor,
+    AuthNotificationProcessor,
   ],
 })
 export class NotificationModule {}

@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as sgMail from '@sendgrid/mail';
+import sgMail from '@sendgrid/mail';
 
 export interface SendEmailOptions {
   to: string;
@@ -21,12 +21,20 @@ export class EmailService implements OnModuleInit {
   }
 
   onModuleInit(): void {
-    const apiKey = this.config.getOrThrow<string>('SENDGRID_API_KEY');
+    const apiKey = this.config.get<string>('SENDGRID_API_KEY', '');
+    if (!apiKey) {
+      this.logger.warn('SENDGRID_API_KEY not configured — email sending disabled');
+      return;
+    }
     sgMail.setApiKey(apiKey);
     this.logger.log('SendGrid client initialised');
   }
 
   async sendEmail(options: SendEmailOptions): Promise<string | null> {
+    if (!this.config.get<string>('SENDGRID_API_KEY', '')) {
+      this.logger.warn('sendEmail skipped — SENDGRID_API_KEY not configured');
+      return null;
+    }
     const msg: sgMail.MailDataRequired = {
       to: { email: options.to, name: options.toName },
       from: { email: this.fromEmail, name: this.fromName },

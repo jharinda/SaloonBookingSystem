@@ -18,14 +18,8 @@ export const validationSchema = Joi.object({
     'string.min':   'JWT_ACCESS_SECRET must be at least 32 characters',
   }),
 
-  // Cloudinary image uploads
-  CLOUDINARY_CLOUD_NAME: Joi.string().required().messages({
-    'any.required': 'CLOUDINARY_CLOUD_NAME is required for image uploads',
-  }),
-  CLOUDINARY_API_KEY: Joi.string().required().messages({
-    'any.required': 'CLOUDINARY_API_KEY is required for image uploads',
-  }),
-  CLOUDINARY_API_SECRET: Joi.string().required().messages({
-    'any.required': 'CLOUDINARY_API_SECRET is required for image uploads',
-  }),
+  // Cloudinary image uploads (optional for local dev)
+  CLOUDINARY_CLOUD_NAME: Joi.string().default(''),
+  CLOUDINARY_API_KEY:    Joi.string().default(''),
+  CLOUDINARY_API_SECRET: Joi.string().default(''),
 });

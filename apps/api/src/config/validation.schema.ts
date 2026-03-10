@@ -14,6 +14,9 @@ export const validationSchema = Joi.object({
     'string.min':   'JWT_ACCESS_SECRET must be at least 32 characters',
   }),
 
+  // Internal service-to-service token for the /notifications/push endpoint
+  INTERNAL_TOKEN: Joi.string().optional(),
+
   // Upstream service URLs — optional with localhost defaults for local development
   AUTH_SERVICE_URL:         Joi.string().uri().default('http://localhost:3003'),
   SALON_SERVICE_URL:        Joi.string().uri().default('http://localhost:3001'),
@@ -21,4 +24,5 @@ export const validationSchema = Joi.object({
   REVIEW_SERVICE_URL:       Joi.string().uri().default('http://localhost:3006'),
   CALENDAR_SERVICE_URL:     Joi.string().uri().default('http://localhost:3005'),
   SUBSCRIPTION_SERVICE_URL: Joi.string().uri().default('http://localhost:3007'),
+  NOTIFICATION_SERVICE_URL: Joi.string().uri().default('http://localhost:3004'),
 });

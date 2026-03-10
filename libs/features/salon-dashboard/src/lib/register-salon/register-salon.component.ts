@@ -487,7 +487,13 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
       .register-subtitle { color: #a1a1aa; }
       .error-banner { background: rgba(254,242,242,.06); border-color: #991b1b; color: #f87171; }
       .field label { color: #d4d4d8; }
-      .hint { color: #71717a; }
+      .hint { color: #52525b; }
+      /* inputgroup addon bg (wraps the pi icons) */
+      .p-inputgroup-addon {
+        background: #27272a !important;
+        border-color: #3f3f46 !important;
+        color: #71717a !important;
+      }
       .review-title { color: #d4d4d8; }
       .review-section { border-color: #27272a; }
       .review-label { color: #71717a; }
@@ -495,6 +501,7 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
       .review-note { background: rgba(240,253,244,.05); border-color: #166534; color: #4ade80; }
       .success-state h2 { color: #f4f4f5; }
       .success-state p { color: #a1a1aa; }
+      .coords-display { background: rgba(240,253,244,.06); border-color: #166534; color: #4ade80; }
     }
   `],
 })

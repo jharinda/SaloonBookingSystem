@@ -1,9 +1,12 @@
 import {
   IsArray,
+  IsBoolean,
   IsEmail,
+  IsNumber,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -43,6 +46,15 @@ export class UpdateSalonDto {
   @Type(() => ServiceItemDto)
   @IsOptional()
   services?: ServiceItemDto[];
+
+  @IsBoolean()
+  @IsOptional()
+  autoConfirmBookings?: boolean;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  cancellationWindowHours?: number;
 
   @IsArray()
   @ValidateNested({ each: true })

@@ -1,12 +1,27 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  inject,
   input,
   output,
+  signal,
 } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
+import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Tooltip } from 'primeng/tooltip';
+import { RealtimeNotificationService } from '@org/shared-data-access';
+
+interface BookingNewData {
+  bookingId:       string;
+  clientName:      string;
+  serviceName:     string;
+  startTime:       string;
+  appointmentDate: string;
+}
 
 @Component({
   selector: 'lib-dashboard-sidebar',
@@ -66,6 +81,11 @@ import { Tooltip } from 'primeng/tooltip';
   `],
 })
 export class DashboardSidebarComponent {
+  private readonly realtimeNotif = inject(RealtimeNotificationService);
+  private readonly messageService = inject(MessageService);
+  private readonly router         = inject(Router);
+  private readonly destroyRef     = inject(DestroyRef);
+
   readonly salonName   = input<string | null>(null);
   readonly userEmail   = input<string>('');
   readonly isExpanded  = input<boolean>(false);
@@ -73,6 +93,39 @@ export class DashboardSidebarComponent {
   readonly expanded      = output<void>();
   readonly collapsed     = output<void>();
   readonly logoutClicked = output<void>();
+
+  /** Count of unseen 'booking.new' events since last visit to the bookings page. */
+  readonly newBookingsCount = signal(0);
+
+  constructor() {
+    // ── Listen for new bookings via SSE ──────────────────────────────────────
+    this.realtimeNotif.notifications$
+      .pipe(
+        filter((n) => n.event === 'booking.new'),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((n) => {
+        const d = n.data as BookingNewData;
+
+        this.messageService.add({
+          severity: 'info',
+          summary:  'New Booking!',
+          detail:   `${d.clientName} booked ${d.serviceName} at ${d.startTime}`,
+          life:     8000,
+        });
+
+        this.newBookingsCount.update((c) => c + 1);
+      });
+
+    // ── Reset badge when the user navigates to the bookings page ─────────────
+    this.router.events
+      .pipe(
+        filter((e) => e instanceof NavigationEnd),
+        filter((e) => (e as NavigationEnd).urlAfterRedirects.startsWith('/salon-dashboard/bookings')),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => this.newBookingsCount.set(0));
+  }
 
   logout(): void {
     this.logoutClicked.emit();

@@ -29,4 +29,9 @@ export default () => ({
     apiKey:    process.env['CLOUDINARY_API_KEY']    ?? '',
     apiSecret: process.env['CLOUDINARY_API_SECRET'] ?? '',
   },
+  redis: {
+    host: process.env['REDIS_HOST'] ?? 'localhost',
+    port: parseInt(process.env['REDIS_PORT'] ?? '6379', 10),
+  },
+  internalToken: process.env['INTERNAL_TOKEN'],
 });

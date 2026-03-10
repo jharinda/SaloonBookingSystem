@@ -19,7 +19,7 @@ export class SmsService {
   private readonly baseUrl: string;
 
   constructor(private readonly config: ConfigService) {
-    this.apiKey = this.config.getOrThrow<string>('DIALOG_SMS_API_KEY');
+    this.apiKey = this.config.get<string>('DIALOG_SMS_API_KEY', '');
     this.senderId = this.config.get<string>('SMS_SENDER_ID', 'SnapSalon');
     this.baseUrl = this.config.get<string>(
       'DIALOG_SMS_BASE_URL',
@@ -28,6 +28,10 @@ export class SmsService {
   }
 
   async sendSms(options: SendSmsOptions): Promise<string | null> {
+    if (!this.apiKey) {
+      this.logger.warn('DIALOG_SMS_API_KEY not configured — SMS skipped');
+      return null;
+    }
     try {
       const response = await axios.post<{ message_id?: string }>(
         `${this.baseUrl}/send-sms`,

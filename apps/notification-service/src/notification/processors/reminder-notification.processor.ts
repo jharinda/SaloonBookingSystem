@@ -12,6 +12,7 @@ import { BookingNotificationPayload } from '../interfaces/notification-payload.i
 import { EmailService } from '../providers/email.service';
 import { SmsService } from '../providers/sms.service';
 import { WhatsAppService } from '../providers/whatsapp.service';
+import { SsePushService } from '../providers/sse-push.service';
 import { TemplateService, TemplateVariables } from '../template.service';
 import { NotificationStatus } from '../schemas/notification-log.schema';
 
@@ -24,6 +25,7 @@ export class ReminderNotificationProcessor {
     private readonly sms: SmsService,
     private readonly whatsApp: WhatsAppService,
     private readonly templates: TemplateService,
+    private readonly ssePush: SsePushService,
   ) {}
 
   // ── booking.reminder.24hr ──────────────────────────────────────────────────
@@ -82,6 +84,42 @@ export class ReminderNotificationProcessor {
       client.phone,
       vars,
       booking.id,
+    );
+  }
+
+  // ── booking.reminder.15min (SSE in-app) ───────────────────────────────────
+
+  @Process(NotificationEvent.REMINDER_15MIN)
+  async handleReminder15Min(
+    job: Job<BookingNotificationPayload>,
+  ): Promise<void> {
+    const { booking, salonName } = job.data;
+    await this.ssePush.push(booking.clientId, NotificationEvent.REMINDER_15MIN, {
+      bookingId:   booking.id,
+      salonName,
+      serviceName: booking.services.map((s) => s.name).join(', '),
+      startTime:   booking.startTime,
+    });
+    this.logger.log(
+      `Sent 15-min SSE reminder to client ${booking.clientId} for booking ${booking.id}`,
+    );
+  }
+
+  // ── booking.reminder.now (SSE in-app) ─────────────────────────────────────
+
+  @Process(NotificationEvent.REMINDER_NOW)
+  async handleReminderNow(
+    job: Job<BookingNotificationPayload>,
+  ): Promise<void> {
+    const { booking, salonName } = job.data;
+    await this.ssePush.push(booking.clientId, NotificationEvent.REMINDER_NOW, {
+      bookingId:   booking.id,
+      salonName,
+      serviceName: booking.services.map((s) => s.name).join(', '),
+      startTime:   booking.startTime,
+    });
+    this.logger.log(
+      `Sent now-SSE reminder to client ${booking.clientId} for booking ${booking.id}`,
     );
   }
 

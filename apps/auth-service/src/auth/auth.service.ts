@@ -1,19 +1,25 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { InjectQueue } from '@nestjs/bull';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
+import type { Queue } from 'bull';
+import type Redis from 'ioredis';
 
 import { User, UserDocument } from './schemas/user.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { AuthResponseDto, RefreshResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import {
   ConnectedAccountsResponseDto,
@@ -38,6 +44,8 @@ export interface AdminUserDto {
 const BCRYPT_SALT_ROUNDS = 12;
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
+const OTP_TTL_SECONDS = 15 * 60; // 15 minutes
+const NOTIFICATION_QUEUE = 'notifications';
 
 @Injectable()
 export class AuthService {
@@ -45,6 +53,8 @@ export class AuthService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @InjectQueue(NOTIFICATION_QUEUE) private readonly notifQueue: Queue,
+    @Inject('REDIS_CLIENT') private readonly redis: Redis,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -138,8 +148,61 @@ export class AuthService {
     return { accessToken };
   }
 
-  async logout(userId: string): Promise<void> {
+  async logout(userId: string, accessToken?: string): Promise<void> {
     await this.userModel.findByIdAndUpdate(userId, { refreshToken: null });
+
+    if (accessToken) {
+      const decoded = this.jwtService.decode(accessToken) as { exp?: number } | null;
+      if (decoded?.exp) {
+        const remainingSeconds = Math.floor(decoded.exp - Date.now() / 1000);
+        if (remainingSeconds > 0) {
+          await this.redis.set(`blacklist:${accessToken}`, '1', 'EX', remainingSeconds);
+        }
+      }
+    }
+  }
+
+  // ── Password reset ───────────────────────────────────────────────────────
+
+  async forgotPassword(dto: ForgotPasswordDto): Promise<void> {
+    // Silently ignore unknown emails to prevent user enumeration
+    const user = await this.userModel.findOne({ email: dto.email.toLowerCase() }).lean();
+    if (!user) return;
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const redisKey = `pwd-reset:${dto.email.toLowerCase()}`;
+
+    await this.redis.set(redisKey, otp, 'EX', OTP_TTL_SECONDS);
+
+    await this.notifQueue.add('auth.password_reset', {
+      to: dto.email.toLowerCase(),
+      toName: `${(user as UserDocument).firstName} ${(user as UserDocument).lastName}`,
+      subject: 'Your SnapSalon password reset code',
+      otp,
+    });
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<void> {
+    const redisKey = `pwd-reset:${dto.email.toLowerCase()}`;
+    const storedOtp = await this.redis.get(redisKey);
+
+    if (!storedOtp) {
+      throw new BadRequestException('OTP has expired or does not exist. Please request a new one.');
+    }
+
+    if (storedOtp !== dto.otp) {
+      throw new BadRequestException('Invalid OTP. Please check the code and try again.');
+    }
+
+    const user = await this.userModel.findOne({ email: dto.email.toLowerCase() }).select('+passwordHash');
+    if (!user) {
+      throw new NotFoundException('No account found with this email address.');
+    }
+
+    user.passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_SALT_ROUNDS);
+    await user.save();
+
+    await this.redis.del(redisKey);
   }
 
   // ── Public helpers (used by OAuth callback) ─────────────────────────────

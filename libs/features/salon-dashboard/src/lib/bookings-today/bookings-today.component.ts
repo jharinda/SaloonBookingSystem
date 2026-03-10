@@ -3,13 +3,18 @@
   ChangeDetectorRef,
   Component,
   computed,
+  DestroyRef,
+  ElementRef,
   inject,
   OnInit,
   signal,
   ViewChild,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 
 import { Table, TableModule }      from 'primeng/table';
 import { Toolbar }                 from 'primeng/toolbar';
@@ -18,7 +23,7 @@ import { Button }                  from 'primeng/button';
 import { InputText }               from 'primeng/inputtext';
 import { IconField }               from 'primeng/iconfield';
 import { InputIcon }               from 'primeng/inputicon';
-import { Select }                  from 'primeng/select';
+import { MultiSelect }             from 'primeng/multiselect';
 import { ConfirmDialog }           from 'primeng/confirmdialog';
 import { Toast }                   from 'primeng/toast';
 import { ProgressSpinner }         from 'primeng/progressspinner';
@@ -31,7 +36,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 
-import { SalonAdminService } from '@org/shared-data-access';
+import { SalonAdminService, RealtimeNotificationService } from '@org/shared-data-access';
 import { Booking, BookingStatus } from '@org/models';
 
 /** Severity map fed directly into <p-tag> */
@@ -39,7 +44,7 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contr
 
 interface StatusOption {
   label: string;
-  value: string | null;
+  value: string;
 }
 
 @Component({
@@ -57,7 +62,7 @@ interface StatusOption {
     InputText,
     IconField,
     InputIcon,
-    Select,
+    MultiSelect,
     ConfirmDialog,
     Toast,
     ProgressSpinner,
@@ -94,14 +99,46 @@ interface StatusOption {
     :host-context(.app-dark) ::ng-deep .fc .fc-daygrid-day-number { color: #a1a1aa; }
     :host-context(.app-dark) ::ng-deep .fc .fc-timegrid-now-indicator-line { border-color: #f87171; }
     :host-context(.app-dark) ::ng-deep .fc .fc-timegrid-now-indicator-arrow { border-color: #f87171; }
+
+    /* ── Booking highlight animation (triggered from notification click) ── */
+    @keyframes rowGrow {
+      0%   { padding-top: var(--p, .5rem); padding-bottom: var(--p, .5rem); }
+      35%  { padding-top: 1.35rem;         padding-bottom: 1.35rem; }
+      65%  { padding-top: .3rem;           padding-bottom: .3rem; }
+      100% { padding-top: var(--p, .5rem); padding-bottom: var(--p, .5rem); }
+    }
+
+    @keyframes rowOutline {
+      0%   { outline-color: rgba(124,58,237,0); }
+      25%  { outline-color: #7c3aed; }
+      75%  { outline-color: #7c3aed; }
+      100% { outline-color: rgba(124,58,237,0); }
+    }
+
+    /* Outer border on the row itself — no inter-column lines */
+    ::ng-deep tr.booking-highlight {
+      outline: 2px solid #7c3aed;
+      border-radius: 8px;
+      animation: rowOutline 1.8s ease forwards;
+    }
+
+    /* Grow effect on cells only — no outline */
+    ::ng-deep tr.booking-highlight td {
+      animation: rowGrow 0.85s cubic-bezier(.4,0,.2,1) forwards;
+      background: rgba(139,92,246,0.08);
+    }
   `],
 })
 export class BookingsTodayComponent implements OnInit {
   // ── Injections ────────────────────────────────────────────────────────────
-  private readonly adminService   = inject(SalonAdminService);
-  private readonly confirmSvc     = inject(ConfirmationService);
-  private readonly msgSvc         = inject(MessageService);
-  private readonly cdr            = inject(ChangeDetectorRef);
+  private readonly adminService      = inject(SalonAdminService);
+  private readonly confirmSvc        = inject(ConfirmationService);
+  private readonly msgSvc            = inject(MessageService);
+  private readonly cdr               = inject(ChangeDetectorRef);
+  private readonly route             = inject(ActivatedRoute);
+  private readonly elRef             = inject(ElementRef);
+  private readonly destroyRef        = inject(DestroyRef);
+  private readonly realtimeSvc       = inject(RealtimeNotificationService);
 
   /** Direct reference to the p-table for filterGlobal */
   @ViewChild('dt') dt!: Table;
@@ -114,6 +151,12 @@ export class BookingsTodayComponent implements OnInit {
   readonly bookings        = signal<Booking[]>([]);
   readonly viewMode        = signal<'table' | 'calendar'>('table');
   readonly confirmInFlight = signal<string | null>(null);
+
+  /** The booking id that should be highlighted (set after navigation from a notification). */
+  readonly highlightedBookingId = signal<string | null>(null);
+
+  /** Booking id read from ?bookingId= query param; consumed once after first data load. */
+  private pendingHighlightId: string | null = null;
 
   readonly calendarOptions = computed<CalendarOptions>(() => ({
     plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -151,11 +194,10 @@ export class BookingsTodayComponent implements OnInit {
   }));
 
   // ── Filter state ──────────────────────────────────────────────────────────
-  selectedStatus: string | null = null;
+  selectedStatuses: string[] = ['PENDING', 'CONFIRMED'];
   searchValue = '';
 
   readonly statusOptions: StatusOption[] = [
-    { label: 'All Statuses',  value: null },
     { label: 'Confirmed',     value: 'CONFIRMED' },
     { label: 'Pending',       value: 'PENDING' },
     { label: 'In Progress',   value: 'IN_PROGRESS' },
@@ -174,11 +216,45 @@ export class BookingsTodayComponent implements OnInit {
     'status',
   ];
 
+  /** Default sort: most recently submitted first */
+  readonly defaultSortMeta = [
+    { field: 'createdAt', order: -1 },
+  ];
+
   // ── Private ───────────────────────────────────────────────────────────────
   private salonId = '';
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   ngOnInit(): void {
+    // ── 1. React to ?bookingId= — works even when already on this page ──────
+    this.route.queryParams
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const bookingId = params['bookingId'] ?? null;
+        if (!bookingId) return;
+
+        if (this.salonId) {
+          // Data already loaded — highlight immediately.
+          this._applyHighlight(bookingId);
+        } else {
+          // Data not yet loaded — store for after first load.
+          this.pendingHighlightId = bookingId;
+        }
+      });
+
+    // ── 2. Real-time reload on new incoming booking ──────────────────────────
+    this.realtimeSvc.notifications$
+      .pipe(
+        filter(({ event }) => event === 'booking.new' || event === 'booking.created'),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => {
+        if (this.salonId) {
+          this._loadBookings();
+        }
+      });
+
+    // ── 3. Load salon + initial bookings ─────────────────────────────────────
     this.adminService.getOwnSalon().subscribe({
       next: (salon) => {
         this.salonId = salon._id;
@@ -236,11 +312,11 @@ export class BookingsTodayComponent implements OnInit {
     this.dt.filterGlobal(value, 'contains');
   }
 
-  onStatusChange(value: string | null): void {
-    if (value) {
-      this.dt.filter(value, 'status', 'equals');
+  onStatusChange(values: string[]): void {
+    if (values && values.length > 0) {
+      this.dt.filter(values, 'status', 'in');
     } else {
-      this.dt.filter(null, 'status', 'equals');
+      this.dt.filter(null, 'status', 'in');
     }
   }
 
@@ -315,6 +391,17 @@ export class BookingsTodayComponent implements OnInit {
         this.bookings.set(data);
         this.isLoading.set(false);
         this.cdr.markForCheck();
+        setTimeout(() => {
+          if (this.pendingHighlightId) {
+            // Skip the default status filter — _applyHighlight clears it so
+            // the target booking is visible regardless of its status.
+            const id = this.pendingHighlightId;
+            this.pendingHighlightId = null;
+            this._applyHighlight(id);
+          } else {
+            this.onStatusChange(this.selectedStatuses);
+          }
+        });
       },
       error: () => {
         this.loadError.set('Could not load appointments. Please try again.');
@@ -360,6 +447,43 @@ export class BookingsTodayComponent implements OnInit {
       case 'NO_SHOW':     return '#374151';
       default:            return '#6b7280';
     }
+  }
+
+  private _applyHighlight(bookingId: string): void {
+    // Step 1: clear filters so the row is always rendered.
+    this.selectedStatuses = [];
+    this.dt.filter(null, 'status', 'in');
+
+    // Step 2: jump paginator to the page that contains this booking.
+    const idx = this.bookings().findIndex((b) => b._id === bookingId);
+    if (idx !== -1) {
+      const pageRows = this.dt.rows ?? 10;
+      this.dt.first = Math.floor(idx / pageRows) * pageRows;
+    }
+    this.cdr.markForCheck();
+
+    // Step 3: after the table re-renders, activate the CSS class and scroll.
+    setTimeout(() => {
+      // Always reset to null first so Angular removes the class, which forces
+      // the CSS animation to restart — even if the same bookingId is re-used.
+      this.highlightedBookingId.set(null);
+      this.cdr.markForCheck();
+
+      setTimeout(() => {
+        this.highlightedBookingId.set(bookingId);
+        this.cdr.markForCheck();
+
+        const row = (this.elRef.nativeElement as HTMLElement)
+          .querySelector<HTMLTableRowElement>(`tr[data-booking-id="${bookingId}"]`);
+        row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        // Step 4: remove highlight class after animation finishes.
+        setTimeout(() => {
+          this.highlightedBookingId.set(null);
+          this.cdr.markForCheck();
+        }, 1800);
+      }, 30); // one extra tick so null is painted before re-adding the class
+    }, 150);
   }
 
   private _fmtDate(d: Date): string {

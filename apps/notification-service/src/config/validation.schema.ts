@@ -8,9 +8,7 @@ export const validationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
 
   // MongoDB
-  MONGODB_URI: Joi.string().required().messages({
-    'any.required': 'MONGODB_URI is required (e.g. mongodb://localhost:27017/snapsalon-notifications)',
-  }),
+  MONGODB_URI: Joi.string().default('mongodb://localhost:27017/snapsalon-notifications'),
 
   // Redis — required for Bull queue consumption
   REDIS_HOST: Joi.string().default('localhost'),

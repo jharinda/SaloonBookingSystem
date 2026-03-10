@@ -4,11 +4,17 @@ import { Observable } from 'rxjs';
 
 import { Booking } from '@org/models';
 
+export interface ReviewImage {
+  cloudinaryId: string;
+  url: string;
+}
+
 export interface CreateReviewDto {
   salonId: string;
   bookingId: string;
   rating: number;
   comment?: string;
+  images?: ReviewImage[];
 }
 
 export interface Review {
@@ -18,6 +24,7 @@ export interface Review {
   clientId: string;
   rating: number;
   comment?: string;
+  images: ReviewImage[];
   createdAt: string;
 }
 
@@ -37,6 +44,12 @@ export class ReviewService {
 
   createReview(dto: CreateReviewDto): Observable<Review> {
     return this.http.post<Review>('/api/reviews', dto);
+  }
+
+  uploadImage(file: File): Observable<ReviewImage> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<ReviewImage>('/api/reviews/upload', form);
   }
 
   getSalonReviews(salonId: string, page = 1): Observable<SalonReviewsResponse> {

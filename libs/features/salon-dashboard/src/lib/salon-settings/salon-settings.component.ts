@@ -138,13 +138,15 @@ export class SalonSettingsComponent implements OnInit {
 
   //  Forms 
   readonly infoForm = this.fb.group({
-    name:        ['', [Validators.required, Validators.maxLength(100)]],
-    street:      [''],
-    city:        [''],
-    postcode:    [''],
-    phone:       ['', Validators.required],
-    websiteUrl:  [''],
-    description: [''],
+    name:                    ['', [Validators.required, Validators.maxLength(100)]],
+    street:                  [''],
+    city:                    [''],
+    postcode:                [''],
+    phone:                   ['', Validators.required],
+    websiteUrl:              [''],
+    description:             [''],
+    autoConfirmBookings:     [false],
+    cancellationWindowHours: [2, [Validators.required, Validators.min(0)]],
   });
 
   readonly hoursForm = this.fb.nonNullable.group({
@@ -181,13 +183,15 @@ export class SalonSettingsComponent implements OnInit {
 
   private patchInfoForm(salon: Salon): void {
     this.infoForm.patchValue({
-      name:        salon.name,
-      description: salon.description ?? '',
-      phone:       salon.phone,
-      street:      salon.address?.street  ?? '',
-      city:        salon.address?.city    ?? '',
-      postcode:    (salon.address as { postcode?: string })?.postcode ?? '',
-      websiteUrl:  (salon as unknown as { websiteUrl?: string })?.websiteUrl ?? '',
+      name:                    salon.name,
+      description:             salon.description ?? '',
+      phone:                   salon.phone,
+      street:                  salon.address?.street  ?? '',
+      city:                    salon.address?.city    ?? '',
+      postcode:                (salon.address as { postcode?: string })?.postcode ?? '',
+      websiteUrl:              (salon as unknown as { websiteUrl?: string })?.websiteUrl ?? '',
+      autoConfirmBookings:     salon.autoConfirmBookings ?? false,
+      cancellationWindowHours: salon.cancellationWindowHours ?? 2,
     });
   }
 
@@ -229,12 +233,14 @@ export class SalonSettingsComponent implements OnInit {
 
     const v = this.infoForm.getRawValue();
     const dto: UpdateSalonInfoDto = {
-      name:        v.name        ?? undefined,
-      description: v.description || undefined,
-      phone:       v.phone       ?? undefined,
-      address:     (v.street || v.city || v.postcode)
+      name:                    v.name        ?? undefined,
+      description:             v.description || undefined,
+      phone:                   v.phone       ?? undefined,
+      address:                 (v.street || v.city || v.postcode)
         ? { street: v.street ?? '', city: v.city ?? '', province: v.postcode ?? '' }
         : undefined,
+      autoConfirmBookings:     v.autoConfirmBookings ?? false,
+      cancellationWindowHours: v.cancellationWindowHours ?? 2,
     };
 
     this.savingInfo.set(true);

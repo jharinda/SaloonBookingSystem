@@ -1,3 +1,5 @@
+@use 'sass:color';
+
 /* ─────────────────────────────────────────────────────────────
    My Appointments page
    ───────────────────────────────────────────────────────────── */
@@ -171,5 +173,5 @@ $mobile: 768px;
     h3 { color: #f4f4f5; }
   }
 
-  .tab-count { background: darken(#6750a4, 10%); }
+  .tab-count { background: color.adjust(#6750a4, $lightness: -10%); }
 }

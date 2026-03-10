@@ -5,4 +5,5 @@ export enum BookingEvent {
   CONFIRMED = 'booking.confirmed',
   CANCELLED = 'booking.cancelled',
   COMPLETED = 'booking.completed',
+  RESCHEDULED = 'booking.rescheduled',
 }

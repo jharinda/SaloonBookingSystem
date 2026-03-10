@@ -157,4 +157,14 @@ export class AuthService {
   setAccessToken(token: string): void {
     this.accessToken.set(token);
   }
+
+  /** Step 1 of password reset — sends a 6-digit OTP to the supplied email. */
+  forgotPassword(email: string): Observable<void> {
+    return this.http.post<void>('/api/auth/forgot-password', { email });
+  }
+
+  /** Step 2 of password reset — verifies OTP and sets the new password. */
+  resetPassword(email: string, otp: string, newPassword: string): Observable<void> {
+    return this.http.post<void>('/api/auth/reset-password', { email, otp, newPassword });
+  }
 }

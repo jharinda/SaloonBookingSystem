@@ -12,7 +12,7 @@ export { CalendarService } from './lib/services/calendar.service';
 export type { CalendarAuthUrlResponse } from './lib/services/calendar.service';
 
 export { ReviewService } from './lib/services/review.service';
-export type { CreateReviewDto } from '@org/models';
+export type { CreateReviewDto, UploadReviewImageResult } from '@org/models';
 
 export { SalonAdminService } from './lib/services/salon-admin.service';
 export type { AddServiceDto, UpdateOperatingHoursDto, CreateSalonDto, CreateSalonAddressDto, UpdateSalonInfoDto, SalonImage, UploadImageResult } from './lib/services/salon-admin.service';
@@ -37,6 +37,8 @@ export type {
 } from './lib/services/user.service';
 
 export { PushNotificationService } from './lib/services/push-notification.service';
+export { RealtimeNotificationService } from './lib/services/realtime-notification.service';
+export type { RealtimeNotification } from './lib/services/realtime-notification.service';
 
 // Interceptors
 export { authInterceptor } from './lib/interceptors/auth.interceptor';

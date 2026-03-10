@@ -80,14 +80,16 @@
         </p-iconfield>
 
         <!-- Status filter -->
-        <p-select
-          [(ngModel)]="selectedStatus"
+        <p-multiselect
+          [(ngModel)]="selectedStatuses"
           [options]="statusOptions"
           optionLabel="label"
           optionValue="value"
           placeholder="All Statuses"
           (onChange)="onStatusChange($event.value)"
-          styleClass="w-44"
+          styleClass="w-52"
+          [showToggleAll]="true"
+          display="chip"
         />
 
       </div>
@@ -113,6 +115,7 @@
     [rowsPerPageOptions]="[10, 25, 50]"
     [stripedRows]="true"
     [sortMode]="'multiple'"
+    [multiSortMeta]="defaultSortMeta"
     [globalFilterFields]="globalFilterFields"
     [rowHover]="true"
     [showCurrentPageReport]="true"
@@ -153,7 +156,10 @@
 
     <!-- ── Rows ────────────────────────────────────────────────────────── -->
     <ng-template pTemplate="body" let-appt>
-      <tr>
+      <tr
+        [attr.data-booking-id]="appt._id"
+        [class.booking-highlight]="highlightedBookingId() === appt._id"
+      >
 
         <!-- Client -->
         <td>

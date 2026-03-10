@@ -21,6 +21,9 @@
     <ng-template #end>
       <div class="flex items-center gap-2">
 
+        <!-- Notification bell (salon owners / admins only) -->
+        <app-notification-bell />
+
         <!-- Dark / light mode toggle -->
         <p-button
           [icon]="isDark() ? 'pi pi-sun' : 'pi pi-moon'"

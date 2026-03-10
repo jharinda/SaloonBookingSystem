@@ -15,9 +15,9 @@ export const validationSchema = Joi.object({
   // JWT (shared secret so JwtStrategy can verify tokens)
   JWT_ACCESS_SECRET: Joi.string().required(),
 
-  // PayHere payment gateway
-  PAYHERE_MERCHANT_ID: Joi.string().required(),
-  PAYHERE_SECRET:      Joi.string().required(),
+  // PayHere payment gateway (optional for local development)
+  PAYHERE_MERCHANT_ID: Joi.string().default(''),
+  PAYHERE_SECRET:      Joi.string().default(''),
   PAYHERE_RETURN_URL:  Joi.string().uri().optional(),
   PAYHERE_CANCEL_URL:  Joi.string().uri().optional(),
   PAYHERE_NOTIFY_URL:  Joi.string().uri().optional(),

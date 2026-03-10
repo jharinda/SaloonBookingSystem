@@ -22,6 +22,7 @@ import {
 } from './dto/booking-response.dto';
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser, JwtUser, UserRole } from '@org/shared-auth';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
+import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 
 @Controller('bookings')
 export class BookingController {
@@ -74,7 +75,18 @@ export class BookingController {
     @Body() dto: CancelBookingDto,
     @CurrentUser() user: JwtUser,
   ): Promise<BookingResponseDto> {
-    return this.bookingService.cancelBooking(id, user.sub, dto.reason);
+    return this.bookingService.cancelBooking(id, user.sub, user.role, dto.reason);
+  }
+
+  @Patch(':id/reschedule')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CLIENT)
+  async reschedule(
+    @Param('id') id: string,
+    @Body() dto: RescheduleBookingDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<BookingResponseDto> {
+    return this.bookingService.rescheduleBooking(id, dto, user.sub);
   }
 
   // ── Salon-owner routes ────────────────────────────────────────────────────
@@ -116,6 +128,15 @@ export class BookingController {
     @Body() body: { googleEventId: string },
   ): Promise<BookingResponseDto> {
     return this.bookingService.setGoogleEventId(id, body.googleEventId);
+  }
+
+  /** Internal route — called by calendar-service to report sync outcome */
+  @Patch(':id/calendar-sync-status')
+  async updateCalendarSyncStatus(
+    @Param('id') id: string,
+    @Body() body: { status: 'pending' | 'synced' | 'failed' },
+  ): Promise<BookingResponseDto> {
+    return this.bookingService.updateCalendarSyncStatus(id, body.status);
   }
 
   @Patch(':id/complete')

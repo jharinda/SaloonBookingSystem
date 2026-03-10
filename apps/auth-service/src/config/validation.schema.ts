@@ -41,4 +41,8 @@ export const validationSchema = Joi.object({
   }),
   AUTH_GOOGLE_CALLBACK_URL: Joi.string().uri()
     .default('http://localhost:3003/api/auth/google/callback'),
+
+  // Redis — required for OTP storage and Bull queue
+  REDIS_HOST: Joi.string().default('localhost'),
+  REDIS_PORT: Joi.number().integer().default(6379),
 });

@@ -11,6 +11,7 @@ export default () => ({
   jwt: {
     secret: process.env['JWT_ACCESS_SECRET'],
   },
+  internalToken: process.env['INTERNAL_TOKEN'],
   services: {
     authUrl:         process.env['AUTH_SERVICE_URL']         ?? 'http://localhost:3003',
     salonUrl:        process.env['SALON_SERVICE_URL']        ?? 'http://localhost:3001',
@@ -18,5 +19,6 @@ export default () => ({
     reviewUrl:       process.env['REVIEW_SERVICE_URL']       ?? 'http://localhost:3006',
     calendarUrl:     process.env['CALENDAR_SERVICE_URL']     ?? 'http://localhost:3005',
     subscriptionUrl: process.env['SUBSCRIPTION_SERVICE_URL'] ?? 'http://localhost:3007',
+    notificationUrl: process.env['NOTIFICATION_SERVICE_URL'] ?? 'http://localhost:3004',
   },
 });

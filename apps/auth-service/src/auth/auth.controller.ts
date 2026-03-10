@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -24,6 +25,8 @@ interface AuthenticatedRequest extends Request {
 import { AuthService } from './auth.service';
 import { RegisterDto, UserRole } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RefreshResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserDocument } from './schemas/user.schema';
@@ -87,15 +90,37 @@ export class AuthController {
     @Req() req: AuthenticatedRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    await this.authService.logout(req.user.sub);
+    const authHeader: string = (req.headers as Record<string, string>)['authorization'] ?? '';
+    const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    await this.authService.logout(req.user.sub, accessToken);
     res.clearCookie(REFRESH_COOKIE, { path: '/api/auth' });
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<void> {
+    await this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<void> {
+    await this.authService.resetPassword(dto);
   }
 
   // ── Internal user lookup (consumed by other microservices) ─────────────────
 
   @Get('users/:id')
-  @UseGuards(JwtAuthGuard)
-  async getUser(@Param('id') id: string): Promise<UserResponseDto> {
+  async getUser(
+    @Param('id') id: string,
+    @Headers('x-internal-token') token: string | undefined,
+  ): Promise<UserResponseDto> {
+    const expected = this.configService.get<string>('internalToken');
+    if (!expected || !token || token !== expected) {
+      throw new UnauthorizedException('Internal access only');
+    }
     return this.authService.findUserById(id);
   }
 

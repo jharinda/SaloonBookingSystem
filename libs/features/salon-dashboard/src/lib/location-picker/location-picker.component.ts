@@ -68,7 +68,11 @@ interface NominatimResult {
       <!-- Address search box -->
       <div class="location-picker__search">
         <div class="search-input-wrap">
-          <i class="pi pi-search search-icon"></i>
+          @if (isSearching()) {
+            <i class="pi pi-spin pi-spinner search-icon search-icon--spin"></i>
+          } @else {
+            <i class="pi pi-search search-icon"></i>
+          }
           <input
             class="search-input"
             type="text"
@@ -82,10 +86,6 @@ interface NominatimResult {
               <i class="pi pi-times"></i>
             </button>
           }
-          <button class="search-btn" type="button" (click)="searchAddress()" [disabled]="isSearching()">
-            @if (isSearching()) { <i class="pi pi-spin pi-spinner"></i> }
-            @else { Search }
-          </button>
         </div>
 
         <!-- Search results dropdown -->
@@ -146,6 +146,7 @@ interface NominatimResult {
       font-size: .85rem;
       flex-shrink: 0;
     }
+    .search-icon--spin { color: #7c3aed; }
 
     .search-input {
       flex: 1;
@@ -154,6 +155,7 @@ interface NominatimResult {
       padding: 10px 6px;
       font-size: .9rem;
       background: transparent;
+      color: #111827;
       min-width: 0;
     }
 
@@ -167,21 +169,6 @@ interface NominatimResult {
       line-height: 1;
     }
     .search-clear:hover { color: #374151; }
-
-    .search-btn {
-      background: #7c3aed;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      padding: 10px 18px;
-      font-size: .875rem;
-      font-weight: 500;
-      white-space: nowrap;
-      flex-shrink: 0;
-      transition: background .15s;
-    }
-    .search-btn:hover:not(:disabled) { background: #6d28d9; }
-    .search-btn:disabled { opacity: .6; cursor: default; }
 
     .search-results {
       list-style: none;
@@ -253,13 +240,22 @@ interface NominatimResult {
 
     /* ── Dark mode ───────────────────────────────────────────────────────── */
     :host-context(.app-dark) {
-      .search-input-wrap { background: #27272a; border-color: #3f3f46; }
+      .search-input-wrap { background: #27272a; border-color: #3f3f46; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+      .search-icon { color: #71717a; }
+      .search-icon--spin { color: #a78bfa; }
       .search-input { color: #f4f4f5; }
-      .search-input::placeholder { color: #71717a; }
-      .search-results { background: #27272a; border-color: #3f3f46; }
+      .search-input::placeholder { color: #52525b; }
+      .search-clear { color: #71717a; }
+      .search-clear:hover { color: #d4d4d8; }
+      .search-results { background: #27272a; border-color: #3f3f46; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
       .search-result-item { color: #d4d4d8; border-color: #3f3f46; }
       .search-result-item:hover { background: #3f3f46; }
+      .result-icon { color: #a78bfa; }
+      .search-error { background: rgba(254,226,226,.06); border: 1px solid #7f1d1d; color: #fca5a5; }
+      .location-picker__map { border-color: #3f3f46; }
       .info-text { color: #d4d4d8; }
+      .info-ok { color: #4ade80; }
+      .info-hint { color: #52525b; }
     }
   `],
 })
@@ -272,8 +268,9 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
 
   private map!: L.Map;
   private marker!: L.Marker;
-  private debounceTimer:  ReturnType<typeof setTimeout> | null = null;
-  private searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  private debounceTimer:    ReturnType<typeof setTimeout> | null = null;
+  private searchDebounce:   ReturnType<typeof setTimeout> | null = null;
+  private resizeObserver!:  ResizeObserver;
 
   protected searchQuery   = '';
   protected geocoding     = signal(false);
@@ -313,11 +310,23 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
       this.marker.setLatLng([lat, lng]);
       this.scheduleGeocode(lat, lng);
     });
+
+    // Fix tiles when the container becomes visible (e.g. inside a hidden stepper panel)
+    this.resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          this.map.invalidateSize();
+        }
+      }
+    });
+    this.resizeObserver.observe(this.mapEl().nativeElement);
   }
 
   ngOnDestroy(): void {
     if (this.debounceTimer)  clearTimeout(this.debounceTimer);
     if (this.searchDebounce) clearTimeout(this.searchDebounce);
+    this.resizeObserver?.disconnect();
     this.map?.remove();
   }
 
@@ -326,6 +335,13 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
   protected onSearchInput(): void {
     this.searchResults.set([]);
     this.searchError.set(null);
+
+    if (this.searchDebounce) clearTimeout(this.searchDebounce);
+
+    const q = this.searchQuery.trim();
+    if (q.length < 3) return;  // wait for at least 3 chars
+
+    this.searchDebounce = setTimeout(() => void this.searchAddress(), 400);
   }
 
   protected clearSearch(): void {

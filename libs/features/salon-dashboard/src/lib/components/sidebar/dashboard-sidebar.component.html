@@ -42,7 +42,14 @@
             [class.max-w-0]="!isExpanded()">Overview</span>
     </a>
     <a [routerLink]="'/salon-dashboard/bookings'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Appointments" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
-      <span class="flex-shrink-0 w-5 flex items-center justify-center"><i class="pi pi-calendar"></i></span>
+      <span class="flex-shrink-0 w-5 flex items-center justify-center relative">
+        <i class="pi pi-calendar"></i>
+        @if (newBookingsCount() > 0) {
+          <span class="absolute -top-2 -right-2 min-w-[1rem] h-4 px-0.5 flex items-center justify-center rounded-full bg-emerald-500 text-white text-[0.6rem] font-bold leading-none">
+            {{ newBookingsCount() > 99 ? '99+' : newBookingsCount() }}
+          </span>
+        }
+      </span>
       <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
             [class.opacity-100]="isExpanded()"
             [class.opacity-0]="!isExpanded()"

@@ -1,4 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Logger, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Logger,
+  Post,
+} from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -11,6 +20,8 @@ import {
   BookingPayload,
   RecipientInfo,
 } from './interfaces/notification-payload.interface';
+import { SsePushService } from './providers/sse-push.service';
+import { InboxNotificationService, InboxNotificationDto } from './inbox-notification.service';
 
 @Controller('notifications')
 export class NotificationController {
@@ -20,9 +31,11 @@ export class NotificationController {
     @InjectQueue(BOOKING_QUEUE) private readonly bookingQueue: Queue,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly ssePush: SsePushService,
+    private readonly inboxService: InboxNotificationService,
   ) {}
 
-  // ── Endpoints (internal — no auth guard) ──────────────────────────────────
+  // ── Endpoints (internal — no auth guard) ────────────────────────────────────────────
 
   @Post('booking-created')
   @HttpCode(HttpStatus.ACCEPTED)
@@ -51,14 +64,76 @@ export class NotificationController {
     return this.enqueueBookingEvent(NotificationEvent.BOOKING_COMPLETED, body.booking);
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  /**
+   * POST /notifications/review-posted
+   * Called by review-service after a client submits a review.
+   * Pushes a real-time SSE notification to the salon owner.
+   */
+  @Post('review-posted')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async reviewPosted(
+    @Body()
+    body: {
+      bookingId:   string;
+      salonId:     string;
+      clientName:  string;
+      rating:      number;
+      comment?:    string;
+      serviceName?: string;
+    },
+  ): Promise<{ pushed: boolean }> {
+    try {
+      const salon = await this.fetchSalon(body.salonId);
+      if (!salon.ownerId) {
+        this.logger.warn(`review-posted: no ownerId resolved for salonId=${body.salonId}`);
+        return { pushed: false };
+      }
+
+      await this.ssePush.push(salon.ownerId, NotificationEvent.REVIEW_POSTED, {
+        bookingId:   body.bookingId,
+        salonId:     body.salonId,
+        clientName:  body.clientName,
+        rating:      body.rating,
+        comment:     body.comment,
+        serviceName: body.serviceName,
+        salonName:   salon.name,
+      });
+
+      return { pushed: true };
+    } catch (err: unknown) {
+      this.logger.error(
+        `review-posted SSE push failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return { pushed: false };
+    }
+  }
+
+  /**
+   * GET /notifications/inbox
+   *
+   * Returns the 50 most-recent persisted in-app notifications for the
+   * requesting user.  The gateway JWT middleware stamps `x-user-id` on every
+   * authenticated request, so no JWT parsing is needed here.
+   *
+   * Called by the Angular frontend on login / page refresh to populate the
+   * notification bell with events the user missed while offline.
+   */
+  @Get('inbox')
+  async getInbox(
+    @Headers('x-user-id') userId: string,
+  ): Promise<InboxNotificationDto[]> {
+    if (!userId) return [];
+    return this.inboxService.findForUser(userId);
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────────
 
   private async enqueueBookingEvent(
     event: NotificationEvent,
     booking: BookingPayload,
   ): Promise<{ queued: boolean }> {
     try {
-      const [client, salonOwnerData] = await Promise.all([
+      const [client, salonData] = await Promise.all([
         this.fetchClient(booking.clientId),
         this.fetchSalon(booking.salonId),
       ]);
@@ -66,9 +141,10 @@ export class NotificationController {
       const payload: BookingNotificationPayload = {
         booking,
         client,
-        salonOwner: salonOwnerData.owner,
-        salonName: salonOwnerData.name,
-        salonAddress: salonOwnerData.address,
+        salonOwner:    salonData.owner,
+        salonName:     salonData.name,
+        salonAddress:  salonData.address,
+        salonOwnerId:  salonData.ownerId,
       };
 
       await this.bookingQueue.add(event, payload);
@@ -85,8 +161,11 @@ export class NotificationController {
   private async fetchClient(clientId: string): Promise<RecipientInfo> {
     try {
       const authUrl = this.configService.get<string>('services.authUrl');
+      const internalToken = this.configService.get<string>('internalToken') ?? '';
       const { data } = await firstValueFrom(
-        this.httpService.get(`${authUrl}/api/auth/users/${clientId}`),
+        this.httpService.get(`${authUrl}/api/auth/users/${clientId}`, {
+          headers: { 'x-internal-token': internalToken },
+        }),
       );
       return {
         name: data.name ?? `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
@@ -101,7 +180,7 @@ export class NotificationController {
 
   private async fetchSalon(
     salonId: string,
-  ): Promise<{ owner: RecipientInfo; name: string; address: string }> {
+  ): Promise<{ owner: RecipientInfo; name: string; address: string; ownerId?: string }> {
     try {
       const salonUrl = this.configService.get<string>('services.salonUrl');
       const { data } = await firstValueFrom(
@@ -109,12 +188,13 @@ export class NotificationController {
       );
       return {
         owner: {
-          name: data.ownerName ?? data.owner?.name ?? 'Salon Owner',
+          name:  data.ownerName  ?? data.owner?.name  ?? 'Salon Owner',
           email: data.ownerEmail ?? data.owner?.email ?? '',
           phone: data.ownerPhone ?? data.owner?.phone ?? '',
         },
-        name: data.name ?? '',
+        name:    data.name    ?? '',
         address: data.address ?? '',
+        ownerId: data.ownerId?.toString() ?? data.owner?._id?.toString(),
       };
     } catch (error) {
       this.logger.warn(`Could not fetch salon ${salonId}: ${(error as Error).message}`);

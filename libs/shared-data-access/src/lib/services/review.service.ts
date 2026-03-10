@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-import { CreateReviewDto, Review, ReviewsPage, ReplyToReviewDto } from '@org/models';
+import { CreateReviewDto, Review, ReviewsPage, ReplyToReviewDto, UploadReviewImageResult } from '@org/models';
 
 @Injectable({ providedIn: 'root' })
 export class ReviewService {
@@ -43,5 +43,16 @@ export class ReviewService {
   /** PATCH /api/reviews/:id/reply */
   replyToReview(reviewId: string, dto: ReplyToReviewDto): Observable<Review> {
     return this.http.patch<Review>(`/api/reviews/${reviewId}/reply`, dto);
+  }
+
+  /**
+   * POST /api/reviews/upload
+   * Uploads a single image file to Cloudinary via the review-service.
+   * Returns { cloudinaryId, url } to be included in the CreateReviewDto.
+   */
+  uploadReviewImage(file: File): Observable<UploadReviewImageResult> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<UploadReviewImageResult>('/api/reviews/upload', form);
   }
 }

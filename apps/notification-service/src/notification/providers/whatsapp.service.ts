@@ -26,8 +26,8 @@ export class WhatsAppService {
   private readonly baseUrl: string;
 
   constructor(private readonly config: ConfigService) {
-    this.apiToken      = this.config.getOrThrow<string>('WHATSAPP_API_TOKEN');
-    this.phoneNumberId = this.config.getOrThrow<string>('WHATSAPP_PHONE_NUMBER_ID');
+    this.apiToken      = this.config.get<string>('WHATSAPP_API_TOKEN', '');
+    this.phoneNumberId = this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID', '');
     this.templateName  = this.config.get<string>(
       'WHATSAPP_TEMPLATE_NAME',
       'snapsalon_notification',
@@ -40,6 +40,10 @@ export class WhatsAppService {
   }
 
   async sendMessage(options: SendWhatsAppOptions): Promise<string | null> {
+    if (!this.apiToken || !this.phoneNumberId) {
+      this.logger.warn('sendMessage skipped — WHATSAPP_API_TOKEN / WHATSAPP_PHONE_NUMBER_ID not configured');
+      return null;
+    }
     try {
       const response = await axios.post<{
         messages?: Array<{ id: string }>;

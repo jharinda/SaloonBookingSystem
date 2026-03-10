@@ -36,4 +36,6 @@ export interface BookingNotificationPayload {
   salonOwner: RecipientInfo;
   salonName: string;
   salonAddress: string;
+  /** MongoDB ObjectId of the salon owner — used to push SSE in-app notifications */
+  salonOwnerId?: string;
 }

@@ -6,6 +6,7 @@ import { Job, Queue } from 'bull';
 
 import {
   BOOKING_QUEUE,
+  NOTIFICATION_QUEUE,
   NotificationChannel,
   NotificationEvent,
   TemplateType,
@@ -14,10 +15,18 @@ import { BookingNotificationPayload } from '../interfaces/notification-payload.i
 import { EmailService } from '../providers/email.service';
 import { SmsService } from '../providers/sms.service';
 import { WhatsAppService } from '../providers/whatsapp.service';
+import { SsePushService } from '../providers/sse-push.service';
 import { TemplateService, TemplateVariables } from '../template.service';
 import { NotificationStatus } from '../schemas/notification-log.schema';
 
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const TWO_HOURS_MS   = 2 * 60 * 60 * 1000;
+const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+
+/** Parse "YYYY-MM-DD" + "HH:mm" as a local-time millisecond timestamp. */
+function parseAppointmentMs(appointmentDate: string, startTime: string): number {
+  const datePart = (appointmentDate ?? '').slice(0, 10);
+  return new Date(`${datePart}T${startTime}:00`).getTime();
+}
 
 @Processor(BOOKING_QUEUE)
 export class BookingNotificationProcessor {
@@ -29,8 +38,11 @@ export class BookingNotificationProcessor {
     private readonly whatsApp: WhatsAppService,
     private readonly templates: TemplateService,
     private readonly config: ConfigService,
+    private readonly ssePush: SsePushService,
     @InjectQueue(BOOKING_QUEUE)
     private readonly bookingQueue: Queue,
+    @InjectQueue(NOTIFICATION_QUEUE)
+    private readonly notifQueue: Queue,
   ) {}
 
   // ── booking.created ────────────────────────────────────────────────────────
@@ -39,7 +51,7 @@ export class BookingNotificationProcessor {
   async handleBookingCreated(
     job: Job<BookingNotificationPayload>,
   ): Promise<void> {
-    const { booking, client, salonOwner, salonName, salonAddress } = job.data;
+    const { booking, client, salonOwner, salonName, salonAddress, salonOwnerId } = job.data;
 
     const vars: TemplateVariables = {
       salonName,
@@ -83,7 +95,40 @@ export class BookingNotificationProcessor {
         booking.id,
       ),
     ]);
-  }
+    // ── SSE: push booking.new to salon owner in real-time ─────────────────────
+    if (salonOwnerId) {
+      await this.ssePush.push(salonOwnerId, 'booking.new', {
+        bookingId:       booking.id,
+        clientName:      client.name,
+        serviceName:     vars['serviceName'],
+        appointmentDate: vars['date'],
+        startTime:       booking.startTime,
+      });
+    }
+
+    // ── Schedule 15-min and now SSE reminders for the client ──────────────────
+    const appointmentMs = parseAppointmentMs(booking.appointmentDate, booking.startTime);
+    const now           = Date.now();
+    const delay15Min    = appointmentMs - now - FIFTEEN_MIN_MS;
+    const delayNow      = appointmentMs - now;
+    const jobOpts = { attempts: 2, removeOnComplete: true };
+
+    if (delay15Min > 0) {
+      await this.notifQueue.add(NotificationEvent.REMINDER_15MIN, job.data, {
+        ...jobOpts, delay: delay15Min,
+      });
+      this.logger.log(
+        `Scheduled 15-min reminder for booking ${booking.id} in ${Math.round(delay15Min / 60_000)} min`,
+      );
+    }
+    if (delayNow > 0) {
+      await this.notifQueue.add(NotificationEvent.REMINDER_NOW, job.data, {
+        ...jobOpts, delay: delayNow,
+      });
+      this.logger.log(
+        `Scheduled now-reminder for booking ${booking.id} in ${Math.round(delayNow / 60_000)} min`,
+      );
+    }  }
 
   // ── booking.confirmed ──────────────────────────────────────────────────────
 

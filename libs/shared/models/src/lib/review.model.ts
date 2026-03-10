@@ -1,5 +1,10 @@
 // ─── Review Entity ────────────────────────────────────────────────────────────
 
+export interface ReviewImage {
+  cloudinaryId: string;
+  url: string;
+}
+
 export interface Review {
   _id: string;
   salonId: string;
@@ -12,6 +17,8 @@ export interface Review {
   /** 1–5 */
   rating: number;
   comment: string;
+  /** Images attached to the review */
+  images: ReviewImage[];
   /** Owner reply, if any */
   ownerReply?: string | null;
   createdAt: string;
@@ -31,8 +38,14 @@ export interface CreateReviewDto {
   rating: number;
   comment?: string;
   stylistId?: string;
+  images?: ReviewImage[];
 }
 
 export interface ReplyToReviewDto {
   reply: string;
+}
+
+export interface UploadReviewImageResult {
+  cloudinaryId: string;
+  url: string;
 }

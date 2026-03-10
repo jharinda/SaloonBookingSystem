@@ -22,5 +22,7 @@ export default () => ({
     salonUrl:        process.env['SALON_SERVICE_URL']        ?? 'http://localhost:3001',
     notificationUrl: process.env['NOTIFICATION_SERVICE_URL'] ?? 'http://localhost:3004',
     calendarUrl:     process.env['CALENDAR_SERVICE_URL']     ?? 'http://localhost:3005',
+    apiGatewayUrl:   process.env['API_GATEWAY_URL']          ?? 'http://localhost:3000',
   },
+  internalToken: process.env['INTERNAL_TOKEN'],
 });

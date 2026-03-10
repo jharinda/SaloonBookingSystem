@@ -28,6 +28,7 @@ export class BookingResponseDto {
   totalPrice: number;
   notes?: string;
   googleEventId?: string;
+  calendarSyncStatus: 'pending' | 'synced' | 'failed';
   cancelledBy?: string;
   cancellationReason?: string;
   createdAt: Date;

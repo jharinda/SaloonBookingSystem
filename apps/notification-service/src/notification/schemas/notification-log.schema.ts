@@ -11,16 +11,16 @@ export enum NotificationStatus {
 
 @Schema({ timestamps: true })
 export class NotificationLog {
-  @Prop({ required: true, enum: TemplateType })
+  @Prop({ required: true, type: String, enum: TemplateType })
   templateType: TemplateType;
 
-  @Prop({ required: true, enum: NotificationChannel })
+  @Prop({ required: true, type: String, enum: NotificationChannel })
   channel: NotificationChannel;
 
   @Prop({ required: true })
   recipient: string; // email address or E.164 phone number
 
-  @Prop({ required: true, enum: NotificationStatus })
+  @Prop({ required: true, type: String, enum: NotificationStatus })
   status: NotificationStatus;
 
   /** Provider message-id returned on success */

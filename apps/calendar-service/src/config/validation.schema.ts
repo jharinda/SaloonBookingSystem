@@ -10,9 +10,7 @@ export const validationSchema = Joi.object({
   EMAIL_FROM:    Joi.string().email().default('noreply@snapsalon.lk'),
 
   // MongoDB
-  MONGODB_URI: Joi.string().required().messages({
-    'any.required': 'MONGODB_URI is required (e.g. mongodb://localhost:27017/snapsalon-calendar)',
-  }),
+  MONGODB_URI: Joi.string().default('mongodb://localhost:27017/snapsalon-calendar'),
 
   // Redis (Bull queues)
   REDIS_HOST: Joi.string().default('localhost'),

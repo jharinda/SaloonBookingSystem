@@ -21,4 +21,9 @@ export const validationSchema = Joi.object({
     'any.required': 'JWT_ACCESS_SECRET is required and must be at least 32 characters',
     'string.min':   'JWT_ACCESS_SECRET must be at least 32 characters',
   }),
+
+  // Cloudinary (shared with salon-service, optional for local dev)
+  CLOUDINARY_CLOUD_NAME: Joi.string().default(''),
+  CLOUDINARY_API_KEY:    Joi.string().default(''),
+  CLOUDINARY_API_SECRET: Joi.string().default(''),
 });

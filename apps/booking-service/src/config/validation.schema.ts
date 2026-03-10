@@ -29,4 +29,6 @@ export const validationSchema = Joi.object({
   }),
   NOTIFICATION_SERVICE_URL: Joi.string().uri().default('http://localhost:3004'),
   CALENDAR_SERVICE_URL:     Joi.string().uri().default('http://localhost:3005'),
+  API_GATEWAY_URL:          Joi.string().uri().default('http://localhost:3000'),
+  INTERNAL_TOKEN:           Joi.string().optional(),
 });

@@ -20,6 +20,7 @@ interface BookingNotificationPayload {
   booking: BookingResponseDto;
   client: RecipientInfo;
   salonOwner: RecipientInfo;
+  salonOwnerId: string;
   salonName: string;
   salonAddress: string;
 }
@@ -29,6 +30,8 @@ export class BookingProcessor {
   private readonly logger = new Logger(BookingProcessor.name);
   private readonly authUrl: string;
   private readonly salonUrl: string;
+  private readonly apiGatewayUrl: string;
+  private readonly internalToken: string | undefined;
 
   constructor(
     private readonly httpService: HttpService,
@@ -45,6 +48,11 @@ export class BookingProcessor {
       'services.salonUrl',
       'http://localhost:3001',
     );
+    this.apiGatewayUrl = this.configService.get<string>(
+      'services.apiGatewayUrl',
+      'http://localhost:3000',
+    );
+    this.internalToken = this.configService.get<string>('internalToken');
   }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -67,6 +75,9 @@ export class BookingProcessor {
           `[${BookingEvent.CREATED}] Failed to queue notification for bookingId=${job.data.id}: ${(err as Error).message}`,
         );
       }
+
+      // Push real-time SSE notification to the salon owner.
+      await this.pushSseToOwner(payload.salonOwnerId, job.data);
     }
   }
 
@@ -215,6 +226,7 @@ export class BookingProcessor {
         booking,
         client,
         salonOwner: salonData.owner,
+        salonOwnerId: salonData.ownerId,
         salonName: salonData.name,
         salonAddress: salonData.address,
       };
@@ -229,7 +241,9 @@ export class BookingProcessor {
   private async fetchClient(clientId: string): Promise<RecipientInfo> {
     try {
       const { data } = await firstValueFrom(
-        this.httpService.get(`${this.authUrl}/api/auth/users/${clientId}`),
+        this.httpService.get(`${this.authUrl}/api/auth/users/${clientId}`, {
+          headers: { 'x-internal-token': this.internalToken ?? '' },
+        }),
       );
       return {
         name: data.name ?? `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
@@ -244,7 +258,7 @@ export class BookingProcessor {
 
   private async fetchSalon(
     salonId: string,
-  ): Promise<{ owner: RecipientInfo; name: string; address: string }> {
+  ): Promise<{ owner: RecipientInfo; ownerId: string; name: string; address: string }> {
     try {
       const { data } = await firstValueFrom(
         this.httpService.get(`${this.salonUrl}/api/salons/${salonId}`),
@@ -255,6 +269,7 @@ export class BookingProcessor {
           email: data.ownerEmail ?? data.owner?.email ?? '',
           phone: data.ownerPhone ?? data.owner?.phone ?? '',
         },
+        ownerId: data.ownerId ?? '',
         name: data.name ?? '',
         address: data.address ?? '',
       };
@@ -262,9 +277,57 @@ export class BookingProcessor {
       this.logger.warn(`Could not fetch salon ${salonId}: ${(err as Error).message}`);
       return {
         owner: { name: 'Salon Owner', email: '', phone: '' },
+        ownerId: '',
         name: '',
         address: '',
       };
+    }
+  }
+
+  private async pushSseToOwner(
+    salonOwnerId: string,
+    booking: BookingResponseDto,
+  ): Promise<void> {
+    if (!salonOwnerId) {
+      this.logger.warn(
+        `[SSE] salonOwnerId not available for bookingId=${booking.id} — skipping push`,
+      );
+      return;
+    }
+
+    if (!this.internalToken) {
+      this.logger.warn('[SSE] INTERNAL_TOKEN not configured — skipping SSE push');
+      return;
+    }
+
+    try {
+      await firstValueFrom(
+        this.httpService.post(
+          `${this.apiGatewayUrl}/api/notifications/push`,
+          {
+            userId: salonOwnerId,
+            event:  'booking.new',
+            data: {
+              bookingId:       booking.id,
+              clientName:      booking.clientName,
+              serviceName:     booking.serviceName,
+              startTime:       booking.startTime,
+              appointmentDate: booking.appointmentDate,
+            },
+          },
+          {
+            headers: { 'x-internal-token': this.internalToken },
+          },
+        ),
+      );
+      this.logger.log(
+        `[SSE] Pushed booking.new to owner ${salonOwnerId} for bookingId=${booking.id}`,
+      );
+    } catch (err) {
+      // Non-fatal: owner may not have an active SSE connection.
+      this.logger.warn(
+        `[SSE] Failed to push booking.new to owner ${salonOwnerId}: ${(err as Error).message}`,
+      );
     }
   }
 }

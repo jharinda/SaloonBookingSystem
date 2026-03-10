@@ -4,10 +4,12 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from 'primeng/button';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { Textarea } from 'primeng/textarea';
+import { Toast } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { FormsModule } from '@angular/forms';
+import { forkJoin, of } from 'rxjs';
 
-import { ReviewService } from '../services/review.service';
+import { ReviewService, ReviewImage } from '../services/review.service';
 import { Booking } from '@org/models';
 
 const RATING_LABELS: Record<number, string> = {
@@ -18,29 +20,41 @@ const RATING_LABELS: Record<number, string> = {
   5: 'Excellent',
 };
 
+const MAX_IMAGES = 5;
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+interface ImagePreview {
+  file: File;
+  previewUrl: string;
+  uploaded?: ReviewImage;
+}
+
 @Component({
   selector: 'lib-submit-review',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [MessageService],
   imports: [
     DatePipe,
     FormsModule,
     Button,
     ProgressSpinner,
     Textarea,
+    Toast,
   ],
   template: `
+    <p-toast position="top-right" />
     <div class="review-page">
 
-      <!-- ── Loading ─────────────────────────────────────────────────── -->
+      <!-- â”€â”€ Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
       @if (isLoading()) {
         <div class="review-state">
           <p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '48px', height: '48px' }" />
-          <p>Loading booking details…</p>
+          <p>Loading booking detailsâ€¦</p>
         </div>
       }
 
-      <!-- ── Load error ──────────────────────────────────────────────── -->
+      <!-- â”€â”€ Load error â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
       @if (!isLoading() && loadError()) {
         <div class="review-state review-state--error">
           <i class="pi pi-exclamation-circle" style="font-size:2rem;color:var(--p-red-500)"></i>
@@ -49,7 +63,7 @@ const RATING_LABELS: Record<number, string> = {
         </div>
       }
 
-      <!-- ── Booking not completed ────────────────────────────────────── -->
+      <!-- â”€â”€ Booking not completed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
       @if (!isLoading() && !loadError() && booking() && booking()!.status !== 'COMPLETED') {
         <div class="review-state review-state--error">
           <i class="pi pi-info-circle" style="font-size:2rem;color:var(--p-red-500)"></i>
@@ -58,16 +72,16 @@ const RATING_LABELS: Record<number, string> = {
         </div>
       }
 
-      <!-- ── Success ─────────────────────────────────────────────────── -->
+      <!-- â”€â”€ Success â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
       @if (submitted()) {
         <div class="review-state review-state--success">
-          <span class="success-emoji">✅</span>
+          <span class="success-emoji">âœ…</span>
           <p>Thank you for your review!</p>
-          <small>Redirecting you to your appointments…</small>
+          <small>Redirecting you to your appointmentsâ€¦</small>
         </div>
       }
 
-      <!-- ── Form ────────────────────────────────────────────────────── -->
+      <!-- â”€â”€ Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
       @if (!isLoading() && !loadError() && booking() && booking()!.status === 'COMPLETED' && !submitted()) {
         <div class="review-card">
 
@@ -121,7 +135,7 @@ const RATING_LABELS: Record<number, string> = {
               [(ngModel)]="comment"
               rows="4"
               maxlength="500"
-              placeholder="Share your experience…"
+              placeholder="Share your experienceâ€¦"
               class="comment-textarea"
             ></textarea>
             <small
@@ -129,6 +143,69 @@ const RATING_LABELS: Record<number, string> = {
               [class.warn-orange]="comment.length >= 400 && comment.length < 480"
               [class.warn-red]="comment.length >= 480"
             >{{ comment.length }} / 500</small>
+          </div>
+
+          <!-- Image upload -->
+          <div class="images-field">
+            <div class="images-header">
+              <label class="images-label">Photos (optional)</label>
+              <small class="images-hint">Up to {{ maxImages }} images · JPEG, PNG or WebP · max 10 MB each</small>
+            </div>
+
+            <!-- Hidden file input -->
+            <input
+              #fileInput
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              style="display:none"
+              (change)="onFilesSelected($event)"
+            />
+
+            <!-- Preview grid -->
+            @if (imagePreviews().length > 0) {
+              <div class="image-grid">
+                @for (preview of imagePreviews(); track preview.previewUrl; let i = $index) {
+                  <div class="image-thumb">
+                    <img [src]="preview.previewUrl" [alt]="'Image ' + (i + 1)" class="thumb-img" />
+                    <button
+                      type="button"
+                      class="thumb-remove"
+                      (click)="removeImage(i)"
+                      title="Remove"
+                      [disabled]="isSubmitting()"
+                    >
+                      <i class="pi pi-times"></i>
+                    </button>
+                    @if (isUploadingImages() && !preview.uploaded) {
+                      <div class="thumb-uploading">
+                        <i class="pi pi-spin pi-spinner"></i>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Upload drop-zone (visible when under the limit) -->
+            @if (imagePreviews().length < maxImages) {
+              <div
+                class="upload-drop-zone"
+                [class.upload-drop-zone--disabled]="isSubmitting()"
+                (click)="!isSubmitting() && fileInput.click()"
+                (keydown.enter)="!isSubmitting() && fileInput.click()"
+                (keydown.space)="!isSubmitting() && fileInput.click()"
+                tabindex="0"
+                role="button"
+                [attr.aria-label]="'Upload photos'"
+              >
+                <i class="pi pi-cloud-upload upload-zone-icon"></i>
+                <p class="upload-zone-label">
+                  {{ imagePreviews().length === 0 ? 'Click or drag &amp; drop photos here' : 'Add more photos' }}
+                </p>
+                <p class="upload-zone-hint">JPEG, PNG, WebP · max 10 MB · up to {{ maxImages }} images</p>
+              </div>
+            }
           </div>
 
           <!-- Submit -->
@@ -213,6 +290,112 @@ const RATING_LABELS: Record<number, string> = {
     .warn-orange { color: #e65100 !important; }
     .warn-red    { color: #b00020 !important; }
 
+    /* ── Image upload ── */
+    .images-field { display: flex; flex-direction: column; gap: 10px; }
+    .images-header { display: flex; flex-direction: column; gap: 2px; }
+    .images-label { font-weight: 500; font-size: .9rem; color: #374151; }
+    .images-hint  { font-size: .75rem; color: #9ca3af; }
+
+    .upload-drop-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 2px dashed #d1d5db;
+      border-radius: 10px;
+      padding: 24px 16px;
+      cursor: pointer;
+      background: #f9fafb;
+      transition: border-color .2s, background .2s;
+      outline: none;
+
+      &:hover, &:focus {
+        border-color: var(--p-primary-color, #6366f1);
+        background: #f5f3ff;
+      }
+    }
+
+    .upload-drop-zone--disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .upload-zone-icon {
+      font-size: 2rem;
+      color: var(--p-primary-color, #6366f1);
+    }
+
+    .upload-zone-label {
+      margin: 0;
+      font-size: .9rem;
+      font-weight: 500;
+      color: #374151;
+      text-align: center;
+    }
+
+    .upload-zone-hint {
+      margin: 0;
+      font-size: .75rem;
+      color: #9ca3af;
+      text-align: center;
+    }
+
+    .image-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .image-thumb {
+      position: relative;
+      width: 88px;
+      height: 88px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+
+    .thumb-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .thumb-remove {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(0,0,0,.55);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      padding: 0;
+      line-height: 1;
+
+      &:hover { background: rgba(0,0,0,.8); }
+      &:disabled { opacity: .5; cursor: not-allowed; }
+    }
+
+    .thumb-uploading {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 18px;
+    }
+
     .submit-btn {
       align-self: flex-end;
     }
@@ -225,6 +408,7 @@ export class SubmitReviewComponent implements OnInit {
   private readonly msgSvc  = inject(MessageService);
 
   readonly stars = [1, 2, 3, 4, 5];
+  readonly maxImages = MAX_IMAGES;
 
   readonly isLoading = signal(true);
   readonly loadError = signal<string | null>(null);
@@ -234,7 +418,10 @@ export class SubmitReviewComponent implements OnInit {
   readonly selectedRating = signal<number>(0);
 
   readonly isSubmitting = signal(false);
+  readonly isUploadingImages = signal(false);
   readonly submitted = signal(false);
+
+  readonly imagePreviews = signal<ImagePreview[]>([]);
 
   comment = '';
 
@@ -263,6 +450,45 @@ export class SubmitReviewComponent implements OnInit {
     });
   }
 
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files) return;
+
+    const current = this.imagePreviews();
+    const remaining = MAX_IMAGES - current.length;
+    const files = Array.from(input.files).slice(0, remaining);
+
+    const invalid = files.filter((f) => !ALLOWED_TYPES.includes(f.type));
+    if (invalid.length) {
+      this.msgSvc.add({
+        severity: 'warn',
+        summary: 'Invalid file',
+        detail: `Only JPEG, PNG and WebP images are allowed.`,
+        life: 4000,
+      });
+    }
+
+    const valid = files.filter((f) => ALLOWED_TYPES.includes(f.type));
+
+    const newPreviews: ImagePreview[] = valid.map((file) => ({
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    this.imagePreviews.update((prev) => [...prev, ...newPreviews]);
+    // Reset so the same file can be re-selected after removal
+    input.value = '';
+  }
+
+  removeImage(index: number): void {
+    this.imagePreviews.update((prev) => {
+      const copy = [...prev];
+      URL.revokeObjectURL(copy[index].previewUrl);
+      copy.splice(index, 1);
+      return copy;
+    });
+  }
+
   goBack(): void {
     this.router.navigate(['/my-appointments']);
   }
@@ -272,25 +498,52 @@ export class SubmitReviewComponent implements OnInit {
     const salonId = this.booking()?.salonId ?? '';
     this.isSubmitting.set(true);
 
-    this.reviewService
-      .createReview({
-        salonId,
-        bookingId,
-        rating: this.selectedRating(),
-        comment: this.comment,
-      })
-      .subscribe({
-        next: () => {
-          this.isSubmitting.set(false);
-          this.submitted.set(true);
-          setTimeout(() => this.router.navigate(['/my-appointments']), 2000);
-        },
-        error: (err) => {
-          this.isSubmitting.set(false);
-          const msg = err?.error?.message ?? 'Failed to submit review. Please try again.';
-          this.msgSvc.add({ severity: 'error', summary: 'Error', detail: msg, life: 5000 });
-        },
-      });
+    const previews = this.imagePreviews();
+
+    // Upload all pending images first, then submit the review
+    const uploads$ = previews.map((p)  =>
+      p.uploaded ? of(p.uploaded) : this.reviewService.uploadImage(p.file),
+    );
+
+    const uploadAll$ = uploads$.length > 0 ? forkJoin(uploads$) : of([] as ReviewImage[]);
+
+    this.isUploadingImages.set(uploads$.some((_, i) => !previews[i].uploaded));
+
+    uploadAll$.subscribe({
+      next: (images) => {
+        this.isUploadingImages.set(false);
+        // Cache uploaded results back onto previews
+        this.imagePreviews.update((prev) =>
+          prev.map((p, i) => ({ ...p, uploaded: images[i] })),
+        );
+
+        this.reviewService
+          .createReview({
+            salonId,
+            bookingId,
+            rating: this.selectedRating(),
+            comment: this.comment,
+            images: images.length ? images : undefined,
+          })
+          .subscribe({
+            next: () => {
+              this.isSubmitting.set(false);
+              this.submitted.set(true);
+              setTimeout(() => this.router.navigate(['/my-appointments']), 2000);
+            },
+            error: (err) => {
+              this.isSubmitting.set(false);
+              const msg = err?.error?.message ?? 'Failed to submit review. Please try again.';
+              this.msgSvc.add({ severity: 'error', summary: 'Error', detail: msg, life: 5000 });
+            },
+          });
+      },
+      error: (err) => {
+        this.isSubmitting.set(false);
+        this.isUploadingImages.set(false);
+        const msg = err?.error?.message ?? 'Failed to upload images. Please try again.';
+        this.msgSvc.add({ severity: 'error', summary: 'Upload Error', detail: msg, life: 5000 });
+      },
+    });
   }
 }
-

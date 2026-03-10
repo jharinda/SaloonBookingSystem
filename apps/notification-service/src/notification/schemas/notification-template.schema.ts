@@ -7,10 +7,10 @@ export type NotificationTemplateDocument = HydratedDocument<NotificationTemplate
 @Schema({ timestamps: true })
 export class NotificationTemplate {
   /** Unique key used to look up the template, e.g. booking_created */
-  @Prop({ required: true, unique: true, enum: TemplateType })
+  @Prop({ required: true, unique: true, type: String, enum: TemplateType })
   type: TemplateType;
 
-  @Prop({ required: true, enum: NotificationChannel })
+  @Prop({ required: true, type: String, enum: NotificationChannel })
   channel: NotificationChannel;
 
   /** Human-readable label */

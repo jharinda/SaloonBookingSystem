@@ -143,7 +143,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
           }
 
           @if (tab() === 'past') {
-            @if (!booking().hasReview) {
+            @if (!booking().hasReview && booking().status === 'COMPLETED') {
               <p-button
                 icon="pi pi-pencil"
                 label="Leave a Review"

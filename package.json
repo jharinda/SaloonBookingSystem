@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "start:all": "nx run-many --target=serve --projects=api,auth-service,salon-service,booking-service,web --parallel=5",
-    "start:services": "nx run-many --target=serve --projects=api,auth-service,salon-service,booking-service,review-service --parallel",
+    "start:all": "nx run-many --target=serve --projects=api,auth-service,salon-service,booking-service,notification-service,calendar-service,review-service,subscription-service,web --parallel=9",
+    "start:services": "nx run-many --target=serve --projects=api,auth-service,salon-service,booking-service,review-service,notification-service,calendar-service,subscription-service --parallel",
     "start:frontend": "nx run web:serve",
     "infra:up": "docker compose -f docker-compose.dev.yml up -d",
     "infra:down": "docker compose -f docker-compose.dev.yml down",

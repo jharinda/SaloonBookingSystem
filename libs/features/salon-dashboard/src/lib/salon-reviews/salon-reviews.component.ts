@@ -67,6 +67,17 @@ import { Review } from '@org/models';
             <!-- Comment -->
             <p class="review-comment">{{ review.comment }}</p>
 
+            <!-- Review images -->
+            @if (review.images && review.images.length > 0) {
+              <div class="review-images">
+                @for (img of review.images; track img.cloudinaryId) {
+                  <a [href]="img.url" target="_blank" rel="noopener noreferrer" class="review-img-link">
+                    <img [src]="img.url" alt="Review photo" class="review-img" />
+                  </a>
+                }
+              </div>
+            }
+
             <!-- Existing reply -->
             @if (review.ownerReply) {
               <div class="owner-reply">
@@ -184,6 +195,32 @@ import { Review } from '@org/models';
       margin: 0 0 12px;
     }
 
+    .review-images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .review-img-link {
+      display: block;
+      width: 80px;
+      height: 80px;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid #e5e7eb;
+    }
+
+    .review-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: opacity .15s;
+
+      &:hover { opacity: .85; }
+    }
+
     .owner-reply {
       display: flex;
       gap: 10px;
@@ -227,6 +264,7 @@ import { Review } from '@org/models';
       .reviewer-name { color: #f4f4f5; }
       .review-date   { color: #71717a; }
       .review-comment { color: #d4d4d8; }
+      .review-img-link { border-color: #3f3f46; }
       .owner-reply   { background: #27272a; }
       .reply-text    { color: #d4d4d8; }
       .reply-label   { color: #71717a; }

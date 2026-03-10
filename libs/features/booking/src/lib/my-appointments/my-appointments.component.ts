@@ -133,15 +133,24 @@ export class MyAppointmentsComponent implements OnInit, OnDestroy {
     this.allBookings()
       .filter((b) =>
         PAST_STATUSES.includes(b.status) ||
-        // Ended-but-not-yet-completed (backend cron will catch up)
-        (UPCOMING_STATUSES.includes(b.status) && isAppointmentOver(b.appointmentDate, b.endTime)),
+        // Ended-but-not-yet-completed confirmed/in-progress (backend cron will catch up).
+        // Expired PENDING bookings are intentionally excluded here — they go to cancelled.
+        (UPCOMING_STATUSES.includes(b.status) &&
+          b.status !== 'PENDING' &&
+          isAppointmentOver(b.appointmentDate, b.endTime)),
       )
       .sort((a, b) => b.appointmentDate.localeCompare(a.appointmentDate)),
   );
 
   readonly cancelled = computed(() =>
     this.allBookings()
-      .filter((b) => CANCELLED_STATUSES.includes(b.status))
+      .filter(
+        (b) =>
+          CANCELLED_STATUSES.includes(b.status) ||
+          // Expired PENDING: salon never confirmed the booking — treat as cancelled
+          // on the client side until the backend cron catches up.
+          (b.status === 'PENDING' && isAppointmentOver(b.appointmentDate, b.startTime)),
+      )
       .sort((a, b) => b.appointmentDate.localeCompare(a.appointmentDate)),
   );
 
@@ -236,7 +245,7 @@ export class MyAppointmentsComponent implements OnInit, OnDestroy {
   openReviewDialog(booking: RichBooking): void {
     this.reviewDialogRef = this.dialogService.open(WriteReviewDialogComponent, {
       header: 'Leave a Review',
-      width: '460px',
+      width: '520px',
       closable: true,
       data: {
         bookingId:   booking._id,

@@ -64,6 +64,8 @@ export interface Salon {
   isApproved: boolean;
   isActive: boolean;
   ownerId: string;
+  cancellationWindowHours?: number;
+  autoConfirmBookings?: boolean;
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────

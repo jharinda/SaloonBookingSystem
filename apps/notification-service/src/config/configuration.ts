@@ -8,9 +8,11 @@ export default () => ({
     env: process.env['NODE_ENV'] ?? 'development',
   },
   services: {
-    authUrl:  process.env['AUTH_SERVICE_URL']  ?? 'http://localhost:3003',
-    salonUrl: process.env['SALON_SERVICE_URL'] ?? 'http://localhost:3001',
+    authUrl:    process.env['AUTH_SERVICE_URL']    ?? 'http://localhost:3003',
+    salonUrl:   process.env['SALON_SERVICE_URL']   ?? 'http://localhost:3001',
   },
+  gatewayUrl:    process.env['GATEWAY_URL']        ?? 'http://localhost:3000',
+  internalToken: process.env['INTERNAL_TOKEN'],
   db: {
     uri: process.env['MONGODB_URI'],
   },

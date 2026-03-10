@@ -22,6 +22,9 @@ function requiresAuth(path: string, method: string): boolean {
   // --- Always public ---
   if (path.startsWith('/api/auth')) return false;
 
+  // Internal push endpoint is authenticated via X-Internal-Token, not JWT
+  if (path === '/api/notifications/push' && method === 'POST') return false;
+
   // Salon reads are public; mutations and owner-specific routes are protected
   if (path.startsWith('/api/salons') && method === 'GET' && !path.startsWith('/api/salons/owner')) return false;
 
@@ -46,15 +49,24 @@ export class JwtValidationMiddleware implements NestMiddleware {
       return next();
     }
 
-    const authHeader = req.headers['authorization'];
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Primary: Authorization: Bearer <token>
+    // Fallback: ?token= query param — used by browser EventSource for the SSE
+    // stream endpoint because the EventSource API cannot send custom headers.
+    const authHeader  = req.headers['authorization'];
+    const queryToken  = typeof req.query?.['token'] === 'string' ? req.query['token'] as string : null;
+
+    const rawToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : queryToken;
+
+    if (!rawToken) {
       res
         .status(401)
         .json({ statusCode: 401, message: 'Authorization token required' });
       return;
     }
 
-    const token = authHeader.slice(7);
+    const token = rawToken;
 
     try {
       const payload = this.jwtService.verify<JwtPayload>(token, {

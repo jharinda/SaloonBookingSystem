@@ -109,6 +109,8 @@ export interface UpdateSalonInfoDto {
     lat?: number;
     lng?: number;
   };
+  autoConfirmBookings?: boolean;
+  cancellationWindowHours?: number;
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────

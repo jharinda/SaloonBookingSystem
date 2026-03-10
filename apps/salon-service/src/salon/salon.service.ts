@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -17,6 +18,7 @@ import {
   SalonSearchResultDto,
   SalonServiceItemDto,
 } from './dto/salon-response.dto';
+import { UploadService } from '../upload/upload.service';
 
 export interface AdminSalonDto {
   _id:              string;
@@ -33,8 +35,11 @@ export interface AdminSalonDto {
 
 @Injectable()
 export class SalonService {
+  private readonly logger = new Logger(SalonService.name);
+
   constructor(
     @InjectModel(Salon.name) private readonly salonModel: Model<SalonDocument>,
+    private readonly uploadService: UploadService,
   ) {}
 
   async createSalon(
@@ -390,7 +395,8 @@ export class SalonService {
   }
 
   /**
-   * $pull an image by its `cloudinaryId` from the salon's images array.
+   * $pull an image by its `cloudinaryId` from the salon's images array
+   * and permanently delete it from Cloudinary.
    */
   async removeImage(
     salonId: string,
@@ -403,6 +409,15 @@ export class SalonService {
       throw new ForbiddenException('You can only modify your own salon');
     }
 
+    // Verify the image belongs to this salon before touching Cloudinary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const exists = (salon.images as unknown as any[]).some(
+      (img) => img.cloudinaryId === cloudinaryId,
+    );
+    if (!exists) {
+      throw new NotFoundException(`Image "${cloudinaryId}" not found on salon ${salonId}`);
+    }
+
     const updated = await this.salonModel
       .findByIdAndUpdate(
         salonId,
@@ -411,6 +426,18 @@ export class SalonService {
       )
       .lean()
       .exec();
+
+    // Delete the asset from Cloudinary — best-effort so a Cloudinary hiccup
+    // doesn't roll back a successful DB removal from the client's perspective.
+    try {
+      await this.uploadService.deleteImage(cloudinaryId);
+    } catch (err) {
+      this.logger.warn(
+        `DB record removed but Cloudinary deletion failed for "${cloudinaryId}": ${
+          (err as Error).message
+        }`,
+      );
+    }
 
     return this.toResponse(updated as unknown as SalonDocument);
   }

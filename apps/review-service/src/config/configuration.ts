@@ -14,7 +14,13 @@ export default () => ({
     accessSecret: process.env['JWT_ACCESS_SECRET'],
   },
   services: {
-    bookingUrl: process.env['BOOKING_SERVICE_URL'] ?? 'http://localhost:3002',
-    salonUrl:   process.env['SALON_SERVICE_URL']   ?? 'http://localhost:3001',
+    bookingUrl:      process.env['BOOKING_SERVICE_URL']      ?? 'http://localhost:3002',
+    salonUrl:        process.env['SALON_SERVICE_URL']        ?? 'http://localhost:3001',
+    notificationUrl: process.env['NOTIFICATION_SERVICE_URL'] ?? 'http://localhost:3004',
+  },
+  cloudinary: {
+    cloudName: process.env['CLOUDINARY_CLOUD_NAME'],
+    apiKey:    process.env['CLOUDINARY_API_KEY'],
+    apiSecret: process.env['CLOUDINARY_API_SECRET'],
   },
 });

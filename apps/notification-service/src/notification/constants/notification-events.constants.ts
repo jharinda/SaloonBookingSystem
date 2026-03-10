@@ -13,7 +13,17 @@ export enum NotificationEvent {
 
   // Produced by a scheduler (calendar-service / cron) and pushed to this queue
   REMINDER_24HR = 'booking.reminder.24hr',
-  REMINDER_2HR = 'booking.reminder.2hr',
+  REMINDER_2HR  = 'booking.reminder.2hr',
+
+  // In-app (SSE) reminders — scheduled by booking-notification processor
+  REMINDER_15MIN = 'booking.reminder.15min',
+  REMINDER_NOW   = 'booking.reminder.now',
+
+  // Triggered by review-service when a client posts a review
+  REVIEW_POSTED = 'review.posted',
+
+  // Auth events — pushed to the notifications queue by auth-service
+  AUTH_PASSWORD_RESET = 'auth.password_reset',
 }
 
 export enum NotificationChannel {

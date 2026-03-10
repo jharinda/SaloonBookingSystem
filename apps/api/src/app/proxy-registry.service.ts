@@ -11,13 +11,17 @@ export interface RouteEntry {
 }
 
 export const ROUTES: RouteEntry[] = [
-  { prefix: '/api/auth',          name: 'auth-service',         configKey: 'services.authUrl' },
-  { prefix: '/api/users',         name: 'auth-service',         configKey: 'services.authUrl' },
-  { prefix: '/api/salons',        name: 'salon-service',        configKey: 'services.salonUrl' },
-  { prefix: '/api/bookings',      name: 'booking-service',      configKey: 'services.bookingUrl' },
-  { prefix: '/api/reviews',       name: 'review-service',       configKey: 'services.reviewUrl' },
-  { prefix: '/api/calendar',      name: 'calendar-service',     configKey: 'services.calendarUrl' },
-  { prefix: '/api/subscriptions', name: 'subscription-service', configKey: 'services.subscriptionUrl' },
+  { prefix: '/api/auth',                name: 'auth-service',         configKey: 'services.authUrl' },
+  { prefix: '/api/users',               name: 'auth-service',         configKey: 'services.authUrl' },
+  { prefix: '/api/salons',              name: 'salon-service',        configKey: 'services.salonUrl' },
+  { prefix: '/api/bookings',            name: 'booking-service',      configKey: 'services.bookingUrl' },
+  { prefix: '/api/reviews',             name: 'review-service',       configKey: 'services.reviewUrl' },
+  { prefix: '/api/calendar',            name: 'calendar-service',     configKey: 'services.calendarUrl' },
+  { prefix: '/api/subscriptions',       name: 'subscription-service', configKey: 'services.subscriptionUrl' },
+  // Notification inbox — proxied to notification-service.
+  // /api/notifications/stream and /api/notifications/push are handled directly
+  // by NotificationSseController and never reach this catch-all.
+  { prefix: '/api/notifications/inbox', name: 'notification-service', configKey: 'services.notificationUrl' },
   // More-specific admin sub-routes must come before the generic /api/admin entry
   { prefix: '/api/admin/users',   name: 'auth-service',         configKey: 'services.authUrl' },
   { prefix: '/api/admin/reviews', name: 'review-service',       configKey: 'services.reviewUrl' },
@@ -71,10 +75,21 @@ export class ProxyRegistryService implements OnModuleInit {
       const proxy = createProxyMiddleware<Request, Response>({
         target,
         changeOrigin: true,
-        headers: { 'x-forwarded-by': 'snap-salon-gateway' },
+        // Disable persistent keep-alive connections to upstream services.
+        // This prevents ECONNRESET errors caused by the proxy reusing a
+        // connection that the upstream closed while idle (common during
+        // NX watch-mode restarts or after cold starts).
+        headers: { 'x-forwarded-by': 'snap-salon-gateway', 'connection': 'close' },
         on: {
-          error: (err) => {
-            this.logger.error(`[${route.name}] proxy error: ${(err as Error).message}`);
+          error: (err, req, res) => {
+            const e = err as NodeJS.ErrnoException;
+            const detail = e.code ? `${e.code}${e.message ? ': ' + e.message : ''}` : (e.message || String(err));
+            const reqInfo = req ? `${(req as Request).method} ${(req as Request).url}` : '';
+            this.logger.error(`[${route.name}] proxy error${reqInfo ? ' (' + reqInfo + ')' : ''}: ${detail}`);
+            const r = res as Response;
+            if (r && typeof r.headersSent !== 'undefined' && !r.headersSent) {
+              r.status(502).json({ statusCode: 502, message: 'Bad Gateway' });
+            }
           },
           proxyReq: (proxyReq) => {
             if (!proxyReq.getHeader('content-type')) {

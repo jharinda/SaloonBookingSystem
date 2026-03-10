@@ -4,6 +4,9 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { BullModule } from '@nestjs/bull';
+import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -18,6 +21,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({}), // Secrets are injected per-call via ConfigService
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    BullModule.registerQueue({ name: 'notifications' }),
   ],
   controllers: [AuthController],
   providers: [
@@ -26,6 +30,16 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     JwtStrategy,
     GoogleStrategy,
     JwtAuthGuard,
+    {
+      provide: 'REDIS_CLIENT',
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        new Redis({
+          host: config.get<string>('redis.host', 'localhost'),
+          port: config.get<number>('redis.port', 6379),
+          lazyConnect: true,
+        }),
+    },
   ],
   exports: [AuthService, JwtAuthGuard],
 })

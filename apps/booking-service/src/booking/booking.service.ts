@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -18,6 +19,7 @@ import Redis from 'ioredis';
 import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { BookingListQueryDto } from './dto/booking-query.dto';
+import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 import {
   AvailableSlotsResponseDto,
   BookingResponseDto,
@@ -40,6 +42,8 @@ interface SalonOperatingHours {
 /** Minimal shape of the salon-service GET /api/salons/:id response */
 interface SalonResponse {
   operatingHours: SalonOperatingHours[];
+  cancellationWindowHours?: number;
+  autoConfirmBookings?: boolean;
 }
 
 /** Convert "HH:mm" to total minutes since midnight */
@@ -250,6 +254,29 @@ export class BookingService {
 
       const response = this.toResponse(booking);
       await this.bookingQueue.add(BookingEvent.CREATED, response);
+
+      // ── Auto-confirm if the salon has enabled it ─────────────────────
+      try {
+        const salonServiceUrl = this.configService.get<string>(
+          'services.salonUrl',
+          'http://salon-service:3001',
+        );
+        const { data: salonData } = await firstValueFrom(
+          this.httpService.get<SalonResponse>(
+            `${salonServiceUrl}/api/salons/${dto.salonId}`,
+          ),
+        );
+        if (salonData.autoConfirmBookings) {
+          return await this.confirmBooking(String(booking._id));
+        }
+      } catch (err) {
+        this.logger.warn(
+          `Auto-confirm check failed for salon ${dto.salonId}: ${
+            (err as Error).message
+          } — booking left as PENDING`,
+        );
+      }
+
       return response;
     } finally {
       await this.releaseLock(lockKey, lockValue);
@@ -325,6 +352,7 @@ export class BookingService {
   async cancelBooking(
     bookingId: string,
     userId: string,
+    userRole: string,
     reason?: string,
   ): Promise<BookingResponseDto> {
     const booking = await this.bookingModel.findById(bookingId);
@@ -340,6 +368,44 @@ export class BookingService {
       );
     }
 
+    // ── Cancellation window check (clients only) ─────────────────────────────
+    const isClient = userRole === 'client';
+    if (isClient) {
+      const salonServiceUrl = this.configService.get<string>(
+        'services.salonUrl',
+        'http://salon-service:3001',
+      );
+
+      let windowHours = 2;
+      try {
+        const { data } = await firstValueFrom(
+          this.httpService.get<SalonResponse>(
+            `${salonServiceUrl}/api/salons/${booking.salonId.toString()}`,
+          ),
+        );
+        windowHours = data.cancellationWindowHours ?? 2;
+      } catch (err) {
+        this.logger.warn(
+          `Could not fetch cancellation window for salon ${booking.salonId.toString()}: ${(err as Error).message}. Defaulting to ${windowHours}h.`,
+        );
+      }
+
+      const appointmentDateStr = booking.appointmentDate
+        .toISOString()
+        .split('T')[0];
+      const appointmentDt = new Date(
+        `${appointmentDateStr}T${booking.startTime}:00+05:30`,
+      );
+      const msUntilAppointment = appointmentDt.getTime() - Date.now();
+      const windowMs = windowHours * 60 * 60 * 1000;
+
+      if (msUntilAppointment > 0 && msUntilAppointment < windowMs) {
+        throw new BadRequestException(
+          `Cancellations must be made at least ${windowHours} hour${windowHours === 1 ? '' : 's'} before the appointment`,
+        );
+      }
+    }
+
     booking.status = BookingStatus.CANCELLED;
     booking.cancelledBy = userId;
     booking.cancellationReason = reason;
@@ -350,6 +416,67 @@ export class BookingService {
     return response;
   }
 
+  async rescheduleBooking(
+    bookingId: string,
+    dto: RescheduleBookingDto,
+    userId: string,
+  ): Promise<BookingResponseDto> {
+    const booking = await this.bookingModel.findById(bookingId);
+    if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
+
+    // Only the client who created the booking may reschedule
+    if (booking.clientId.toString() !== userId) {
+      throw new ForbiddenException('You can only reschedule your own bookings');
+    }
+
+    const reschedulable: BookingStatus[] = [
+      BookingStatus.PENDING,
+      BookingStatus.CONFIRMED,
+    ];
+    if (!reschedulable.includes(booking.status)) {
+      throw new BadRequestException(
+        `Cannot reschedule a booking with status ${booking.status}`,
+      );
+    }
+
+    // Calculate total service duration (same as at creation time)
+    const totalDuration = booking.services.reduce(
+      (acc, s) => acc + s.durationMinutes,
+      0,
+    );
+
+    // Verify the new slot is available
+    const availability = await this.getAvailableSlots(
+      booking.salonId.toString(),
+      booking.stylistId ? booking.stylistId.toString() : null,
+      dto.appointmentDate,
+      totalDuration,
+    );
+
+    if (!availability.slots.includes(dto.startTime)) {
+      throw new BadRequestException(
+        `The slot ${dto.startTime} on ${dto.appointmentDate} is not available`,
+      );
+    }
+
+    const wasConfirmed = booking.status === BookingStatus.CONFIRMED;
+    const newEndTime = addMinutes(dto.startTime, totalDuration);
+    const newAppointmentDate = new Date(`${dto.appointmentDate}T00:00:00.000Z`);
+
+    booking.appointmentDate = newAppointmentDate;
+    booking.startTime = dto.startTime;
+    booking.endTime = newEndTime;
+    await booking.save();
+
+    const response = this.toResponse(booking);
+
+    if (wasConfirmed) {
+      await this.bookingQueue.add(BookingEvent.RESCHEDULED, response);
+    }
+
+    return response;
+  }
+
   /** Internal: store the Google Calendar event ID returned by calendar-service */
   async setGoogleEventId(
     bookingId: string,
@@ -357,7 +484,21 @@ export class BookingService {
   ): Promise<BookingResponseDto> {
     const booking = await this.bookingModel.findByIdAndUpdate(
       bookingId,
-      { googleEventId },
+      { googleEventId, calendarSyncStatus: 'synced' },
+      { new: true },
+    );
+    if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
+    return this.toResponse(booking);
+  }
+
+  /** Internal: update calendar sync status called by calendar-service */
+  async updateCalendarSyncStatus(
+    bookingId: string,
+    status: 'pending' | 'synced' | 'failed',
+  ): Promise<BookingResponseDto> {
+    const booking = await this.bookingModel.findByIdAndUpdate(
+      bookingId,
+      { calendarSyncStatus: status },
       { new: true },
     );
     if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
@@ -437,6 +578,63 @@ export class BookingService {
       const response = this.toResponse(b as unknown as BookingDocument);
       response.status = BookingStatus.COMPLETED;
       await this.bookingQueue.add(BookingEvent.COMPLETED, response).catch(() => {/* non-fatal */});
+    }
+  }
+
+  // ── Scheduled: auto-cancel expired pending bookings ───────────────────────
+
+  /**
+   * Runs every minute.
+   * Finds PENDING bookings whose appointment start time has already passed and
+   * marks them CANCELLED.  These are bookings the salon never confirmed — the
+   * client should see them as cancelled, not pending, and must NOT be able to
+   * leave a review for them.
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async autoCancelExpiredPendingBookings(): Promise<void> {
+    const now = new Date();
+
+    const tomorrowUtcMidnight = new Date(now);
+    tomorrowUtcMidnight.setUTCHours(0, 0, 0, 0);
+    tomorrowUtcMidnight.setUTCDate(tomorrowUtcMidnight.getUTCDate() + 1);
+
+    const candidates = await this.bookingModel
+      .find({
+        status: BookingStatus.PENDING,
+        appointmentDate: { $lt: tomorrowUtcMidnight },
+      })
+      .lean()
+      .exec();
+
+    // Use startTime (not endTime) — if the appointment start has passed and it
+    // was never confirmed, there is no point waiting for the end time.
+    const expired = candidates.filter((b) => {
+      const apptDate = new Date(b.appointmentDate);
+      const [hStr, mStr = '0'] = b.startTime.split(':');
+      const startDt = new Date(
+        apptDate.getUTCFullYear(),
+        apptDate.getUTCMonth(),
+        apptDate.getUTCDate(),
+        parseInt(hStr, 10),
+        parseInt(mStr, 10),
+      );
+      return startDt.getTime() < now.getTime();
+    });
+
+    if (!expired.length) return;
+
+    const ids = expired.map((b) => b._id);
+    await this.bookingModel.updateMany(
+      { _id: { $in: ids } },
+      { $set: { status: BookingStatus.CANCELLED } },
+    );
+    this.logger.log(`[Scheduler] Auto-cancelled ${expired.length} expired pending booking(s)`);
+
+    // Fire CANCELLED events so downstream consumers (notifications, etc.) are aware.
+    for (const b of expired) {
+      const response = this.toResponse(b as unknown as BookingDocument);
+      response.status = BookingStatus.CANCELLED;
+      await this.bookingQueue.add(BookingEvent.CANCELLED, response).catch(() => {/* non-fatal */});
     }
   }
 
@@ -528,6 +726,7 @@ export class BookingService {
       totalPrice: booking.totalPrice,
       notes: booking.notes ?? undefined,
       googleEventId: booking.googleEventId ?? undefined,
+      calendarSyncStatus: booking.calendarSyncStatus ?? 'pending',
       cancelledBy: booking.cancelledBy ?? undefined,
       cancellationReason: booking.cancellationReason ?? undefined,
       createdAt: booking.createdAt,

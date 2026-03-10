@@ -105,6 +105,14 @@ export class Salon extends Document {
   @Prop({ default: 0, min: 0 })
   reviewCount: number;
 
+  /** Minimum hours before the appointment that a client may cancel (default 2). */
+  @Prop({ default: 2, min: 0 })
+  cancellationWindowHours: number;
+
+  /** When true, new bookings are automatically confirmed without manual owner approval. */
+  @Prop({ default: false })
+  autoConfirmBookings: boolean;
+
   @Prop({
     type: String,
     enum: ['trial', 'active', 'past_due', 'cancelled'],

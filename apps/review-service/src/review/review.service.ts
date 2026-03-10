@@ -115,6 +115,9 @@ export class ReviewService {
     // 5. Recalculate and push salon rating (best-effort)
     await this.syncSalonRating(dto.salonId);
 
+    // 6. Notify salon owner of the new review (best-effort, fire-and-forget)
+    this.notifyReviewPosted(review, booking.clientName).catch(() => { /* swallow */ });
+
     return this.toResponse(review);
   }
 
@@ -199,6 +202,37 @@ export class ReviewService {
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  private async notifyReviewPosted(
+    review: ReviewDocument,
+    clientName: string,
+  ): Promise<void> {
+    const notificationUrl = this.config.get<string>(
+      'services.notificationUrl',
+      'http://localhost:3004',
+    );
+    try {
+      await firstValueFrom(
+        this.httpService.post(
+          `${notificationUrl}/api/notifications/review-posted`,
+          {
+            bookingId:   review.bookingId,
+            salonId:     review.salonId,
+            clientName:  clientName || review.clientName,
+            rating:      review.rating,
+            comment:     review.comment ?? '',
+            serviceName: '',
+          },
+        ),
+      );
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Failed to push review-posted notification: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
 
   private async paginate(
     filter: Record<string, unknown>,

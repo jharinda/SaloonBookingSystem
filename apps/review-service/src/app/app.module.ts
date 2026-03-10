@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ReviewModule } from '../review/review.module';
+import { UploadModule } from '../upload/upload.module';
 import configuration from '../config/configuration';
 import { validationSchema } from '../config/validation.schema';
 
@@ -23,6 +24,7 @@ import { validationSchema } from '../config/validation.schema';
       }),
     }),
     ReviewModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],

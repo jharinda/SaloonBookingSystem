@@ -17,6 +17,7 @@ import { Button } from 'primeng/button';
 import { Menu } from 'primeng/menu';
 
 import { AuthService } from '@org/shared-data-access';
+import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
 
 const THEME_KEY = 'snapsalon-theme';
 
@@ -24,7 +25,7 @@ const THEME_KEY = 'snapsalon-theme';
   selector: 'app-navbar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, Menubar, Button, Menu],
+  imports: [RouterLink, Menubar, Button, Menu, NotificationBellComponent],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.scss',
 })

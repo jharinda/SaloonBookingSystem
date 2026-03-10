@@ -74,6 +74,13 @@ export class Booking extends Document {
   @Prop({ default: null })
   googleEventId: string | null;
 
+  @Prop({
+    type: String,
+    enum: ['pending', 'synced', 'failed'],
+    default: 'pending',
+  })
+  calendarSyncStatus: 'pending' | 'synced' | 'failed';
+
   @Prop({ default: null })
   cancelledBy: string | null;
 
