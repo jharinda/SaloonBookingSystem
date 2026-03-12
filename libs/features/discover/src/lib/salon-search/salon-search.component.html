@@ -7,10 +7,10 @@
 
       <!-- Sticky Search Bar -->
       <div class="search-bar-wrapper" [class.sticky]="hasSearched()">
-        <mat-form-field appearance="outline" class="search-field">
-          <mat-icon matPrefix class="search-icon">location_on</mat-icon>
+        <p-floatlabel class="search-field">
+          <i class="pi pi-map-marker search-icon"></i>
           <input
-            matInput
+            pInputText
             type="search"
             placeholder="Search salons, services, or location…"
             [ngModel]="searchTerm()"
@@ -19,30 +19,30 @@
             autocomplete="off"
           />
           @if (searchTerm()) {
-            <button matSuffix mat-icon-button (click)="removeSearchTerm()" aria-label="Clear search">
-              <mat-icon>close</mat-icon>
+            <button (click)="removeSearchTerm()" aria-label="Clear search">
+              <i class="pi pi-times"></i>
             </button>
           }
-        </mat-form-field>
+        </p-floatlabel>
 
         <button
-          mat-raised-button
-          color="primary"
+          pButton
           class="search-btn"
           (click)="triggerSearchImmediate()"
           [disabled]="isLoading()"
         >
-          <mat-icon>search</mat-icon>
+          <i class="pi pi-search"></i>
           Search
         </button>
 
         <button
-          mat-stroked-button
+          pButton
+          severity="secondary"
           class="near-me-btn"
           (click)="onNearMe()"
           [disabled]="geoLoading()"
         >
-          <mat-icon>my_location</mat-icon>
+          <i class="pi pi-crosshairs"></i>
           Near Me
         </button>
       </div>
@@ -53,133 +53,112 @@
     <!-- ── Filter Chips ──────────────────────────────────────────────────────── -->
     <section class="filter-section" aria-label="Filter options">
       <div class="filter-controls">
-        <mat-form-field appearance="outline" class="filter-select">
-          <mat-label>Service Type</mat-label>
-          <mat-select
-            [value]="filters().serviceType"
-            (valueChange)="onServiceTypeChange($event)"
-          >
-            <mat-option value="">All Services</mat-option>
-            @for (type of serviceTypes; track type) {
-              <mat-option [value]="type">{{ type }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <p-select
+          [options]="serviceTypeOptions"
+          [(ngModel)]="filters().serviceType"
+          (onChange)="onServiceTypeChange($event.value)"
+          placeholder="Service Type"
+          class="filter-select"
+        />
 
-        <mat-form-field appearance="outline" class="filter-select">
-          <mat-label>City</mat-label>
-          <mat-select
-            [value]="filters().city"
-            (valueChange)="onCityChange($event)"
-          >
-            <mat-option value="">All Cities</mat-option>
-            @for (city of cities; track city) {
-              <mat-option [value]="city">{{ city }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <p-select
+          [options]="cityOptions"
+          [(ngModel)]="filters().city"
+          (onChange)="onCityChange($event.value)"
+          placeholder="City"
+          class="filter-select"
+        />
 
-        <mat-form-field appearance="outline" class="filter-select">
-          <mat-label>Price Range</mat-label>
-          <mat-select
-            [value]="filters().priceRange"
-            (valueChange)="onPriceRangeChange($event)"
-          >
-            <mat-option value="">Any Price</mat-option>
-            @for (range of priceRanges; track range.value) {
-              <mat-option [value]="range.value">{{ range.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <p-select
+          [options]="priceRangeOptions"
+          [(ngModel)]="filters().priceRange"
+          (onChange)="onPriceRangeChange($event.value)"
+          placeholder="Price Range"
+          class="filter-select"
+        />
 
-        <mat-form-field appearance="outline" class="filter-select">
-          <mat-label>Rating</mat-label>
-          <mat-select
-            [value]="filters().rating"
-            (valueChange)="onRatingChange($event)"
-          >
-            @for (rating of ratingFilters; track rating.value) {
-              <mat-option [value]="rating.value">{{ rating.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <p-select
+          [options]="ratingOptions"
+          [(ngModel)]="filters().rating"
+          (onChange)="onRatingChange($event.value)"
+          placeholder="Rating"
+          class="filter-select"
+        />
       </div>
 
       <!-- Active Filter Chips -->
       @if (hasActiveFilters()) {
         <div class="active-filters">
-          <mat-chip-set aria-label="Active filters">
+          <div class="flex flex-wrap gap-2" role="group" aria-label="Active filters">
             @if (searchTerm()) {
-              <mat-chip (removed)="removeSearchTerm()" [removable]="true">
-                {{ searchTerm() }}
-                <button matChipRemove aria-label="Remove search term">
-                  <mat-icon>cancel</mat-icon>
-                </button>
-              </mat-chip>
+              <p-chip
+                [label]="searchTerm()"
+                [removable]="true"
+                (onRemove)="removeSearchTerm()"
+                styleClass="filter-chip"
+              />
             }
             @if (filters().serviceType) {
-              <mat-chip (removed)="removeFilter('serviceType')" [removable]="true">
-                {{ filters().serviceType }}
-                <button matChipRemove aria-label="Remove service type filter">
-                  <mat-icon>cancel</mat-icon>
-                </button>
-              </mat-chip>
+              <p-chip
+                [label]="filters().serviceType"
+                [removable]="true"
+                (onRemove)="removeFilter('serviceType')"
+                styleClass="filter-chip"
+              />
             }
             @if (filters().city) {
-              <mat-chip (removed)="removeFilter('city')" [removable]="true">
-                {{ filters().city }}
-                <button matChipRemove aria-label="Remove city filter">
-                  <mat-icon>cancel</mat-icon>
-                </button>
-              </mat-chip>
+              <p-chip
+                [label]="filters().city"
+                [removable]="true"
+                (onRemove)="removeFilter('city')"
+                styleClass="filter-chip"
+              />
             }
             @if (filters().priceRange) {
-              <mat-chip (removed)="removeFilter('priceRange')" [removable]="true">
-                {{ getPriceRangeLabel(filters().priceRange) }}
-                <button matChipRemove aria-label="Remove price range filter">
-                  <mat-icon>cancel</mat-icon>
-                </button>
-              </mat-chip>
+              <p-chip
+                [label]="getPriceRangeLabel(filters().priceRange)"
+                [removable]="true"
+                (onRemove)="removeFilter('priceRange')"
+                styleClass="filter-chip"
+              />
             }
             @if (filters().rating && filters().rating !== '0') {
-              <mat-chip (removed)="removeFilter('rating')" [removable]="true">
-                {{ getRatingLabel(filters().rating) }}
-                <button matChipRemove aria-label="Remove rating filter">
-                  <mat-icon>cancel</mat-icon>
-                </button>
-              </mat-chip>
+              <p-chip
+                [label]="getRatingLabel(filters().rating)"
+                [removable]="true"
+                (onRemove)="removeFilter('rating')"
+                styleClass="filter-chip"
+              />
             }
-          </mat-chip-set>
+          </div>
 
-          <button mat-button color="warn" (click)="clearFilters()" class="clear-all-btn">
-            <mat-icon>clear_all</mat-icon>
+          <button pButton (click)="clearFilters()" severity="danger" outlined class="clear-all-btn">
+            <i class="pi pi-times-circle"></i>
             Clear All
           </button>
         </div>
       }
     </section>
 
-    <!-- ── View Toggle (List / Map) ─────────────────────────────────────────── -->
+    <!-- ── View Toggle & Results Count ────────────────────────────────────────────── -->
     @if (hasSearched() && results().length > 0) {
       <div class="view-controls">
         <div class="results-count">
           <strong>{{ results().length }}</strong> {{ results().length === 1 ? 'salon' : 'salons' }} found
         </div>
 
-        <mat-button-toggle-group
-          [value]="viewMode()"
-          (change)="toggleViewMode($event.value)"
-          aria-label="View mode"
+        <p-selectbutton
+          [options]="viewModeOptions"
+          [ngModel]="viewMode()"
+          (ngModelChange)="toggleViewMode($event)"
+          optionLabel="label"
+          optionValue="value"
         >
-          <mat-button-toggle value="list">
-            <mat-icon>view_list</mat-icon>
-            List
-          </mat-button-toggle>
-          <mat-button-toggle value="map">
-            <mat-icon>map</mat-icon>
-            Map
-          </mat-button-toggle>
-        </mat-button-toggle-group>
+          <ng-template let-item>
+            <i [class]="item.icon"></i>
+            {{ item.label }}
+          </ng-template>
+        </p-selectbutton>
       </div>
     }
 
@@ -187,7 +166,7 @@
     @if (!hasActiveFilters() && !hasSearched() && !isLoading()) {
       <section class="featured-section" aria-label="All salons">
         <h2 class="section-heading">
-          <mat-icon class="section-icon">storefront</mat-icon>
+          <i class="pi pi-building section-icon"></i>
           All Salons
         </h2>
         <div class="salon-grid">
@@ -202,17 +181,17 @@
     @if (isLoading()) {
       <div class="salon-grid" aria-label="Loading salons…" aria-busy="true">
         @for (item of skeletonItems; track item) {
-          <mat-card class="skeleton-card" aria-hidden="true">
+          <p-card class="skeleton-card" aria-hidden="true">
             <div class="skeleton-image shimmer"></div>
-            <mat-card-content>
+            <div class="p-card-content">
               <div class="skeleton-line shimmer skeleton-title"></div>
               <div class="skeleton-line shimmer skeleton-subtitle"></div>
               <div class="skeleton-line shimmer"></div>
               <div class="skeleton-line shimmer skeleton-short"></div>
               <div class="skeleton-line shimmer"></div>
               <div class="skeleton-btn shimmer"></div>
-            </mat-card-content>
-          </mat-card>
+            </div>
+          </p-card>
         }
       </div>
     }
@@ -228,36 +207,22 @@
 
     <!-- ── Results (Map View) ───────────────────────────────────────────────────── -->
     @if (!isLoading() && viewMode() === 'map' && results().length > 0) {
-      <div class="map-container">
-        <google-map
-          [center]="mapCenter()"
-          [zoom]="mapZoom()"
-          [options]="mapOptions"
-          width="100%"
-          height="600px"
-        >
-          @for (marker of mapMarkers(); track marker.position.lat + ',' + marker.position.lng) {
-            <map-marker
-              [position]="marker.position"
-              [title]="marker.title"
-              (mapClick)="onMarkerClick(marker.salon)"
-            />
-          }
-        </google-map>
+      <div class="map-wrapper">
+        <div #mapContainer class="map-container"></div>
       </div>
     }
 
     <!-- ── Empty state ──────────────────────────────────────────────────────────── -->
     @if (!isLoading() && hasSearched() && results().length === 0 && !error()) {
       <div class="empty-state" role="status">
-        <mat-icon class="empty-icon">search_off</mat-icon>
+        <i class="pi pi-search-minus empty-icon"></i>
         <h2 class="empty-title">No salons found</h2>
         <p class="empty-message">
           We couldn't find any salons matching <strong>{{ activeQuery() }}</strong>.
           Try different search terms or adjust your filters.
         </p>
-        <button mat-stroked-button (click)="clearFilters()">
-          <mat-icon>refresh</mat-icon>
+        <button pButton outlined (click)="clearFilters()">
+          <i class="pi pi-refresh"></i>
           Clear Filters
         </button>
       </div>
@@ -266,11 +231,11 @@
     <!-- ── Error state ──────────────────────────────────────────────────────────── -->
     @if (!isLoading() && error()) {
       <div class="error-state" role="alert">
-        <mat-icon class="error-icon">error_outline</mat-icon>
+        <i class="pi pi-exclamation-triangle error-icon"></i>
         <h2 class="error-title">Something went wrong</h2>
         <p class="error-message">{{ error() }}</p>
-        <button mat-raised-button color="primary" (click)="retrySearch()">
-          <mat-icon>refresh</mat-icon>
+        <button pButton (click)="retrySearch()">
+          <i class="pi pi-refresh"></i>
           Try Again
         </button>
       </div>

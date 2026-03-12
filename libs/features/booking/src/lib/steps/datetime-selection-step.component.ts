@@ -7,9 +7,8 @@ import {
   OnInit,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { ButtonModule } from 'primeng/button';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { BookingStateService } from '../services/booking-state.service';
 import { BookingService } from '@org/shared-data-access';
@@ -29,9 +28,8 @@ import { BookingSlot } from '@org/models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
+    ButtonModule,
+    ProgressSpinnerModule,
   ],
   templateUrl: './datetime-selection-step.component.html',
   styleUrl: './datetime-selection-step.component.scss',

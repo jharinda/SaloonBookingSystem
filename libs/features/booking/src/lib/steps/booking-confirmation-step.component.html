@@ -7,20 +7,22 @@
   </div>
 
   <!-- Booking Summary Card -->
-  <mat-card class="summary-card">
-    <mat-card-header>
-      <mat-icon class="summary-card__icon">event_available</mat-icon>
-      <div class="summary-card__header-text">
-        <h3 class="summary-card__title">Booking Summary</h3>
-        <p class="summary-card__subtitle">{{ salon()?.name }}</p>
+  <p-card class="summary-card">
+    <ng-template pTemplate="header">
+      <div class="summary-card__header-content">
+        <i class="pi pi-calendar-check summary-card__icon"></i>
+        <div class="summary-card__header-text">
+          <h3 class="summary-card__title">Booking Summary</h3>
+          <p class="summary-card__subtitle">{{ salon()?.name }}</p>
+        </div>
       </div>
-    </mat-card-header>
+    </ng-template>
 
-    <mat-card-content>
+    <ng-template pTemplate="content">
       <!-- Services -->
       <div class="summary-section">
         <div class="summary-section__label">
-          <mat-icon>content_cut</mat-icon>
+          <i class="pi pi-scissors"></i>
           <span>Services</span>
         </div>
         <div class="summary-section__content">
@@ -37,7 +39,7 @@
       <!-- Stylist -->
       <div class="summary-section">
         <div class="summary-section__label">
-          <mat-icon>person</mat-icon>
+          <i class="pi pi-user"></i>
           <span>Stylist</span>
         </div>
         <div class="summary-section__content">
@@ -48,7 +50,7 @@
       <!-- Date & Time -->
       <div class="summary-section">
         <div class="summary-section__label">
-          <mat-icon>schedule</mat-icon>
+          <i class="pi pi-clock"></i>
           <span>Date & Time</span>
         </div>
         <div class="summary-section__content">
@@ -62,7 +64,7 @@
       <!-- Total Price -->
       <div class="summary-section summary-section--total">
         <div class="summary-section__label">
-          <mat-icon>paid</mat-icon>
+          <i class="pi pi-dollar"></i>
           <span>Total</span>
         </div>
         <div class="summary-section__content">
@@ -71,34 +73,36 @@
           </p>
         </div>
       </div>
-    </mat-card-content>
-  </mat-card>
+    </ng-template>
+  </p-card>
 
   <!-- Notes Section -->
-  <mat-card class="notes-card">
-    <mat-card-header>
-      <mat-icon class="notes-card__icon">comment</mat-icon>
-      <h3 class="notes-card__title">Special Requests (Optional)</h3>
-    </mat-card-header>
-    <mat-card-content>
-      <mat-form-field class="notes-field" appearance="outline">
-        <mat-label>Add any special requests or notes</mat-label>
+  <p-card class="notes-card">
+    <ng-template pTemplate="header">
+      <div class="notes-card__header-content">
+        <i class="pi pi-comment notes-card__icon"></i>
+        <h3 class="notes-card__title">Special Requests (Optional)</h3>
+      </div>
+    </ng-template>
+    <ng-template pTemplate="content">
+      <p-floatlabel class="notes-field">
         <textarea
-          matInput
-          [value]="notes()"
-          (input)="updateNotes($any($event.target).value)"
+          pInputText
+          id="booking-notes"
+          [ngModel]="notes()"
+          (ngModelChange)="updateNotes($event)"
           rows="4"
           placeholder="E.g., parking preferences, specific styling requests, allergies..."
         ></textarea>
-        <mat-icon matSuffix>edit_note</mat-icon>
-      </mat-form-field>
-    </mat-card-content>
-  </mat-card>
+        <label for="booking-notes">Add any special requests or notes</label>
+      </p-floatlabel>
+    </ng-template>
+  </p-card>
 
   <!-- Error Message -->
   @if (submitError()) {
     <div class="error-message">
-      <mat-icon>error_outline</mat-icon>
+      <i class="pi pi-exclamation-circle"></i>
       <p>{{ submitError() }}</p>
     </div>
   }
@@ -106,18 +110,17 @@
   <!-- Confirm Button -->
   <div class="confirm-actions">
     <button
-      mat-raised-button
-      color="primary"
+      pButton
       class="confirm-button"
       [disabled]="submitting()"
       (click)="confirmBooking()"
     >
       @if (submitting()) {
-        <mat-spinner diameter="20" class="confirm-button__spinner"></mat-spinner>
+        <p-progressspinner strokeWidth="4" [style]="{width:'20px',height:'20px'}" class="confirm-button__spinner" />
         <span>Confirming...</span>
       } @else {
         <ng-container>
-          <mat-icon>check_circle</mat-icon>
+          <i class="pi pi-check-circle"></i>
           <span>Confirm Booking</span>
         </ng-container>
       }

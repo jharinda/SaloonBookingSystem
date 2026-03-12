@@ -175,7 +175,7 @@ type DayKey = (typeof DAYS)[number]['key'];
       gap: 12px;
     }
 
-    button[mat-flat-button] {
+    button.p-button {
       display: flex;
       align-items: center;
       gap: 6px;

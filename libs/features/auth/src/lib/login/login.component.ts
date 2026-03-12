@@ -10,6 +10,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -78,12 +79,12 @@ export class LoginComponent {
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/discover';
         void this.router.navigateByUrl(returnUrl);
       },
-      error: (err: { status?: number }) => {
+      error: (err: HttpErrorResponse) => {
         this.isLoading.set(false);
+        // Show the actual error message from the backend
+        const message = err?.error?.message || err?.message;
         this.errorMessage.set(
-          err?.status === 401
-            ? 'Invalid credentials. Please try again.'
-            : 'Something went wrong. Please try again later.',
+          message || 'Something went wrong. Please try again later.'
         );
       },
     });

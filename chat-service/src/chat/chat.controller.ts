@@ -41,8 +41,8 @@ export class ChatController {
     @CurrentUser() user: JwtUser,
     @Body() dto: CreateConversationDto,
   ): Promise<Conversation> {
-    this.logger.log(`Creating/finding conversation: client=${user.sub}, salon=${dto.salonId}`);
-    return this.chatService.findOrCreateConversation(user.sub, dto.salonId);
+    this.logger.log(`Creating/finding conversation: client=${user.email}, salon=${dto.salonId}`);
+    return this.chatService.findOrCreateConversation(user.sub, dto.salonId, user.email);
   }
 
   /**
@@ -55,13 +55,13 @@ export class ChatController {
   async getConversations(
     @CurrentUser() user: JwtUser,
   ): Promise<ConversationWithUnread[]> {
-    this.logger.log(`Fetching conversations for user ${user.sub}`);
+    this.logger.log(`Fetching conversations for user ${user.email}, role: ${user.role}`);
 
-    // Pass salonId if user has one (they're a salon owner)
-    // The user object from JWT might have a salonId property for salon owners
-    const salonId = 'salonId' in user ? (user as JwtUser & { salonId: string }).salonId : undefined;
+    // For salon owners, their user ID IS the salonId in conversations
+    // For clients, we don't pass a salonId
+    const salonId = user.role === 'salon_owner' ? user.sub : undefined;
 
-    return this.chatService.getUserConversations(user.sub, salonId);
+    return this.chatService.getUserConversations(user.sub, user.role, salonId);
   }
 
   /**
@@ -79,7 +79,7 @@ export class ChatController {
     const limit = parseInt(query.limit || '50', 10);
 
     this.logger.log(
-      `Fetching messages: conversation=${conversationId}, user=${user.sub}, page=${page}, limit=${limit}`
+      `Fetching messages: conversation=${conversationId}, user=${user.email}, page=${page}, limit=${limit}`
     );
 
     return this.chatService.getConversationMessages(
@@ -100,7 +100,7 @@ export class ChatController {
     @CurrentUser() user: JwtUser,
     @Param('id') messageId: string,
   ): Promise<void> {
-    this.logger.log(`Deleting message ${messageId} by user ${user.sub}`);
-    await this.chatService.deleteMessage(messageId, user.sub);
+    this.logger.log(`Deleting message ${messageId} by user ${user.email}`);
+    await this.chatService.deleteMessage(messageId, user.sub, user.email);
   }
 }

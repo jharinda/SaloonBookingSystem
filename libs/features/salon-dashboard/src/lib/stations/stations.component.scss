@@ -1,3 +1,5 @@
+@use "sass:color";
+
 .stations-container {
   padding: 1rem;
 }
@@ -11,7 +13,7 @@
 }
 
 .stat-card {
-  background: white;
+  background: var(--p-surface-0);
   border-radius: 8px;
   padding: 1.5rem;
   display: flex;
@@ -34,7 +36,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(33, 150, 243, 0.1);
+  background: var(--p-primary-100);
 }
 
 .stat-icon.success {
@@ -48,26 +50,26 @@
 }
 
 .stat-icon.info {
-  color: #2196f3;
-  background: rgba(33, 150, 243, 0.1);
+  color: var(--p-primary-500);
+  background: var(--p-primary-100);
 }
 
 .stat-content h3 {
   margin: 0;
   font-size: 2rem;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--p-surface-900);
 }
 
 .stat-content p {
   margin: 0.25rem 0 0 0;
   font-size: 0.875rem;
-  color: #666;
+  color: var(--p-surface-500);
 }
 
 /* Stations Table */
 .stations-table {
-  background: white;
+  background: var(--p-surface-0);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -88,7 +90,7 @@
 .status-label {
   font-weight: 500;
   font-size: 0.875rem;
-  color: #666;
+  color: var(--p-surface-500);
 }
 
 .status-label.active {
@@ -110,7 +112,7 @@
   display: block;
   font-weight: 600;
   margin-bottom: 0.5rem;
-  color: #666;
+  color: var(--p-surface-500);
 }
 
 /* Empty State */
@@ -162,5 +164,32 @@
   ::ng-deep .p-dialog {
     width: 90vw !important;
     max-width: 450px;
+  }
+}
+
+/* Dark Mode */
+:host-context(.app-dark) {
+  .stat-card {
+    background: var(--p-surface-900);
+  }
+
+  .stat-content h3 {
+    color: var(--p-surface-0);
+  }
+
+  .stat-content p {
+    color: var(--p-surface-400);
+  }
+
+  .stations-table {
+    background: var(--p-surface-900);
+  }
+
+  .status-label {
+    color: var(--p-surface-400);
+  }
+
+  .dialog-content label {
+    color: var(--p-surface-400);
   }
 }

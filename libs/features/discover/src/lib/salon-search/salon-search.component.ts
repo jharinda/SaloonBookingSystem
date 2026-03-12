@@ -2,31 +2,48 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  ElementRef,
   inject,
   signal,
+  viewChild,
+  ViewEncapsulation,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, debounceTime, Observable, of, Subject, switchMap } from 'rxjs';
+import * as L from 'leaflet';
 
-// Angular Material
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatSelectModule } from '@angular/material/select';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatCardModule } from '@angular/material/card';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-
-// Google Maps
-import { GoogleMapsModule } from '@angular/google-maps';
+// PrimeNG
+import { InputTextModule } from 'primeng/inputtext';
+import { FloatLabelModule } from 'primeng/floatlabel';
+import { SelectModule } from 'primeng/select';
+import { ButtonModule } from 'primeng/button';
+import { ChipModule } from 'primeng/chip';
+import { CardModule } from 'primeng/card';
+import { SelectButtonModule } from 'primeng/selectbutton';
 
 import { Salon, SalonSearchResponse } from '@org/models';
 import { SalonService, SearchParams } from '@org/shared-data-access';
 import { SalonCardComponent } from '../salon-card/salon-card.component';
+
+// ─── Leaflet icon fix ────────────────────────────────────────────────────────
+
+const DEFAULT_ICON = L.icon({
+  iconUrl:       'assets/leaflet/marker-icon.png',
+  iconRetinaUrl: 'assets/leaflet/marker-icon-2x.png',
+  shadowUrl:     'assets/leaflet/marker-shadow.png',
+  iconSize:    [25, 41],
+  iconAnchor:  [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize:  [41, 41],
+});
+
+L.Marker.prototype.options.icon = DEFAULT_ICON;
+
+// Default center — Colombo, Sri Lanka
+const COLOMBO: L.LatLngTuple = [6.9271, 79.8612];
+const DEFAULT_ZOOM = 12;
 
 // ─── Static filter options ────────────────────────────────────────────────────
 
@@ -88,19 +105,17 @@ type ViewMode = 'list' | 'map';
   selector: 'lib-salon-search',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
   imports: [
     CommonModule,
     FormsModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatIconModule,
-    MatButtonModule,
-    MatChipsModule,
-    MatSelectModule,
-    MatButtonToggleModule,
-    MatCardModule,
-    MatProgressSpinnerModule,
-    GoogleMapsModule,
+    InputTextModule,
+    FloatLabelModule,
+    SelectModule,
+    ButtonModule,
+    ChipModule,
+    CardModule,
+    SelectButtonModule,
     SalonCardComponent,
   ],
   templateUrl: './salon-search.component.html',
@@ -109,6 +124,9 @@ type ViewMode = 'list' | 'map';
 export class SalonSearchComponent {
   // ── Services ────────────────────────────────────────────────────────────────
   private readonly salonService = inject(SalonService);
+
+  // ── View references ──────────────────────────────────────────────────────────
+  private readonly mapContainer = viewChild<ElementRef<HTMLDivElement>>('mapContainer');
 
   // ── State (signals) ──────────────────────────────────────────────────────────
   readonly searchTerm = signal('');
@@ -126,16 +144,11 @@ export class SalonSearchComponent {
   readonly geoLoading = signal(false);
   readonly viewMode = signal<ViewMode>('list');
 
-  // ── Map state ───────────────────────────────────────────────────────────────
-  readonly mapCenter = signal<google.maps.LatLngLiteral>({ lat: 6.9271, lng: 79.8612 }); // Colombo
-  readonly mapZoom = signal(12);
-  readonly mapOptions: google.maps.MapOptions = {
-    disableDefaultUI: false,
-    zoomControl: true,
-    mapTypeControl: false,
-    streetViewControl: false,
-    fullscreenControl: true,
-  };
+  // ── Map state ────────────────────────────────────────────────────────────────
+  private map: L.Map | null = null;
+  private markers: L.Marker[] = [];
+  readonly mapCenter = signal<L.LatLngTuple>(COLOMBO);
+  readonly mapZoom = signal(DEFAULT_ZOOM);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   readonly hasActiveFilters = computed(
@@ -173,22 +186,22 @@ export class SalonSearchComponent {
     return parts.join(', ') || 'your search';
   });
 
-  readonly mapMarkers = computed(() =>
-    this.results()
-      .filter((s) => s.address?.lat && s.address?.lng)
-      .map((s) => ({
-        position: { lat: s.address!.lat!, lng: s.address!.lng! },
-        title: s.name,
-        salon: s,
-      })),
-  );
-
   // ── Static options ────────────────────────────────────────────────────────────
   readonly serviceTypes = SERVICE_TYPES;
   readonly priceRanges = PRICE_RANGES;
   readonly ratingFilters = RATING_FILTERS;
   readonly cities = CITIES;
   readonly skeletonItems = Array.from({ length: 6 }, (_, i) => i);
+
+  // Options for PrimeNG selects
+  readonly serviceTypeOptions = SERVICE_TYPES.map(type => ({ label: type, value: type }));
+  readonly cityOptions = CITIES.map(city => ({ label: city, value: city }));
+  readonly priceRangeOptions = PRICE_RANGES.map(range => ({ label: range.label, value: range.value }));
+  readonly ratingOptions = RATING_FILTERS.map(rating => ({ label: rating.label, value: rating.value }));
+  readonly viewModeOptions = [
+    { label: 'List', value: 'list', icon: 'pi pi-list' },
+    { label: 'Map', value: 'map', icon: 'pi pi-map' },
+  ];
 
   // ── RxJS pipeline (debounced search) ─────────────────────────────────────────
   private readonly searchTrigger$ = new Subject<SearchParams>();
@@ -217,11 +230,17 @@ export class SalonSearchComponent {
         this.hasSearched.set(true);
 
         // Center map on first result if available
-        if (response.data.length > 0 && response.data[0].address?.lat && response.data[0].address?.lng) {
-          this.mapCenter.set({
-            lat: response.data[0].address.lat,
-            lng: response.data[0].address.lng,
-          });
+        const firstResult = response.data[0];
+        if (firstResult?.address?.lat && firstResult.address.lng) {
+          this.mapCenter.set([firstResult.address.lat, firstResult.address.lng]);
+          if (this.map) {
+            this.map.setView([firstResult.address.lat, firstResult.address.lng], DEFAULT_ZOOM);
+          }
+        }
+
+        // Update markers if map is visible
+        if (this.viewMode() === 'map' && this.map) {
+          this.updateMapMarkers();
         }
       });
 
@@ -292,7 +311,10 @@ export class SalonSearchComponent {
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         this.geoLoading.set(false);
-        this.mapCenter.set({ lat: coords.latitude, lng: coords.longitude });
+        this.mapCenter.set([coords.latitude, coords.longitude]);
+        if (this.map) {
+          this.map.setView([coords.latitude, coords.longitude], DEFAULT_ZOOM);
+        }
         const query: SearchParams = {
           lat: coords.latitude,
           lng: coords.longitude,
@@ -312,11 +334,10 @@ export class SalonSearchComponent {
 
   toggleViewMode(mode: ViewMode): void {
     this.viewMode.set(mode);
-  }
-
-  onMarkerClick(salon: Salon): void {
-    // Could open salon detail or show info window
-    console.log('Marker clicked:', salon.name);
+    if (mode === 'map') {
+      // Initialize map if needed
+      setTimeout(() => this.initializeMap(), 100);
+    }
   }
 
   getPriceRangeLabel(value: string): string {
@@ -328,6 +349,8 @@ export class SalonSearchComponent {
     const rating = RATING_FILTERS.find((r) => r.value === value);
     return rating?.label || '';
   }
+
+  // ── Private helpers ────────────────────────────────────────────────────────────
 
   private loadAllSalons(): void {
     this.isLoading.set(true);
@@ -341,8 +364,6 @@ export class SalonSearchComponent {
       },
     });
   }
-
-  // ── Private helpers ────────────────────────────────────────────────────────────
 
   triggerSearchImmediate(): void {
     if (!this.searchTerm() && !this.hasActiveFilters()) return;
@@ -362,6 +383,61 @@ export class SalonSearchComponent {
       city: this.filters().city || undefined,
     };
     this.searchTrigger$.next(query);
+  }
+
+  // ── Map methods ────────────────────────────────────────────────────────────
+
+  private initializeMap(): void {
+    const container = this.mapContainer()?.nativeElement;
+    if (!container || this.map) return;
+
+    this.map = L.map(container, {
+      center: this.mapCenter(),
+      zoom: this.mapZoom(),
+      zoomControl: true,
+      attributionControl: true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(this.map);
+
+    this.updateMapMarkers();
+  }
+
+  private updateMapMarkers(): void {
+    if (!this.map) return;
+
+    // Clear existing markers
+    this.markers.forEach(m => m.remove());
+    this.markers = [];
+
+    // Add markers for results with valid coordinates
+    const salons = this.results().filter(s => s.address?.lat && s.address?.lng);
+
+    salons.forEach(salon => {
+      if (!salon.address?.lat || !salon.address?.lng || !this.map) return;
+
+      const marker = L.marker([salon.address.lat, salon.address.lng])
+        .addTo(this.map)
+        .bindPopup(`
+          <div class="salon-popup">
+            <h3>${salon.name}</h3>
+            <p>${salon.address.street || ''}</p>
+            <p>${salon.address.city || ''}</p>
+            ${salon.rating ? `<p>⭐ ${salon.rating.toFixed(1)}</p>` : ''}
+          </div>
+        `);
+
+      this.markers.push(marker);
+    });
+
+    // Fit bounds if there are markers
+    if (this.markers.length > 0) {
+      const group = L.featureGroup(this.markers);
+      this.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+    }
   }
 }
 

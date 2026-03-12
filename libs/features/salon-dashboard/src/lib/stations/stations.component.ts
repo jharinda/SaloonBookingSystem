@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, signal, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -20,6 +20,7 @@ interface Station {
 
 @Component({
   selector: 'lib-stations',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [
     CommonModule,
@@ -34,7 +35,7 @@ interface Station {
   ],
   providers: [MessageService],
   templateUrl: './stations.component.html',
-  styleUrl: './stations.component.css'
+  styleUrl: './stations.component.scss'
 })
 export class StationsComponent implements OnInit {
   private readonly messageService = inject(MessageService);

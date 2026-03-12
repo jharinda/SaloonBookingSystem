@@ -1,20 +1,19 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    Salon Search Page — Mobile-First Design
-   Design System: Primary #1A5276 (deep blue), Accent #117A65 (teal)
+   Design System: Primary #7C3AED (Violet-700), Accent #10B981 (Emerald-500)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @use 'sass:color';
-@use '@angular/material' as mat;
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
-$primary-color: #1A5276;
-$accent-color: #117A65;
+$primary-color: #7C3AED;
+$accent-color: #10B981;
 $warm-grey-50: #FAFAF9;
 $warm-grey-100: #F5F5F4;
 $warm-grey-200: #E7E5E4;
 $warm-grey-400: #A8A29E;
 $warm-grey-600: #57534E;
-$warm-grey-900: #1C1917;
+$warm-grey-900: #18181B;
 
 $border-radius: 12px;
 $shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -251,18 +250,41 @@ $desktop: 1024px;
   }
 }
 
-::ng-deep .mat-button-toggle-group {
+// ─── Map Container ─────────────────────────────────────────────────────────────
+
+.map-wrapper {
+  margin-bottom: 32px;
   border-radius: $border-radius;
   overflow: hidden;
-  box-shadow: $shadow-sm;
+  box-shadow: $shadow-lg;
 }
 
-::ng-deep .mat-button-toggle {
-  font-weight: 500;
+.map-container {
+  width: 100%;
+  height: 600px;
+  background: $warm-grey-100;
 
-  &.mat-button-toggle-checked {
-    background-color: $primary-color;
-    color: white;
+  @media (max-width: $tablet) {
+    height: 450px;
+  }
+
+  @media (max-width: $mobile) {
+    height: 350px;
+  }
+}
+
+::ng-deep .salon-popup {
+  h3 {
+    margin: 0 0 8px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: $warm-grey-900;
+  }
+
+  p {
+    margin: 4px 0;
+    font-size: 0.875rem;
+    color: $warm-grey-600;
   }
 }
 

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
+import { HttpModule } from '@nestjs/axios';
 
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
@@ -11,6 +12,7 @@ import { SharedAuthModule } from '@org/shared-auth';
 @Module({
   imports: [
     SharedAuthModule.forRoot(),
+    HttpModule,
     MongooseModule.forFeature([
       { name: UserProfile.name, schema: UserProfileSchema },
     ]),

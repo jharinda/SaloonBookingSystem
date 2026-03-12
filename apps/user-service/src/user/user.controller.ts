@@ -21,7 +21,7 @@ import {
   WorkingHoursDto,
   NotificationPreferencesResponseDto,
 } from './dto/user-profile.dto';
-import { JwtAuthGuard, CurrentUser, JwtUser, RolesGuard, Roles, UserRole } from '@org/shared-auth';
+import { JwtAuthGuard, CurrentUser, JwtUser, RolesGuard, Roles, UserRole, Public } from '@org/shared-auth';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -119,12 +119,14 @@ export class UserController {
   // ── Public / Inter-Service Endpoints ──────────────────────────────────────
 
   /** GET /api/users/:userId/basic-info */
+  @Public()
   @Get(':userId/basic-info')
   async getUserBasicInfo(@Param('userId') userId: string) {
     return this.userService.getUserBasicInfo(userId);
   }
 
   /** GET /api/users/email/:email */
+  @Public()
   @Get('email/:email')
   async getUserByEmail(@Param('email') email: string) {
     return this.userService.getProfileByEmail(email);

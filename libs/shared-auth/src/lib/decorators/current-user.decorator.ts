@@ -5,6 +5,7 @@ export interface JwtUser {
   sub: string;
   email: string;
   role: string;
+  salonId?: string; // Optional: for salon owners
 }
 
 export const CurrentUser = createParamDecorator(

@@ -11,13 +11,13 @@ import { InjectModel } from '@nestjs/mongoose';
 import { InjectQueue } from '@nestjs/bull';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Model } from 'mongoose';
+import { Model, Schema as MongooseSchema } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import type { Queue } from 'bull';
 import type Redis from 'ioredis';
 
-import { User, UserDocument } from './schemas/user.schema';
+import { User, UserDocument, PortfolioReview } from './schemas/user.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -72,7 +72,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
 
-    const userData: any = {
+    const userData: Partial<User> = {
       email: dto.email.toLowerCase(),
       passwordHash,
       firstName: dto.firstName,
@@ -137,6 +137,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    // If user registered via OAuth, they don't have a password
+    if (!user.passwordHash) {
+      throw new UnauthorizedException('This account was created with Google. Please sign in with Google.');
+    }
+
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
       // Increment failed login attempts
@@ -155,11 +160,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    if (!user.isEmailVerified) {
-      throw new UnauthorizedException(
-        'Please verify your email before logging in. Check your inbox for a verification link.',
-      );
-    }
+    // TODO: Re-enable email verification once email integration is complete
+    // if (!user.isEmailVerified) {
+    //   throw new UnauthorizedException(
+    //     'Please verify your email before logging in. Check your inbox for a verification link.',
+    //   );
+    // }
 
     if (user.isActive === false) {
       throw new UnauthorizedException(
@@ -411,7 +417,7 @@ export class AuthService {
       return { user: this.toUserResponse(existing), ...tokens };
     }
 
-    const userData: any = {
+    const userData: Partial<User> = {
       googleId: payload.googleId,
       email: payload.email,
       firstName: payload.firstName,
@@ -630,7 +636,7 @@ export class AuthService {
     }
 
     // Update stylist profile
-    user.stylistProfile.currentSalonId = salonId as any;
+    user.stylistProfile.currentSalonId = new MongooseSchema.Types.ObjectId(salonId) as unknown as typeof user.stylistProfile.currentSalonId;
     user.stylistProfile.joinRequestStatus = 'pending';
     await user.save();
 
@@ -677,19 +683,19 @@ export class AuthService {
     }
 
     // Build query filter
-    const filter: any = {
+    const filter: Record<string, unknown> = {
       role: UserRole.STYLIST,
       'stylistProfile.joinRequestStatus': 'pending',
     };
 
     // If salonId is provided, filter by it
     if (salonId) {
-      filter['stylistProfile.currentSalonId'] = salonId;
+      filter['stylistProfile.currentSalonId'] = new MongooseSchema.Types.ObjectId(salonId);
     }
 
     const stylists = await this.userModel.find(filter).lean();
 
-    return stylists.map((s: any) => ({
+    return stylists.map((s) => ({
       _id: s._id.toString(),
       firstName: s.firstName,
       lastName: s.lastName,
@@ -787,11 +793,11 @@ export class AuthService {
       .find({
         role: UserRole.STYLIST,
         'stylistProfile.joinRequestStatus': 'approved',
-        'stylistProfile.currentSalonId': salonId,
-      } as any)
+        'stylistProfile.currentSalonId': new MongooseSchema.Types.ObjectId(salonId),
+      })
       .lean();
 
-    return stylists.map((s: any) => ({
+    return stylists.map((s) => ({
       _id: s._id.toString(),
       firstName: s.firstName,
       lastName: s.lastName,
@@ -840,7 +846,7 @@ export class AuthService {
 
     // Check if review already exists
     const existingReviewIndex = stylist.stylistProfile.portfolioReviews.findIndex(
-      (pr: any) => pr.reviewId === portfolioData.reviewId,
+      (pr: PortfolioReview) => pr.reviewId === portfolioData.reviewId,
     );
 
     if (existingReviewIndex >= 0) {
@@ -896,7 +902,7 @@ export class AuthService {
       throw new NotFoundException('Stylist not found');
     }
 
-    const s = stylist as any;
+    const s = stylist;
 
     if (s.role !== UserRole.STYLIST) {
       throw new BadRequestException('User is not a stylist');
@@ -908,7 +914,7 @@ export class AuthService {
 
     // Sort portfolio reviews by date descending
     const portfolioReviews = (s.stylistProfile.portfolioReviews || []).sort(
-      (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      (a: PortfolioReview, b: PortfolioReview) => new Date(b.date).getTime() - new Date(a.date).getTime(),
     );
 
     return {

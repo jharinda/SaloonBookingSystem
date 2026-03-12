@@ -19,6 +19,24 @@ Content-Type: application/json
   "password": "Test@1234"
 }
 
+### Login as Admin
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Admin@1234"
+}
+
+### Login as Stylist
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "stylist@example.com",
+  "password": "Stylist@1234"
+}
+
 POST http://localhost:3000/api/auth/register
 Content-Type: application/json
 
@@ -28,6 +46,44 @@ Content-Type: application/json
   "firstName": "Super",
   "lastName": "Admin",
   "role": "admin"
+}
+
+### Register a stylist (basic)
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "stylist@example.com",
+  "password": "Stylist@1234",
+  "firstName": "Jane",
+  "lastName": "Smith",
+  "role": "stylist"
+}
+
+### Register a stylist (with profile)
+POST http://localhost:3000/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "stylist2@example.com",
+  "password": "Stylist@1234",
+  "firstName": "Sarah",
+  "lastName": "Johnson",
+  "role": "stylist",
+  "stylistProfile": {
+    "bio": "Professional hair stylist with 7 years of experience specializing in modern cuts and color.",
+    "specialties": ["Haircuts", "Hair Coloring", "Balayage", "Keratin Treatment"],
+    "yearsExperience": 7,
+    "workingHours": [
+      { "day": 1, "start": "09:00", "end": "17:00", "isOff": false },
+      { "day": 2, "start": "09:00", "end": "17:00", "isOff": false },
+      { "day": 3, "start": "09:00", "end": "17:00", "isOff": false },
+      { "day": 4, "start": "09:00", "end": "17:00", "isOff": false },
+      { "day": 5, "start": "09:00", "end": "17:00", "isOff": false },
+      { "day": 6, "start": "10:00", "end": "14:00", "isOff": false },
+      { "day": 0, "start": "00:00", "end": "00:00", "isOff": true }
+    ]
+  }
 }
 
 ### Push test SSE notification

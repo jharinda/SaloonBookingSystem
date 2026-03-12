@@ -21,9 +21,11 @@ export const fcmProvider = {
 
     try {
       const serviceAccount = JSON.parse(serviceAccountKey);
-      const app = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
+      const app = admin.apps.length
+        ? admin.app()
+        : admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+          });
       logger.log('Firebase Admin SDK initialized for FCM');
       return app;
     } catch (err: unknown) {

@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 import {
   UserProfile,
   UserProfileDocument,
@@ -23,6 +26,8 @@ export class UserService {
   constructor(
     @InjectModel(UserProfile.name)
     private readonly userProfileModel: Model<UserProfileDocument>,
+    private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
   ) {}
 
   /**
@@ -256,12 +261,12 @@ export class UserService {
   }
 
   /**
-   * Get basic user info for external services (e.g., booking-service)
+   * Get basic user info for external services (e.g., booking-service, chat-service)
    */
-  async getUserBasicInfo(userId: string): Promise<{ firstName: string; lastName: string; email: string }> {
+  async getUserBasicInfo(userId: string): Promise<{ firstName: string; lastName: string; email: string; avatarUrl: string | null }> {
     const profile = await this.userProfileModel
       .findOne({ userId })
-      .select('firstName lastName email')
+      .select('firstName lastName email avatarUrl')
       .lean()
       .exec();
 
@@ -273,7 +278,20 @@ export class UserService {
       firstName: profile.firstName,
       lastName: profile.lastName,
       email: profile.email,
+      avatarUrl: profile.avatarUrl || null,
     };
+  }
+
+  /**
+   * Check subscription status for a salon via subscription-service.
+   * Returns subscription data or throws if salon has no active subscription.
+   */
+  async checkSubscription(salonId: string): Promise<unknown> {
+    const url = this.configService.get('SUBSCRIPTION_SERVICE_URL');
+    const res = await firstValueFrom(
+      this.httpService.get(`${url}/subscriptions/${salonId}`)
+    );
+    return res.data;
   }
 
   private toResponseDto(profile: UserProfileDocument | (Document & UserProfile)): UserProfileResponseDto {

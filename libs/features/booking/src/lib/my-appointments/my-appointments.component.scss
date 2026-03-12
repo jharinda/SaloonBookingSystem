@@ -93,8 +93,10 @@ $mobile: 768px;
 
 // ── Tabs ──────────────────────────────────────────────────────
 .appt-tabs {
-  --mat-tab-header-active-label-text-color: #{$brand};
-  --mat-tab-header-active-indicator-color: #{$brand};
+  .p-tabs .p-tab.p-tab-active {
+    color: $brand;
+    border-bottom-color: $brand;
+  }
 }
 
 .tab-count {

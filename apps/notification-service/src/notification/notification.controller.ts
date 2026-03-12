@@ -26,6 +26,7 @@ import {
 } from './interfaces/notification-payload.interface';
 import { SsePushService } from './providers/sse-push.service';
 import { InboxNotificationService, PaginatedInboxDto } from './inbox-notification.service';
+import { PushNotificationService } from './providers/push-notification.service';
 
 @Controller('notifications')
 export class NotificationController {
@@ -37,6 +38,7 @@ export class NotificationController {
     private readonly configService: ConfigService,
     private readonly ssePush: SsePushService,
     private readonly inboxService: InboxNotificationService,
+    private readonly pushNotification: PushNotificationService,
   ) {}
 
   // ── Endpoints (internal — no auth guard) ────────────────────────────────────────────
@@ -109,6 +111,40 @@ export class NotificationController {
         `review-posted SSE push failed: ${err instanceof Error ? err.message : String(err)}`,
       );
       return { pushed: false };
+    }
+  }
+
+  /**
+   * POST /notifications/push
+   * Generic endpoint for sending push notifications to users.
+   * Called by other services (e.g., chat-service) to send FCM push notifications.
+   */
+  @Post('push')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async sendPushNotification(
+    @Body()
+    body: {
+      userId: string;
+      title: string;
+      body: string;
+      data?: Record<string, any>;
+    },
+  ): Promise<{ sent: boolean }> {
+    try {
+      await this.pushNotification.sendToUser(
+        body.userId,
+        body.title,
+        body.body,
+        body.data
+      );
+
+      this.logger.log(`Push notification sent to user ${body.userId}`);
+      return { sent: true };
+    } catch (err: unknown) {
+      this.logger.error(
+        `Push notification failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return { sent: false };
     }
   }
 

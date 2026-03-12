@@ -1,4 +1,4 @@
-﻿import {
+import {
   ChangeDetectionStrategy,
   Component,
   inject,
@@ -48,11 +48,12 @@ export class RegisterComponent {
   readonly isLoading    = signal(false);
   readonly errorMessage = signal<string | null>(null);
 
-  accountType: 'client' | 'owner' = 'client';
+  accountType: 'client' | 'owner' | 'stylist' = 'client';
   agreedToTerms = false;
 
   readonly accountTypeOptions = [
     { label: 'I am a Client', value: 'client' },
+    { label: 'I am a Stylist', value: 'stylist' },
     { label: 'I own a Salon', value: 'owner' },
   ];
 
@@ -89,7 +90,7 @@ export class RegisterComponent {
       lastName,
       email:    raw.email,
       password: raw.password,
-      role:     this.accountType === 'owner' ? 'salon_owner' : 'client',
+      role:     this.accountType === 'owner' ? 'salon_owner' : this.accountType === 'stylist' ? 'stylist' : 'client',
     };
 
     this.authService.register(dto).subscribe({

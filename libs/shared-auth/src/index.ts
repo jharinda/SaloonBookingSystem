@@ -8,6 +8,7 @@ export { RolesGuard } from './lib/guards/roles.guard';
 // Decorators
 export { Roles, ROLES_KEY } from './lib/decorators/roles.decorator';
 export { CurrentUser, JwtUser } from './lib/decorators/current-user.decorator';
+export { Public, IS_PUBLIC_KEY } from './lib/decorators/public.decorator';
 
 // Strategy
 export { JwtStrategy, JwtPayload } from './lib/strategies/jwt.strategy';

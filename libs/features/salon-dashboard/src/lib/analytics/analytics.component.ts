@@ -1,6 +1,23 @@
-import { Component, OnInit, signal, inject, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, signal, inject, ViewChild, ElementRef, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Chart, ChartConfiguration, ChartType, registerables } from 'chart.js';
+import {
+  Chart,
+  ChartConfiguration,
+  ChartType,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
+  BarController,
+  LineController,
+  DoughnutController,
+  Tooltip,
+  Legend,
+  Title,
+  Filler,
+} from 'chart.js';
 
 import { Card } from 'primeng/card';
 import { Button } from 'primeng/button';
@@ -8,7 +25,11 @@ import { Toast } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { SalonAdminService } from '@org/shared-data-access';
 
-Chart.register(...registerables);
+Chart.register(
+  CategoryScale, LinearScale, BarElement, LineElement, PointElement,
+  ArcElement, BarController, LineController, DoughnutController,
+  Tooltip, Legend, Title, Filler
+);
 
 interface RevenueData {
   date: string;
@@ -34,6 +55,7 @@ interface BookingStats {
 
 @Component({
   selector: 'lib-analytics',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [
     CommonModule,
@@ -43,7 +65,7 @@ interface BookingStats {
   ],
   providers: [MessageService],
   templateUrl: './analytics.component.html',
-  styleUrl: './analytics.component.css'
+  styleUrl: './analytics.component.scss'
 })
 export class AnalyticsComponent implements OnInit, AfterViewInit {
   private readonly salonService = inject(SalonAdminService);

@@ -2,7 +2,7 @@
   <!-- Loading State -->
   @if (loading()) {
     <div class="wizard-state wizard-state--loading">
-      <mat-spinner diameter="48"></mat-spinner>
+      <p-progressspinner strokeWidth="4" />
       <p>Loading salon details...</p>
     </div>
   }
@@ -10,10 +10,10 @@
   <!-- Error State -->
   @else if (error()) {
     <div class="wizard-state wizard-state--error">
-      <mat-icon class="wizard-state__icon">error_outline</mat-icon>
+      <i class="pi pi-exclamation-circle wizard-state__icon"></i>
       <p class="wizard-state__message">{{ error() }}</p>
-      <button mat-raised-button color="primary" (click)="goToDiscover()">
-        <mat-icon>search</mat-icon>
+      <button pButton (click)="goToDiscover()">
+        <i class="pi pi-search"></i>
         Back to Discover
       </button>
     </div>
@@ -28,125 +28,126 @@
           @if (salon()!.images && salon()!.images!.length > 0) {
             <img [src]="salon()!.images![0].url" [alt]="salon()!.name">
           } @else {
-            <mat-icon>storefront</mat-icon>
+            <i class="pi pi-building"></i>
           }
         </div>
         <div class="salon-info__details">
           <h1 class="salon-info__name">{{ salon()!.name }}</h1>
           <p class="salon-info__address">
-            <mat-icon>location_on</mat-icon>
+            <i class="pi pi-map-marker"></i>
             {{ salon()!.address.city }}
           </p>
         </div>
       </div>
     </div>
 
-    <!-- Material Stepper -->
-    <mat-stepper #stepper [linear]="true" class="booking-stepper">
+    <!-- PrimeNG Stepper -->
+    <p-stepper #stepper class="booking-stepper" [linear]="true" [value]="currentStep()" (valueChange)="onActiveStepChange($event)">
       <!-- Step 1: Service Selection -->
-      <mat-step [completed]="isStep1Valid()">
-        <ng-template matStepLabel>
+      <p-step-panel>
+        <ng-template pTemplate="header">
           <span class="step-label">
-            <mat-icon>content_cut</mat-icon>
+            <i class="pi pi-scissors"></i>
             <span class="step-label__text">Services</span>
           </span>
         </ng-template>
+        <ng-template pTemplate="content">
+          <lib-service-selection-step />
 
-        <lib-service-selection-step />
-
-        <div class="step-actions">
-          <button mat-button (click)="goToDiscover()">
-            <mat-icon>close</mat-icon>
-            Cancel
-          </button>
-          <button
-            mat-raised-button
-            color="primary"
-            [disabled]="!isStep1Valid()"
-            (click)="goToNextStep()"
-          >
-            Next
-            <mat-icon>arrow_forward</mat-icon>
-          </button>
-        </div>
-      </mat-step>
+          <div class="step-actions">
+            <button pButton severity="secondary" (click)="goToDiscover()">
+              <i class="pi pi-times"></i>
+              Cancel
+            </button>
+            <button
+              pButton
+              [disabled]="!isStep1Valid()"
+              (click)="goToNextStep()"
+            >
+              Next
+              <i class="pi pi-arrow-right"></i>
+            </button>
+          </div>
+        </ng-template>
+      </p-step-panel>
 
       <!-- Step 2: Stylist Selection -->
-      <mat-step>
-        <ng-template matStepLabel>
+      <p-step-panel>
+        <ng-template pTemplate="header">
           <span class="step-label">
-            <mat-icon>person</mat-icon>
+            <i class="pi pi-user"></i>
             <span class="step-label__text">Stylist</span>
           </span>
         </ng-template>
+        <ng-template pTemplate="content">
+          <lib-stylist-selection-step />
 
-        <lib-stylist-selection-step />
-
-        <div class="step-actions">
-          <button mat-button (click)="goToPreviousStep()">
-            <mat-icon>arrow_back</mat-icon>
-            Back
-          </button>
-          <button
-            mat-raised-button
-            color="primary"
-            (click)="goToNextStep()"
-          >
-            Next
-            <mat-icon>arrow_forward</mat-icon>
-          </button>
-        </div>
-      </mat-step>
+          <div class="step-actions">
+            <button pButton severity="secondary" (click)="goToPreviousStep()">
+              <i class="pi pi-arrow-left"></i>
+              Back
+            </button>
+            <button
+              pButton
+              (click)="goToNextStep()"
+            >
+              Next
+              <i class="pi pi-arrow-right"></i>
+            </button>
+          </div>
+        </ng-template>
+      </p-step-panel>
 
       <!-- Step 3: Date & Time -->
-      <mat-step [completed]="isStep3Valid()">
-        <ng-template matStepLabel>
+      <p-step-panel>
+        <ng-template pTemplate="header">
           <span class="step-label">
-            <mat-icon>schedule</mat-icon>
+            <i class="pi pi-calendar"></i>
             <span class="step-label__text">Date & Time</span>
           </span>
         </ng-template>
+        <ng-template pTemplate="content">
+          <lib-datetime-selection-step />
 
-        <lib-datetime-selection-step />
-
-        <div class="step-actions">
-          <button mat-button (click)="goToPreviousStep()">
-            <mat-icon>arrow_back</mat-icon>
-            Back
-          </button>
-          <button
-            mat-raised-button
-            color="primary"
-            [disabled]="!isStep3Valid()"
-            (click)="goToNextStep()"
-          >
-            Next
-            <mat-icon>arrow_forward</mat-icon>
-          </button>
-        </div>
-      </mat-step>
+          <div class="step-actions">
+            <button pButton severity="secondary" (click)="goToPreviousStep()">
+              <i class="pi pi-arrow-left"></i>
+              Back
+            </button>
+            <button
+              pButton
+              [disabled]="!isStep3Valid()"
+              (click)="goToNextStep()"
+            >
+              Next
+              <i class="pi pi-arrow-right"></i>
+            </button>
+          </div>
+        </ng-template>
+      </p-step-panel>
 
       <!-- Step 4: Confirmation -->
-      <mat-step>
-        <ng-template matStepLabel>
+      <p-step-panel>
+        <ng-template pTemplate="header">
           <span class="step-label">
-            <mat-icon>check_circle</mat-icon>
+            <i class="pi pi-check-circle"></i>
             <span class="step-label__text">Confirm</span>
           </span>
         </ng-template>
+        <ng-template pTemplate="content">
+          <lib-booking-confirmation-step
+            (bookingCreated)="onBookingCreated($event)"
+          />
 
-        <lib-booking-confirmation-step
-          (bookingCreated)="onBookingCreated($event)"
-        />
-
-        <div class="step-actions">
-          <button mat-button (click)="goToPreviousStep()">
-            <mat-icon>arrow_back</mat-icon>
-            Back
-          </button>
-        </div>
-      </mat-step>
-    </mat-stepper>
+          <div class="step-actions">
+            <button pButton severity="secondary" (click)="goToPreviousStep()">
+              <i class="pi pi-arrow-left"></i>
+              Back
+            </button>
+          </div>
+        </ng-template>
+      </p-step-panel>
+    </p-stepper>
   }
 </div>
 

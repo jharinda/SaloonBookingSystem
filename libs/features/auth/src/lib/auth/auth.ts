@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 
 @Component({
   selector: 'lib-auth',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [],
   templateUrl: './auth.html',
   styleUrl: './auth.css',

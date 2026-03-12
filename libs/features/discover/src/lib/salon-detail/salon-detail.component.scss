@@ -1,15 +1,15 @@
 /* ─────────────────────────────────────────────────────────────
    Salon Detail Page — Mobile-First with Scroll-Snap Gallery
-   Design System: Primary #1A5276, Accent #117A65
+   Design System: Primary #7C3AED (Violet-700), Accent #10B981 (Emerald-500)
    ───────────────────────────────────────────────────────────── */
 
 @use 'sass:color';
 
 // Design tokens matching the design system
-$primary: #1A5276;      // Deep blue
-$accent: #117A65;       // Teal
-$primary-light: #EDF2F7; // Light blue for backgrounds
-$warm-grey-50: #FAFAF9;
+$primary: #7C3AED;      // Brand violet (SnapSalon primary)
+$accent: #10B981;       // Teal
+$primary-light: #EDE9FE; // Light blue for backgrounds
+$warm-grey-50: #FAFAFA;
 $warm-grey-600: #57534E;
 $warm-grey-900: #1C1917;
 $text-primary: #1f2937;

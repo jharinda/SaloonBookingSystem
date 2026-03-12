@@ -1,16 +1,17 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   OnInit,
-  ViewChild,
   signal,
+  ViewChild,
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MatStepperModule, MatStepper } from '@angular/material/stepper';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { Stepper, StepperModule } from 'primeng/stepper';
+import { ButtonModule } from 'primeng/button';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 
 import { SalonService } from '@org/shared-data-access';
 import { BookingStateService } from '../services/booking-state.service';
@@ -34,10 +35,10 @@ import { BookingConfirmationStepComponent } from '../steps/booking-confirmation-
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    MatStepperModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
+    CommonModule,
+    StepperModule,
+    ButtonModule,
+    ProgressSpinnerModule,
     ServiceSelectionStepComponent,
     StylistSelectionStepComponent,
     DateTimeSelectionStepComponent,
@@ -48,16 +49,24 @@ import { BookingConfirmationStepComponent } from '../steps/booking-confirmation-
   styleUrl: './booking-wizard.component.scss',
 })
 export class BookingWizardComponent implements OnInit {
-  @ViewChild('stepper') stepper!: MatStepper;
+  @ViewChild('stepper') stepper!: Stepper;
 
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly salonService = inject(SalonService);
   readonly bookingState = inject(BookingStateService);
 
-  // ── State ────────────────────────────────────────────────────────────────────
+  // ── State ────────────────────────────────────────────────────
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+  readonly currentStep = computed(() => this.bookingState.currentStep());
+
+  readonly steps = [
+    { label: 'Services', icon: 'content_cut' },
+    { label: 'Stylist', icon: 'person' },
+    { label: 'Date & Time', icon: 'schedule' },
+    { label: 'Confirm', icon: 'check_circle' },
+  ];
 
   // ── Computed ─────────────────────────────────────────────────────────────────
   readonly salon = this.bookingState.salon;
@@ -96,16 +105,16 @@ export class BookingWizardComponent implements OnInit {
 
   // ── Stepper Navigation ───────────────────────────────────────────────────────
   goToNextStep(): void {
-    if (this.stepper) {
-      this.stepper.next();
-      this.bookingState.nextStep();
-    }
+    this.bookingState.nextStep();
   }
 
   goToPreviousStep(): void {
-    if (this.stepper) {
-      this.stepper.previous();
-      this.bookingState.previousStep();
+    this.bookingState.previousStep();
+  }
+
+  onActiveStepChange(step: number | undefined): void {
+    if (step !== undefined) {
+      this.bookingState.setStep(step);
     }
   }
 

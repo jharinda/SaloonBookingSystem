@@ -1,18 +1,18 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatRadioModule } from '@angular/material/radio';
-import { MatIconModule } from '@angular/material/icon';
+import { FormsModule } from '@angular/forms';
+import { CardModule } from 'primeng/card';
+import { RadioButtonModule } from 'primeng/radiobutton';
 
 import { BookingStateService } from '../services/booking-state.service';
 
 /**
  * Placeholder interface for staff members (to be defined later)
- * TODO: Create proper Staff model when backend supports staff management
  */
 interface StaffMember {
   _id: string;
@@ -35,9 +35,9 @@ interface StaffMember {
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DecimalPipe,
-    MatCardModule,
-    MatRadioModule,
-    MatIconModule,
+    FormsModule,
+    CardModule,
+    RadioButtonModule,
   ],
   templateUrl: './stylist-selection-step.component.html',
   styleUrl: './stylist-selection-step.component.scss',
@@ -49,8 +49,15 @@ export class StylistSelectionStepComponent {
   readonly salon = this.bookingState.salon;
   readonly selectedStylistId = this.bookingState.selectedStylistId;
 
-  // TODO: Replace with actual staff data from salon service
   readonly staffMembers: StaffMember[] = [];
+  readonly hasStaff = computed(() => this.staffMembers.length > 0);
+
+  constructor() {
+    // Auto-select "Any available" when there is no staff
+    if (this.staffMembers.length === 0) {
+      this.bookingState.selectStylist(null); // null = any available
+    }
+  }
 
   // ── Methods ──────────────────────────────────────────────────────────────────
   selectStylist(stylistId: string | null): void {

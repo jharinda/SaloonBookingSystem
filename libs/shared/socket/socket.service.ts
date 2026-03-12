@@ -1,27 +1,34 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { Observable } from 'rxjs';
+import { AuthService } from '@org/shared-data-access';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SocketService {
   private socket: Socket | null = null;
-  private socketUrl = 'http://localhost:3000';
+  private socketUrl = 'http://localhost:3009'; // Chat service URL
+
+  constructor(private authService: AuthService) {}
 
   setSocketUrl(url: string): void {
     this.socketUrl = url;
   }
 
   connect(): void {
-    if (this.socket?.connected) {
+    // Guard: if socket exists at all (connected OR connecting), do not create another
+    if (this.socket !== null) {
+      if (!this.socket.connected) {
+        this.socket.connect(); // reconnect existing socket instead of creating new one
+      }
       return;
     }
 
-    // Get JWT token from localStorage
-    const token = localStorage.getItem('access_token');
+    // Get JWT from in-memory AuthService — never localStorage (XSS risk)
+    const token = this.authService.getAccessToken();
 
-    this.socket = io(this.socketUrl, {
+    this.socket = io(`${this.socketUrl}/chat`, { // Connect to /chat namespace
       auth: {
         token: token || ''
       },
@@ -33,7 +40,7 @@ export class SocketService {
     });
 
     this.socket.on('connect', () => {
-      console.log('✅ Socket.io connected');
+      console.log('✅ Socket.io connected to /chat namespace');
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -73,12 +80,16 @@ export class SocketService {
       this.connect();
     }
     return new Observable<T>((observer) => {
-      this.socket?.on(event, (data: T) => {
+      // Create a specific handler function so we can remove only THIS listener
+      const handler = (data: T) => {
         observer.next(data);
-      });
+      };
+
+      this.socket?.on(event, handler);
 
       return () => {
-        this.socket?.off(event);
+        // Remove only this specific handler, not all handlers for this event
+        this.socket?.off(event, handler);
       };
     });
   }

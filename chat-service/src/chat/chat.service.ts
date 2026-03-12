@@ -1,12 +1,18 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 import { Model, Types } from 'mongoose';
+import { firstValueFrom } from 'rxjs';
 
 import { Conversation, ConversationDocument, ConversationChannel } from './schemas/conversation.schema';
 import { Message, MessageDocument, DeliveryStatus, MessageChannel } from './schemas/message.schema';
 
 export interface ConversationWithUnread extends Conversation {
   unreadCount: number;
+  clientName?: string;
+  clientAvatar?: string;
+  salonName?: string;
 }
 
 export interface PaginatedMessages {
@@ -30,6 +36,8 @@ export class ChatService {
     private readonly conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
+    private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
     @Inject(forwardRef(() => 'WhatsappSendService'))
     private readonly whatsappSendService?: {
       sendMessage: (to: string, body: string) => Promise<void>;
@@ -47,27 +55,54 @@ export class ChatService {
   /**
    * Find or create a conversation between a client and a salon.
    * Ensures only one conversation exists per client-salon pair.
+   *
+   * @param clientId - The client's user ID
+   * @param salonId - The salon's business ID (will fetch ownerId internally)
    */
   async findOrCreateConversation(
     clientId: string,
     salonId: string,
-  ): Promise<Conversation> {
+    clientEmail?: string,
+  ): Promise<ConversationDocument> {
     const clientObjectId = new Types.ObjectId(clientId);
     const salonObjectId = new Types.ObjectId(salonId);
 
+    // Fetch salon owner ID from salon-service
+    const salonServiceUrl = this.configService.get<string>('SALON_SERVICE_URL', 'http://localhost:3001');
+    let salonOwnerId: string;
+
+    try {
+      const salonResponse = await firstValueFrom(
+        this.httpService.get(`${salonServiceUrl}/api/salons/${salonId}`)
+      );
+      salonOwnerId = salonResponse.data.ownerId;
+
+      if (!salonOwnerId) {
+        this.logger.error(`Salon ${salonId} has no ownerId`);
+        throw new Error('Salon has no owner');
+      }
+
+      this.logger.log(`Fetched salon owner: salonId=${salonId}, ownerId=${salonOwnerId}`);
+    } catch (error) {
+      this.logger.error(`Failed to fetch salon ${salonId}: ${error.message}`);
+      throw new Error('Unable to fetch salon details');
+    }
+
+    const salonOwnerObjectId = new Types.ObjectId(salonOwnerId);
+
     // Try to find existing conversation
     let conversation = await this.conversationModel.findOne({
-      clientId: clientObjectId,
-      salonId: salonObjectId,
+      clientId: clientObjectId as any,
+      salonId: salonObjectId as any,
     }).exec();
 
     // Create new conversation if it doesn't exist
     if (!conversation) {
-      this.logger.log(`Creating new conversation: client=${clientId}, salon=${salonId}`);
+      this.logger.log(`Creating new conversation: client=${clientEmail || clientId}, salon=${salonId}, owner=${salonOwnerId}`);
       conversation = await this.conversationModel.create({
-        participants: [clientObjectId, salonObjectId],
-        clientId: clientObjectId,
-        salonId: salonObjectId,
+        participants: [clientObjectId as any, salonOwnerObjectId as any],
+        clientId: clientObjectId as any,
+        salonId: salonObjectId as any,
         channel: ConversationChannel.INTERNAL,
         externalThreadId: null,
         lastMessage: null,
@@ -92,12 +127,12 @@ export class ChatService {
     salonId: string,
     externalThreadId: string,
     clientName: string,
-  ): Promise<Conversation> {
+  ): Promise<ConversationDocument> {
     const salonObjectId = new Types.ObjectId(salonId);
 
     // Try to find existing WhatsApp conversation
     let conversation = await this.conversationModel.findOne({
-      salonId: salonObjectId,
+      salonId: salonObjectId as any,
       channel: ConversationChannel.WHATSAPP,
       externalThreadId,
     }).exec();
@@ -113,9 +148,9 @@ export class ChatService {
       const placeholderClientId = new Types.ObjectId();
 
       conversation = await this.conversationModel.create({
-        participants: [placeholderClientId, salonObjectId],
-        clientId: placeholderClientId,
-        salonId: salonObjectId,
+        participants: [placeholderClientId as any, salonObjectId as any],
+        clientId: placeholderClientId as any,
+        salonId: salonObjectId as any,
         channel: ConversationChannel.WHATSAPP,
         externalThreadId,
         lastMessage: null,
@@ -140,12 +175,12 @@ export class ChatService {
     salonId: string,
     externalThreadId: string,
     clientName: string,
-  ): Promise<Conversation> {
+  ): Promise<ConversationDocument> {
     const salonObjectId = new Types.ObjectId(salonId);
 
     // Try to find existing Instagram conversation
     let conversation = await this.conversationModel.findOne({
-      salonId: salonObjectId,
+      salonId: salonObjectId as any,
       channel: ConversationChannel.INSTAGRAM,
       externalThreadId,
     }).exec();
@@ -161,9 +196,9 @@ export class ChatService {
       const placeholderClientId = new Types.ObjectId();
 
       conversation = await this.conversationModel.create({
-        participants: [placeholderClientId, salonObjectId],
-        clientId: placeholderClientId,
-        salonId: salonObjectId,
+        participants: [placeholderClientId as any, salonObjectId as any],
+        clientId: placeholderClientId as any,
+        salonId: salonObjectId as any,
         channel: ConversationChannel.INSTAGRAM,
         externalThreadId,
         lastMessage: null,
@@ -180,39 +215,72 @@ export class ChatService {
   /**
    * Get all conversations for a user with unread count.
    * For clients: returns conversations where they are the client.
-   * For salon owners: returns conversations where they own the salon.
+   * For salon owners: returns conversations where they are a participant.
    */
   async getUserConversations(
     userId: string,
+    userRole: string,
     userSalonId?: string,
   ): Promise<ConversationWithUnread[]> {
     const userObjectId = new Types.ObjectId(userId);
 
-    // Build query based on whether user is salon owner or client
-    const query: { isArchived: boolean; salonId?: Types.ObjectId; clientId?: Types.ObjectId } = {
+    // Build query based on user role
+    let query: any = {
       isArchived: false
     };
 
-    if (userSalonId) {
-      // User is a salon owner - get conversations for their salon
-      query.salonId = new Types.ObjectId(userSalonId);
-    } else {
-      // User is a client - get their conversations
-      query.clientId = userObjectId;
-    }
+    // Both salon owners and clients are identified by being in the participants array
+    query.participants = userObjectId;
 
     const conversations = await this.conversationModel
       .find(query)
       .sort({ 'lastMessage.sentAt': -1 })
       .exec();
 
-    // Calculate unread count for each conversation
+    // Calculate unread count and fetch participant names for each conversation
     const conversationsWithUnread: ConversationWithUnread[] = await Promise.all(
       conversations.map(async (conv) => {
         const unreadCount = await this.getUnreadCount(conv._id.toString(), userId);
+
+        // Fetch participant names and avatars
+        let clientName: string | undefined;
+        let clientAvatar: string | undefined;
+        let salonName: string | undefined;
+
+        try {
+          // Fetch client info from user-service
+          const userServiceUrl = this.configService.get<string>('USER_SERVICE_URL');
+          const clientResponse = await firstValueFrom(
+            this.httpService.get(`${userServiceUrl}/api/users/${conv.clientId.toString()}/basic-info`)
+          );
+          const clientData = clientResponse.data;
+          clientName = clientData?.firstName && clientData?.lastName
+            ? `${clientData.firstName} ${clientData.lastName}`
+            : clientData?.email || 'Client';
+          clientAvatar = clientData?.avatarUrl || undefined;
+        } catch (error) {
+          this.logger.warn(`Failed to fetch client info: ${error.message}`);
+          clientName = 'Client';
+        }
+
+        try {
+          // Fetch salon name from salon-service
+          const salonServiceUrl = this.configService.get<string>('SALON_SERVICE_URL');
+          const salonResponse = await firstValueFrom(
+            this.httpService.get(`${salonServiceUrl}/api/salons/${conv.salonId.toString()}`)
+          );
+          salonName = salonResponse.data?.name || 'Salon';
+        } catch (error) {
+          this.logger.warn(`Failed to fetch salon name: ${error.message}`);
+          salonName = 'Salon';
+        }
+
         return {
           ...conv.toObject(),
           unreadCount,
+          clientName,
+          clientAvatar,
+          salonName,
         };
       })
     );
@@ -252,14 +320,14 @@ export class ChatService {
 
     // Get total count
     const total = await this.messageModel.countDocuments({
-      conversationId: conversationObjectId,
+      conversationId: conversationObjectId as any,
       isDeleted: false,
     });
 
     // Get messages (oldest first for chat history)
     const messages = await this.messageModel
       .find({
-        conversationId: conversationObjectId,
+        conversationId: conversationObjectId as any,
         isDeleted: false,
       })
       .sort({ createdAt: 1 }) // Ascending order (oldest first)
@@ -282,7 +350,7 @@ export class ChatService {
   /**
    * Soft delete a message (sets isDeleted flag and replaces body).
    */
-  async deleteMessage(messageId: string, userId: string): Promise<void> {
+  async deleteMessage(messageId: string, userId: string, userEmail?: string): Promise<void> {
     const messageObjectId = new Types.ObjectId(messageId);
     const userObjectId = new Types.ObjectId(userId);
 
@@ -303,7 +371,7 @@ export class ChatService {
     message.mediaUrl = null;
     await message.save();
 
-    this.logger.log(`Message ${messageId} soft-deleted by user ${userId}`);
+    this.logger.log(`Message ${messageId} soft-deleted by user ${userEmail || userId}`);
   }
 
   /**
@@ -316,8 +384,8 @@ export class ChatService {
     // Update all unread messages from other users
     await this.messageModel.updateMany(
       {
-        conversationId: conversationObjectId,
-        senderId: { $ne: userObjectId },
+        conversationId: conversationObjectId as any,
+        senderId: { $ne: userObjectId as any },
         deliveryStatus: { $ne: DeliveryStatus.READ },
       },
       {
@@ -336,7 +404,7 @@ export class ChatService {
         conversation.lastReadAt[existingReadIndex].readAt = new Date();
       } else {
         conversation.lastReadAt.push({
-          userId: userObjectId,
+          userId: userObjectId as any,
           readAt: new Date(),
         });
       }
@@ -353,8 +421,8 @@ export class ChatService {
     const userObjectId = new Types.ObjectId(userId);
 
     const count = await this.messageModel.countDocuments({
-      conversationId: conversationObjectId,
-      senderId: { $ne: userObjectId },
+      conversationId: conversationObjectId as any,
+      senderId: { $ne: userObjectId as any },
       deliveryStatus: { $ne: DeliveryStatus.READ },
       isDeleted: false,
     });
@@ -394,8 +462,8 @@ export class ChatService {
 
     // Create message
     const message = await this.messageModel.create({
-      conversationId: conversationObjectId,
-      senderId: senderObjectId,
+      conversationId: conversationObjectId as any,
+      senderId: senderObjectId as any,
       senderName,
       senderRole,
       body,
@@ -408,12 +476,12 @@ export class ChatService {
     // Update conversation lastMessage
     conversation.lastMessage = {
       body,
-      senderId: senderObjectId,
+      senderId: senderObjectId as any,
       sentAt: new Date(),
     };
     await conversation.save();
 
-    this.logger.log(`Message created in conversation ${conversationId} by user ${senderId}`);
+    this.logger.log(`Message created in conversation ${conversationId} by ${senderName}`);
 
     return message;
   }
@@ -553,6 +621,14 @@ export class ChatService {
     );
 
     return otherParticipant?.toString() || null;
+  }
+
+  /**
+   * Get a conversation by ID.
+   */
+  async getConversationById(conversationId: string): Promise<ConversationDocument | null> {
+    const conversationObjectId = new Types.ObjectId(conversationId);
+    return this.conversationModel.findById(conversationObjectId).exec();
   }
 
   /**

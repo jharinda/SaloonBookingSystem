@@ -35,11 +35,14 @@ $mobile: 768px;
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 .settings-tabs {
-  --mat-tab-header-active-label-text-color: #{$brand};
-  --mat-tab-header-active-indicator-color:  #{$brand};
   border: 1px solid $border;
   border-radius: 12px;
   overflow: hidden;
+
+  .p-tab.p-tab-active {
+    color: $brand;
+    border-bottom-color: $brand;
+  }
 }
 
 .tab-content {
@@ -120,7 +123,7 @@ $mobile: 768px;
   cursor: pointer;
   transition: background .2s;
 
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  i.pi { font-size: 18px; }
 
   &:hover { background: $brand-dark; }
 }
@@ -133,7 +136,7 @@ $mobile: 768px;
   border-radius: 24px !important;
   font-weight: 600 !important;
 
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  i.pi { font-size: 18px; }
 }
 
 // ── Reactive form layout ───────────────────────────────────────────────────
@@ -165,7 +168,7 @@ $mobile: 768px;
   align-items: center;
   gap: 6px;
 
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  i.pi { font-size: 18px; }
 
   &[disabled] { opacity: .5 !important; }
 }
@@ -334,7 +337,7 @@ $mobile: 768px;
   align-items: center;
   gap: 6px;
 
-  mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  i.pi { font-size: 18px; }
 
   &[disabled] { opacity: .5 !important; }
 }

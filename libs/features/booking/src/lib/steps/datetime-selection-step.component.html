@@ -10,24 +10,22 @@
   <div class="calendar">
     <div class="calendar__header">
       <button
-        mat-icon-button
-        class="calendar__nav"
+        pButton
+        icon="pi pi-chevron-left"
+        class="calendar__nav p-button-text"
         (click)="previousMonth()"
         aria-label="Previous month"
-      >
-        <mat-icon>chevron_left</mat-icon>
-      </button>
+      ></button>
 
       <h3 class="calendar__month">{{ monthLabel() }}</h3>
 
       <button
-        mat-icon-button
-        class="calendar__nav"
+        pButton
+        icon="pi pi-chevron-right"
+        class="calendar__nav p-button-text"
         (click)="nextMonth()"
         aria-label="Next month"
-      >
-        <mat-icon>chevron_right</mat-icon>
-      </button>
+      ></button>
     </div>
 
     <!-- Weekday headers -->
@@ -71,39 +69,38 @@
 
       @if (loadingSlots()) {
         <div class="time-slots__loading">
-          <mat-spinner diameter="40"></mat-spinner>
+          <p-progressspinner strokeWidth="4" [style]="{width:'40px',height:'40px'}" />
           <p>Loading available time slots...</p>
         </div>
       } @else if (slotsError()) {
         <div class="time-slots__error">
-          <mat-icon>error_outline</mat-icon>
+          <i class="pi pi-exclamation-circle"></i>
           <p>{{ slotsError() }}</p>
         </div>
       } @else if (availableSlots().length === 0) {
         <div class="time-slots__empty">
-          <mat-icon>event_busy</mat-icon>
+          <i class="pi pi-calendar-times"></i>
           <p>No available time slots for this date. Please choose another day.</p>
         </div>
       } @else {
         <div class="time-slots__grid">
           @for (slot of availableSlots(); track trackByTime($index, slot)) {
             <button
-              mat-raised-button
+              pButton
               class="time-slot"
               [class.time-slot--selected]="isTimeSelected(slot.time)"
               [class.time-slot--unavailable]="!slot.available"
               [disabled]="!slot.available"
               (click)="selectTime(slot.time)"
-            >
-              {{ slot.time }}
-            </button>
+              [label]="slot.time"
+            ></button>
           }
         </div>
       }
     </div>
   } @else {
     <div class="time-slots__placeholder">
-      <mat-icon class="time-slots__placeholder-icon">event</mat-icon>
+      <i class="pi pi-calendar time-slots__placeholder-icon"></i>
       <p class="time-slots__placeholder-text">
         Select a date above to see available time slots
       </p>

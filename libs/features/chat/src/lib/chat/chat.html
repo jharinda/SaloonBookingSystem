@@ -1,176 +1,260 @@
-<div class="chat-container">
-  <!-- LEFT PANEL: Conversation List -->
-  <div class="conversation-panel" [class.show-mobile]="showConversationList()">
-    <div class="conversation-header">
-      <h2>Messages</h2>
-      <span class="connection-status" [class.connected]="isConnected()">
-        {{ isConnected() ? '● Online' : '○ Offline' }}
-      </span>
+<div class="chat-container-modern">
+  <!-- LEFT SIDEBAR: Conversations -->
+  <aside class="sidebar" [class.show-mobile]="showConversationList()">
+    <!-- Sidebar Header -->
+    <div class="sidebar-header">
+      <div class="header-content">
+        <h1 class="sidebar-title">Chats</h1>
+        <div class="connection-badge" [class.online]="isConnected()">
+          <span class="status-dot"></span>
+          <span class="status-text">{{ isConnected() ? 'Online' : 'Offline' }}</span>
+        </div>
+      </div>
     </div>
 
-    <div class="conversation-list">
-      @for (conversation of conversations(); track conversation._id) {
-        <div
-          class="conversation-item"
-          [class.active]="selectedConversation()?._id === conversation._id"
-          (click)="selectConversation(conversation)"
-        >
-          <div class="conversation-avatar">
-            @if (conversation.participantAvatar) {
-              <img [src]="conversation.participantAvatar" [alt]="conversation.participantName" />
-            } @else {
-              <div class="avatar-placeholder">{{ conversation.participantName.charAt(0) }}</div>
-            }
-            <span class="channel-badge" [attr.data-channel]="conversation.channel">
-              {{ getChannelIcon(conversation.channel) }}
-            </span>
-          </div>
+    <!-- Search Bar -->
+    <div class="search-container">
+      <div class="search-input-wrapper">
+        <svg class="search-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M9 17A8 8 0 1 0 9 1a8 8 0 0 0 0 16zM18 18l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Search conversations..."
+          [(ngModel)]="searchQuery"
+          (input)="filterConversations()"
+        />
+        @if (searchQuery()) {
+          <button class="clear-search" (click)="clearSearch()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        }
+      </div>
+    </div>
 
-          <div class="conversation-info">
-            <div class="conversation-header-row">
-              <span class="participant-name">{{ conversation.participantName }}</span>
-              @if (conversation.lastMessageTime) {
-                <span class="timestamp">{{ formatTime(conversation.lastMessageTime) }}</span>
+    <!-- Conversations List -->
+    <div class="conversations-scroll">
+      @if (isLoadingConversations()) {
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading conversations...</p>
+        </div>
+      } @else {
+        @for (conversation of filteredConversations(); track conversation._id) {
+          <div
+            class="conversation-card"
+            [class.selected]="selectedConversation()?._id === conversation._id"
+            [class.unread]="conversation.unreadCount > 0"
+            (click)="selectConversation(conversation)"
+            (keydown.enter)="selectConversation(conversation)"
+            tabindex="0"
+            role="button"
+          >
+            <div class="avatar-wrapper">
+              @if (conversation.participantAvatar) {
+                <img class="avatar" [src]="conversation.participantAvatar" [alt]="conversation.participantName" />
+              } @else {
+                <div class="avatar-fallback">{{ getInitials(conversation.participantName) }}</div>
               }
+              <span class="channel-icon" [attr.data-channel]="conversation.channel" [title]="conversation.channel">
+                {{ getChannelIcon(conversation.channel) }}
+              </span>
             </div>
-            <div class="conversation-preview-row">
-              <span class="last-message">{{ conversation.lastMessage || 'No messages yet' }}</span>
-              @if (conversation.unreadCount > 0) {
-                <span class="unread-badge">{{ conversation.unreadCount }}</span>
-              }
+
+            <div class="conversation-content">
+              <div class="conversation-top">
+                <h3 class="participant-name">{{ conversation.participantName }}</h3>
+                @if (conversation.lastMessageTime) {
+                  <time class="timestamp">{{ formatTime(conversation.lastMessageTime) }}</time>
+                }
+              </div>
+              <div class="conversation-bottom">
+                <p class="last-message">{{ conversation.lastMessage || 'No messages yet' }}</p>
+                @if (conversation.unreadCount > 0) {
+                  <span class="unread-count">{{ conversation.unreadCount > 99 ? '99+' : conversation.unreadCount }}</span>
+                }
+              </div>
             </div>
           </div>
-        </div>
-      } @empty {
-        <div class="empty-state">
-          <p>No conversations yet</p>
-        </div>
+        } @empty {
+          <div class="empty-conversations">
+            <svg class="empty-icon" width="64" height="64" viewBox="0 0 64 64" fill="none">
+              <path d="M32 8C18.7 8 8 18.7 8 32c0 4.9 1.5 9.5 4 13.3L8 56l10.7-4c3.8 2.5 8.4 4 13.3 4 13.3 0 24-10.7 24-24S45.3 8 32 8z" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            <h3>No conversations</h3>
+            <p>Start a conversation to see it here</p>
+          </div>
+        }
       }
     </div>
-  </div>
+  </aside>
 
-  <!-- RIGHT PANEL: Message Thread -->
-  <div class="message-panel" [class.show-mobile]="!showConversationList()">
+  <!-- RIGHT PANEL: Chat Messages -->
+  <main class="chat-main" [class.show-mobile]="!showConversationList()">
     @if (selectedConversation()) {
-      <!-- Message Thread Header -->
-      <div class="message-header">
-        <button class="back-button" (click)="backToConversations()">
-          ‹
+      <!-- Chat Header -->
+      <header class="chat-header">
+        <button class="back-btn" (click)="backToConversations()" aria-label="Back to conversations">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </button>
 
-        <div class="participant-info">
+        <div class="chat-participant">
           @if (selectedConversation()?.participantAvatar) {
-            <img
-              class="header-avatar"
-              [src]="selectedConversation()!.participantAvatar"
-              [alt]="selectedConversation()!.participantName"
-            />
+            <img class="header-avatar" [src]="selectedConversation()!.participantAvatar" [alt]="selectedConversation()!.participantName" />
           } @else {
-            <div class="header-avatar-placeholder">
-              {{ selectedConversation()!.participantName.charAt(0) }}
-            </div>
+            <div class="header-avatar-fallback">{{ getInitials(selectedConversation()!.participantName) }}</div>
           }
-
-          <div class="participant-details">
-            <span class="participant-name">{{ selectedConversation()!.participantName }}</span>
-            <span class="channel-info">
+          <div class="participant-info">
+            <h2 class="participant-title">{{ selectedConversation()!.participantName }}</h2>
+            <p class="participant-status">
               {{ getChannelIcon(selectedConversation()!.channel) }}
-              {{ selectedConversation()!.channel }}
-            </span>
+              <span>{{ formatChannelName(selectedConversation()!.channel) }}</span>
+            </p>
           </div>
         </div>
 
         <div class="header-actions">
-          <!-- Future: Video/Call icons -->
-          <button class="icon-button" title="Video call (coming soon)" disabled>
-            📹
+          <button class="action-btn" title="Search in conversation" (click)="toggleSearchInChat()">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M9 17A8 8 0 1 0 9 1a8 8 0 0 0 0 16zM18 18l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
           </button>
-          <button class="icon-button" title="Voice call (coming soon)" disabled>
-            📞
+          <button class="action-btn" title="More options" (click)="openChatMenu()">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <circle cx="10" cy="5" r="1.5" fill="currentColor"/>
+              <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+              <circle cx="10" cy="15" r="1.5" fill="currentColor"/>
+            </svg>
           </button>
         </div>
-      </div>
+      </header>
 
-      <!-- Messages Container -->
-      <div
-        class="messages-container"
-        #messageContainer
-        (scroll)="onMessageScroll($event)"
-      >
-        @for (message of messages(); track message._id; let i = $index) {
-          @if (shouldShowTimestamp(i)) {
-            <div class="message-timestamp-divider">
-              {{ formatMessageTime(message.timestamp) }}
+      <!-- Messages Area -->
+      <div class="messages-area" #messageContainer (scroll)="onMessageScroll($event)">
+        @if (isLoadingMessages()) {
+          <div class="messages-loading">
+            <div class="spinner"></div>
+            <p>Loading messages...</p>
+          </div>
+        } @else {
+          @for (message of messages(); track message._id; let i = $index) {
+            @if (shouldShowDateDivider(i)) {
+              <div class="date-divider">
+                <span class="date-text">{{ formatDateDivider(message.timestamp) }}</span>
+              </div>
+            }
+
+            <div class="message-row" [class.own-message]="message.isFromUser">
+              @if (!message.isFromUser) {
+                <div class="message-avatar-container">
+                  @if (shouldShowAvatar(i)) {
+                    @if (message.senderAvatar) {
+                      <img class="msg-avatar" [src]="message.senderAvatar" [alt]="message.senderName || 'User'" />
+                    } @else {
+                      <div class="msg-avatar-fallback">{{ getInitials(message.senderName || 'User') }}</div>
+                    }
+                  }
+                </div>
+              }
+
+              <div class="message-bubble-wrapper">
+                <div class="message-bubble" [class.user-bubble]="message.isFromUser">
+                  @if (!message.isFromUser && shouldShowSenderName(i)) {
+                    <span class="sender-label">{{ message.senderName }}</span>
+                  }
+                  <div class="message-body">{{ message.content }}</div>
+                  <div class="message-footer">
+                    <time class="msg-time">{{ formatMessageTime(message.timestamp) }}</time>
+                    @if (message.isFromUser) {
+                      <span class="msg-status" [class.status-read]="message.status === 'read'">
+                        {{ getStatusIcon(message.status) }}
+                      </span>
+                    }
+                  </div>
+                </div>
+              </div>
             </div>
           }
 
-          <div class="message-bubble" [class.from-user]="message.isFromUser">
-            @if (!message.isFromUser && message.senderAvatar) {
-              <img class="message-avatar" [src]="message.senderAvatar" [alt]="message.senderName || ''" />
-            }
-
-            <div class="bubble-content" [class.user-bubble]="message.isFromUser">
-              @if (!message.isFromUser && message.senderName) {
-                <span class="sender-name">{{ message.senderName }}</span>
-              }
-              <p class="message-text">{{ message.content }}</p>
-              <span class="message-meta">
-                <span class="message-time">{{ formatMessageTime(message.timestamp) }}</span>
-                @if (message.isFromUser) {
-                  <span class="message-status" [class.read]="message.status === 'read'">
-                    {{ getStatusIcon(message.status) }}
-                  </span>
-                }
-              </span>
+          <!-- Typing Indicator Animation -->
+          @if (isTyping()) {
+            <div class="message-row">
+              <div class="message-avatar-container">
+                <div class="msg-avatar-fallback-small">{{ getInitials(typingUserName()) }}</div>
+              </div>
+              <div class="message-bubble-wrapper">
+                <div class="typing-bubble">
+                  <div class="typing-animation">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        }
-
-        <!-- Typing Indicator -->
-        @if (typingUsers().get(selectedConversation()!._id)) {
-          <div class="typing-indicator">
-            <div class="typing-bubble">
-              <span class="typing-dots">
-                <span></span>
-                <span></span>
-                <span></span>
-              </span>
-            </div>
-            <span class="typing-text">{{ typingUsers().get(selectedConversation()!._id) }} is typing...</span>
-          </div>
+          }
         }
       </div>
 
-      <!-- Message Input Bar -->
-      <div class="message-input-bar">
-        <button class="icon-button" title="Attach file (coming soon)" disabled>
-          📎
-        </button>
+      <!-- Message Input -->
+      <div class="message-input-container">
+        <div class="input-wrapper">
+          <button class="input-action-btn" title="Attach file" (click)="openFilePicker()" aria-label="Attach file">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M17.5 9.583a6.667 6.667 0 01-13.333 0V5a5 5 0 1110 0v4.583a3.333 3.333 0 11-6.667 0V5.833" stroke="currentColor" stroke-width="1.667" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
 
-        <input
-          type="text"
-          class="message-input"
-          placeholder="Type a message..."
-          [(ngModel)]="messageInput"
-          (keydown.enter)="sendMessage()"
-          (input)="onTyping()"
-        />
+          <button class="input-action-btn" title="Add emoji" (click)="toggleEmojiPicker()" aria-label="Add emoji">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.667"/>
+              <path d="M6.667 11.667s1.25 2.5 3.333 2.5 3.333-2.5 3.333-2.5M7.5 7.5h.008M12.5 7.5h.008" stroke="currentColor" stroke-width="1.667" stroke-linecap="round"/>
+            </svg>
+          </button>
 
-        <button
-          class="send-button"
-          [disabled]="!messageInput().trim()"
-          (click)="sendMessage()"
-        >
-          ➤
-        </button>
+          <input
+            type="text"
+            class="message-input-field"
+            placeholder="Type a message..."
+            [(ngModel)]="messageInput"
+            (keydown.enter)="sendMessage()"
+            (input)="onTyping()"
+            aria-label="Message input"
+          />
+
+          <button
+            class="send-btn"
+            [disabled]="!messageInput().trim()"
+            (click)="sendMessage()"
+            aria-label="Send message"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M18 2L9 11M18 2l-6 16-3-7-7-3 16-6z" stroke="currentColor" stroke-width="1.667" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
     } @else {
       <!-- Empty State -->
-      <div class="empty-message-state">
-        <div class="empty-icon">💬</div>
-        <h3>Select a conversation</h3>
-        <p>Choose a conversation from the list to start messaging</p>
+      <div class="chat-empty-state">
+        <div class="empty-state-content">
+          <svg class="empty-state-icon" width="120" height="120" viewBox="0 0 120 120" fill="none">
+            <circle cx="60" cy="60" r="50" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+            <path d="M40 70c0-11 9-20 20-20s20 9 20 20" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+            <circle cx="48" cy="48" r="3" fill="currentColor" opacity="0.5"/>
+            <circle cx="72" cy="48" r="3" fill="currentColor" opacity="0.5"/>
+          </svg>
+          <h2>Welcome to SnapSalon Chat</h2>
+          <p>Select a conversation from the sidebar to start messaging</p>
+        </div>
       </div>
     }
-  </div>
+  </main>
+
+  <p-toast />
 </div>

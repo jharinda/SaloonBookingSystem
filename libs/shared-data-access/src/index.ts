@@ -18,6 +18,9 @@ export { SalonAdminService } from './lib/services/salon-admin.service';
 export type { AddServiceDto, UpdateOperatingHoursDto, CreateSalonDto, CreateSalonAddressDto, UpdateSalonInfoDto, SalonImage, UploadImageResult } from './lib/services/salon-admin.service';
 
 export { UserService } from './lib/services/user.service';
+
+export { ChatService } from './lib/services/chat.service';
+export type { ConversationResponse, MessageResponse, PaginatedMessagesResponse } from './lib/services/chat.service';
 export { AdminService } from './lib/services/admin.service';
 export type {
   AdminStats,
@@ -40,6 +43,7 @@ export { PushNotificationService, FCM_CONFIG } from './lib/services/push-notific
 export type { FCMConfig } from './lib/services/push-notification.service';
 export { RealtimeNotificationService } from './lib/services/realtime-notification.service';
 export type { RealtimeNotification } from './lib/services/realtime-notification.service';
+export { ActiveChatService } from './lib/services/active-chat.service';
 
 // Interceptors
 export { authInterceptor } from './lib/interceptors/auth.interceptor';

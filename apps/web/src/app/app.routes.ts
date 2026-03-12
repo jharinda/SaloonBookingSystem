@@ -50,6 +50,14 @@ export const appRoutes: Route[] = [
       import('@org/booking').then((m) => m.MyAppointmentsComponent),
   },
 
+  // Chat — auth required
+  {
+    path: 'chat',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('@org/chat').then((m) => m.ChatComponent),
+  },
+
   // Account / profile — auth required
   {
     path: 'account',

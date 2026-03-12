@@ -52,7 +52,7 @@ export class User extends Document {
   @Prop({ required: true, unique: true, lowercase: true, trim: true, index: true })
   email: string;
 
-  @Prop({ type: String, default: null })
+  @Prop({ type: String, default: null, select: false })
   passwordHash: string | null;
 
   @Prop({ required: true, trim: true })
@@ -64,7 +64,7 @@ export class User extends Document {
   @Prop({ type: String, required: true, enum: Object.values(UserRole), default: UserRole.CLIENT })
   role: UserRole;
 
-  @Prop({ type: String, default: null })
+  @Prop({ type: String, default: null, select: false })
   refreshToken: string | null;
 
   @Prop({ default: false })

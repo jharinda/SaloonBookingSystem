@@ -88,7 +88,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.userEmail = payload.email;
       client.userRole = payload.role;
 
-      this.logger.log(`Client connected: ${client.id} (user: ${client.userId})`);
+      // Join user to their personal room for direct messaging
+      client.join(`user:${client.userId}`);
+      this.logger.log(`✅ User ${client.userEmail} joined personal room: user:${client.userId}`);
+
+      this.logger.log(`Client connected: ${client.id} (user: ${client.userEmail})`);
     } catch (error) {
       this.logger.error(`Connection authentication failed: ${error.message}`);
       client.disconnect();
@@ -99,7 +103,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Handle client disconnection.
    */
   handleDisconnect(client: AuthenticatedSocket): void {
-    this.logger.log(`Client disconnected: ${client.id} (user: ${client.userId})`);
+    this.logger.log(`Client disconnected: ${client.id} (user: ${client.userEmail})`);
   }
 
   /**
@@ -126,9 +130,39 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Join the room
       client.join(conversationId);
-      this.logger.log(`User ${client.userId} joined conversation ${conversationId}`);
+      this.logger.log(`User ${client.userEmail} joined conversation ${conversationId}`);
     } catch (error) {
       this.logger.error(`Error joining conversation: ${error.message}`);
+      throw new WsException(error.message);
+    }
+  }
+
+  /**
+   * Join a salon room (for salon owners).
+   * Client sends: { salonId }
+   */
+  @SubscribeMessage('join_salon_room')
+  async handleJoinSalonRoom(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { salonId: string },
+  ): Promise<void> {
+    try {
+      const { salonId } = data;
+
+      if (!client.userId) {
+        throw new WsException('Unauthorized');
+      }
+
+      // Verify that the client's userId matches the salonId
+      if (client.userId !== salonId) {
+        throw new WsException('Salon owner must match salon');
+      }
+
+      // Join the salon room
+      client.join(`salon:${salonId}`);
+      this.logger.log(`Salon owner ${client.userEmail} joined room salon:${salonId}`);
+    } catch (error) {
+      this.logger.error(`Error joining salon room: ${error.message}`);
       throw new WsException(error.message);
     }
   }
@@ -168,11 +202,43 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
 
       // Emit new message to all clients in the conversation room
+      const messageObj = message.toObject();
+      this.logger.log(`📤 Emitting new_message to conversation ${conversationId}. Message:`, JSON.stringify({
+        senderId: messageObj.senderId,
+        senderName: messageObj.senderName,
+        body: messageObj.body,
+        conversationId: messageObj.conversationId
+      }));
+
       this.server.to(conversationId).emit('new_message', {
-        message: message.toObject(),
+        message: messageObj,
       });
 
-      this.logger.log(`Message sent in conversation ${conversationId} by user ${client.userId}`);
+      // Emit to each participant's personal room to ensure they get notifications
+      // even if they haven't joined the conversation room yet
+      const conversation = await this.chatService.getConversationById(conversationId);
+      if (conversation?.participants) {
+        for (const participantId of conversation.participants) {
+          const participantIdStr = participantId.toString();
+          // Don't re-emit to sender
+          if (participantIdStr !== client.userId) {
+            this.logger.log(`📤 Emitting to participant user room: user:${participantIdStr}`);
+            this.server.to(`user:${participantIdStr}`).emit('new_message', {
+              message: messageObj,
+            });
+          }
+        }
+      }
+
+      // Also emit to the salon room so salon owners can see messages (legacy support)
+      if (conversation?.salonId) {
+        this.logger.log(`📤 Also emitting to salon room: salon:${conversation.salonId.toString()}`);
+        this.server.to(`salon:${conversation.salonId.toString()}`).emit('new_message', {
+          message: messageObj,
+        });
+      }
+
+      this.logger.log(`Message sent in conversation ${conversationId} by ${client.userEmail}`);
 
       // Send push notification to the other participant (best-effort, non-blocking)
       this.sendPushNotification(conversationId, client.userId, senderName, body).catch((err) => {
@@ -213,7 +279,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         readAt,
       });
 
-      this.logger.log(`Messages marked as read in conversation ${conversationId} by user ${client.userId}`);
+      this.logger.log(`Messages marked as read in conversation ${conversationId} by ${client.userEmail}`);
     } catch (error) {
       this.logger.error(`Error marking messages as read: ${error.message}`);
       throw new WsException(error.message);

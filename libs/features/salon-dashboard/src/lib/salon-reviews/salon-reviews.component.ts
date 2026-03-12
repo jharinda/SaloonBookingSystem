@@ -225,13 +225,13 @@ import { Review } from '@org/models';
       display: flex;
       gap: 10px;
       background: #f8f9fa;
-      border-left: 3px solid var(--mat-sys-primary, #6750A4);
+      border-left: 3px solid var(--p-primary-500);
       border-radius: 4px;
       padding: 10px 14px;
       margin-bottom: 12px;
     }
 
-    .reply-icon { color: var(--mat-sys-primary, #6750A4); font-size: 1rem; width: 1rem; height: 1rem; flex-shrink: 0; }
+    .reply-icon { color: var(--p-primary-500); font-size: 1rem; width: 1rem; height: 1rem; flex-shrink: 0; }
     .reply-label { font-size: .72rem; font-weight: 600; color: #9ca3af; text-transform: uppercase; margin-bottom: 2px; }
     .reply-text  { font-size: .85rem; color: #374151; margin: 0; }
 
@@ -249,7 +249,7 @@ import { Review } from '@org/models';
       outline: none;
       font-family: inherit;
 
-      &:focus { border-color: var(--mat-sys-primary, #6750A4); }
+      &:focus { border-color: var(--p-primary-500); }
     }
 
     .reply-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }

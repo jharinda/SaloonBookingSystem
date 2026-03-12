@@ -1,4 +1,4 @@
-﻿<!-- 
+﻿<!--
      LOADING
       -->
 @if (loading()) {
@@ -8,7 +8,7 @@
   </div>
 }
 
-<!-- 
+<!--
      ERROR
       -->
 @if (!loading() && error()) {
@@ -20,7 +20,7 @@
   </div>
 }
 
-<!-- 
+<!--
      MAIN CONTENT
       -->
 @if (!loading() && !error() && salon(); as s) {
@@ -31,13 +31,24 @@
       <a routerLink="/discover" class="hover:text-purple-600 transition-colors">Discover</a>
       <i class="pi pi-chevron-right text-xs text-gray-300 dark:text-gray-600"></i>
       <span class="text-gray-900 dark:text-gray-100 font-medium truncate" aria-current="page">{{ s.name }}</span>
-      <button
-        class="ml-auto p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-purple-600"
-        (click)="share()"
-        aria-label="Share salon"
-      >
-        <i class="pi pi-share-alt"></i>
-      </button>
+      <div class="ml-auto flex items-center gap-1">
+        <button
+          class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-purple-600"
+          routerLink="/chat"
+          aria-label="Message salon"
+          title="Message salon"
+        >
+          <i class="pi pi-comments"></i>
+        </button>
+        <button
+          class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-purple-600"
+          (click)="share()"
+          aria-label="Share salon"
+          title="Share salon"
+        >
+          <i class="pi pi-share-alt"></i>
+        </button>
+      </div>
     </nav>
 
     <!--  Gallery  -->
@@ -142,14 +153,24 @@
         </div>
       </div>
 
-      <p-button
-        label="Book an Appointment"
-        icon="pi pi-calendar"
-        size="large"
-        class="sm:flex-shrink-0"
-        (onClick)="bookSalon()"
-        [attr.aria-label]="'Book an appointment at ' + s.name"
-      />
+      <div class="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
+        <p-button
+          label="Message"
+          icon="pi pi-comments"
+          severity="secondary"
+          variant="outlined"
+          size="large"
+          (onClick)="openChat()"
+          [attr.aria-label]="'Message ' + s.name"
+        />
+        <p-button
+          label="Book an Appointment"
+          icon="pi pi-calendar"
+          size="large"
+          (onClick)="bookSalon()"
+          [attr.aria-label]="'Book an appointment at ' + s.name"
+        />
+      </div>
     </section>
 
     <!--  Tab View: About / Services / Reviews  -->

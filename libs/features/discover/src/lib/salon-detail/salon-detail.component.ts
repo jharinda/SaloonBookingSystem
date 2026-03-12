@@ -272,7 +272,11 @@ export class SalonDetailComponent implements OnInit {
   onTouchEnd(e: TouchEvent): void {
     const dx = (e.changedTouches[0]?.clientX ?? 0) - this.touchStartX;
     if (Math.abs(dx) < 40) return; // ignore tiny taps
-    dx < 0 ? this.nextImage() : this.prevImage();
+    if (dx < 0) {
+      this.nextImage();
+    } else {
+      this.prevImage();
+    }
   }
 
   // ── Navigation / booking ────────────────────────────────────────────────────
@@ -283,6 +287,22 @@ export class SalonDetailComponent implements OnInit {
   bookService(serviceId: string): void {
     void this.router.navigate(['/booking', this.salonId], {
       queryParams: { serviceId },
+    });
+  }
+
+  // ── Chat ────────────────────────────────────────────────────────────────────
+  openChat(): void {
+    const s = this.salon();
+    if (!s) return;
+
+    void this.router.navigate(['/chat'], {
+      state: {
+        salon: {
+          id: this.salonId,
+          name: s.name,
+          avatar: s.images?.[0]?.url || null,
+        },
+      },
     });
   }
 

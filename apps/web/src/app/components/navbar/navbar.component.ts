@@ -54,7 +54,18 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   /** Main nav items — rebuilt whenever auth state or URL changes */
   readonly menuItems = computed<MenuItem[]>(() => {
-    return [];
+    const items: MenuItem[] = [];
+
+    if (this.isLoggedIn()) {
+      items.push({
+        label: 'Chat',
+        icon: 'pi pi-comments',
+        routerLink: '/chat',
+        styleClass: 'chat-menu-item'
+      });
+    }
+
+    return items;
   });
 
   /** User dropdown items */

@@ -6,16 +6,16 @@ import {
   output,
 } from '@angular/core';
 import { DecimalPipe, DatePipe } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { CardModule } from 'primeng/card';
+import { FloatLabelModule } from 'primeng/floatlabel';
+import { InputTextModule } from 'primeng/inputtext';
+import { ButtonModule } from 'primeng/button';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { FormsModule } from '@angular/forms';
 
 import { BookingStateService } from '../services/booking-state.service';
 import { BookingService, CreateBookingDto } from '@org/shared-data-access';
+import { SalonServiceItem } from '@org/models';
 
 /**
  * Step 4: Booking Confirmation
@@ -33,12 +33,11 @@ import { BookingService, CreateBookingDto } from '@org/shared-data-access';
     DecimalPipe,
     DatePipe,
     FormsModule,
-    MatCardModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
+    CardModule,
+    FloatLabelModule,
+    InputTextModule,
+    ButtonModule,
+    ProgressSpinnerModule,
   ],
   templateUrl: './booking-confirmation-step.component.html',
   styleUrl: './booking-confirmation-step.component.scss',
@@ -69,11 +68,10 @@ export class BookingConfirmationStepComponent {
   }
 
   confirmBooking(): void {
-    const state = this.bookingState.currentState;
-    const salon = state.salon;
-    const services = state.selectedServices;
-    const date = state.selectedDate;
-    const time = state.selectedTime;
+    const salon = this.bookingState.salon();
+    const services = this.bookingState.selectedServices();
+    const date = this.bookingState.selectedDate();
+    const time = this.bookingState.selectedTime();
 
     if (!salon || services.length === 0 || !date || !time) {
       this.submitError.set('Missing required booking information');
@@ -84,8 +82,8 @@ export class BookingConfirmationStepComponent {
     const dto: CreateBookingDto = {
       salonId: salon._id,
       salonName: salon.name,
-      stylistId: state.selectedStylistId || undefined,
-      services: services.map((svc) => ({
+      stylistId: this.bookingState.selectedStylistId() || undefined,
+      services: services.map((svc: SalonServiceItem) => ({
         serviceId: svc._id,
         name: svc.name,
         price: svc.price,
@@ -93,7 +91,7 @@ export class BookingConfirmationStepComponent {
       })),
       appointmentDate: date.toISOString().split('T')[0], // YYYY-MM-DD
       startTime: time, // "HH:mm"
-      notes: state.notes || undefined,
+      notes: this.bookingState.notes() || undefined,
     };
 
     this.submitting.set(true);

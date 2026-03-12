@@ -108,6 +108,7 @@ services:
       REDIS_HOST: 'redis'
       REDIS_PORT: '6379'
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
+      SUBSCRIPTION_SERVICE_URL: 'http://subscription-service:3007'
     networks:
       - snapsalon
     depends_on:

@@ -4,15 +4,15 @@
   <!-- ── Global loading ───────────────────────────────────────────────── -->
   @if (loading()) {
     <div class="center-spinner">
-      <mat-spinner diameter="48" />
+      <p-progressspinner strokeWidth="4" [style]="{width:'48px', height:'48px'}" />
     </div>
   } @else {
 
   <!-- ── Tabs ─────────────────────────────────────────────────────────── -->
-  <mat-tab-group class="settings-tabs" animationDuration="200ms">
+  <p-tabs class="settings-tabs">
 
     <!-- ═══════════════════════════════ TAB 1: Profile ════════════════════ -->
-    <mat-tab label="Profile">
+    <p-tab-panel header="Profile">
       <div class="tab-content">
 
         <!-- Avatar section -->
@@ -28,28 +28,28 @@
             </div>
 
             <div class="avatar-actions">
-              <label class="change-photo-btn" mat-flat-button>
+              <label class="change-photo-btn p-button p-component">
                 <input
                   type="file"
                   accept="image/*"
                   class="file-input"
                   (change)="onAvatarFileChange($event)"
                 />
-                <mat-icon>photo_camera</mat-icon>
+                <i class="pi pi-camera"></i>
                 Change Photo
               </label>
 
               @if (avatarFile()) {
                 <button
-                  mat-flat-button
+                  pButton
                   class="upload-btn"
                   [disabled]="savingAvatar()"
                   (click)="uploadAvatar()"
                 >
                   @if (savingAvatar()) {
-                    <mat-spinner diameter="18" class="btn-spinner" />
+                    <p-progressspinner strokeWidth="4" [style]="{width:'18px',height:'18px'}" styleClass="btn-spinner" />
                   } @else {
-                    <mat-icon>cloud_upload</mat-icon>
+                    <i class="pi pi-cloud-upload"></i>
                   }
                   Upload
                 </button>
@@ -58,7 +58,7 @@
           </div>
         </section>
 
-        <mat-divider />
+        <p-divider />
 
         <!-- Profile form -->
         <section class="section" [formGroup]="profileForm">
@@ -66,59 +66,58 @@
 
           <div class="form-row two-col">
             <!-- First name -->
-            <mat-form-field appearance="outline">
-              <mat-label>First Name</mat-label>
-              <input matInput formControlName="firstName" autocomplete="given-name" />
-              @if (profileError('firstName'); as err) {
-                <mat-error>{{ err }}</mat-error>
-              }
-            </mat-form-field>
+            <p-floatlabel>
+              <input pInputText id="firstName" formControlName="firstName" autocomplete="given-name" />
+              <label for="firstName">First Name</label>
+            </p-floatlabel>
+            @if (profileError('firstName'); as err) {
+              <small class="p-error block mt-1">{{ err }}</small>
+            }
 
             <!-- Last name -->
-            <mat-form-field appearance="outline">
-              <mat-label>Last Name</mat-label>
-              <input matInput formControlName="lastName" autocomplete="family-name" />
-              @if (profileError('lastName'); as err) {
-                <mat-error>{{ err }}</mat-error>
-              }
-            </mat-form-field>
+            <p-floatlabel>
+              <input pInputText id="lastName" formControlName="lastName" autocomplete="family-name" />
+              <label for="lastName">Last Name</label>
+            </p-floatlabel>
+            @if (profileError('lastName'); as err) {
+              <small class="p-error block mt-1">{{ err }}</small>
+            }
           </div>
 
           <!-- Phone -->
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Phone (optional)</mat-label>
-            <mat-icon matPrefix>phone</mat-icon>
+          <p-floatlabel class="full-width">
             <input
-              matInput
+              pInputText
+              id="phone"
               formControlName="phone"
               placeholder="+94XXXXXXXXX"
               autocomplete="tel"
             />
-            <mat-hint>Sri Lanka format: +94XXXXXXXXX</mat-hint>
-            @if (profileError('phone'); as err) {
-              <mat-error>{{ err }}</mat-error>
-            }
-          </mat-form-field>
+            <label for="phone">Phone (optional)</label>
+          </p-floatlabel>
+          <small class="text-zinc-500 block mt-1">Sri Lanka format: +94XXXXXXXXX</small>
+          @if (profileError('phone'); as err) {
+            <small class="p-error block mt-1">{{ err }}</small>
+          }
 
           <!-- Email (read-only) -->
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Email Address</mat-label>
-            <mat-icon matPrefix>email</mat-icon>
-            <input matInput formControlName="email" autocomplete="email" />
-            <mat-hint>Email cannot be changed. Contact support if needed.</mat-hint>
-          </mat-form-field>
+          <p-floatlabel class="full-width">
+            <input pInputText id="email" formControlName="email" autocomplete="email" />
+            <label for="email">Email Address</label>
+          </p-floatlabel>
+          <small class="text-zinc-500 block mt-1">Email cannot be changed. Contact support if needed.</small>
 
           <div class="form-actions">
             <button
-              mat-flat-button
+              pButton
               class="save-btn"
               [disabled]="savingProfile()"
               (click)="saveProfile()"
             >
               @if (savingProfile()) {
-                <mat-spinner diameter="18" class="btn-spinner" />
+                <p-progressspinner strokeWidth="4" [style]="{width:'18px',height:'18px'}" styleClass="btn-spinner" />
               } @else {
-                <mat-icon>save</mat-icon>
+                <i class="pi pi-save"></i>
               }
               Save Changes
             </button>
@@ -126,62 +125,62 @@
         </section>
 
       </div>
-    </mat-tab>
+    </p-tab-panel>
 
     <!-- ══════════════════════════════ TAB 2: Security ════════════════════ -->
-    <mat-tab label="Security">
+    <p-tab-panel header="Security">
       <div class="tab-content">
 
         <!-- Change password -->
         <section class="section" [formGroup]="passwordForm">
           <h3 class="section-title">Change Password</h3>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Current Password</mat-label>
-            <mat-icon matPrefix>lock</mat-icon>
-            <input matInput type="password" formControlName="currentPassword" autocomplete="current-password" />
-            @if (passwordError('currentPassword'); as err) {
-              <mat-error>{{ err }}</mat-error>
-            }
-          </mat-form-field>
+          <p-floatlabel class="full-width">
+            <p-password inputId="currentPassword" formControlName="currentPassword"
+                        [feedback]="false" [toggleMask]="true" />
+            <label for="currentPassword">Current Password</label>
+          </p-floatlabel>
+          @if (passwordError('currentPassword'); as err) {
+            <small class="p-error block mt-1">{{ err }}</small>
+          }
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>New Password</mat-label>
-            <mat-icon matPrefix>lock_reset</mat-icon>
-            <input matInput type="password" formControlName="newPassword" autocomplete="new-password" />
-            <mat-hint>Min 8 chars · uppercase · lowercase · number · special character</mat-hint>
-            @if (passwordError('newPassword'); as err) {
-              <mat-error>{{ err }}</mat-error>
-            }
-          </mat-form-field>
+          <p-floatlabel class="full-width">
+            <p-password inputId="newPassword" formControlName="newPassword"
+                        [feedback]="false" [toggleMask]="true" />
+            <label for="newPassword">New Password</label>
+          </p-floatlabel>
+          <small class="text-zinc-500 block mt-1">Min 8 chars · uppercase · lowercase · number · special character</small>
+          @if (passwordError('newPassword'); as err) {
+            <small class="p-error block mt-1">{{ err }}</small>
+          }
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Confirm New Password</mat-label>
-            <mat-icon matPrefix>lock_reset</mat-icon>
-            <input matInput type="password" formControlName="confirmPassword" autocomplete="new-password" />
-            @if (passwordError('confirmPassword'); as err) {
-              <mat-error>{{ err }}</mat-error>
-            }
-          </mat-form-field>
+          <p-floatlabel class="full-width">
+            <p-password inputId="confirmPassword" formControlName="confirmPassword"
+                        [feedback]="false" [toggleMask]="true" />
+            <label for="confirmPassword">Confirm New Password</label>
+          </p-floatlabel>
+          @if (passwordError('confirmPassword'); as err) {
+            <small class="p-error block mt-1">{{ err }}</small>
+          }
 
           <div class="form-actions">
             <button
-              mat-flat-button
+              pButton
               class="save-btn"
               [disabled]="savingPassword()"
               (click)="changePassword()"
             >
               @if (savingPassword()) {
-                <mat-spinner diameter="18" class="btn-spinner" />
+                <p-progressspinner strokeWidth="4" [style]="{width:'18px',height:'18px'}" styleClass="btn-spinner" />
               } @else {
-                <mat-icon>vpn_key</mat-icon>
+                <i class="pi pi-key"></i>
               }
               Update Password
             </button>
           </div>
         </section>
 
-        <mat-divider />
+        <p-divider />
 
         <!-- Connected accounts -->
         <section class="section">
@@ -209,19 +208,21 @@
 
             @if (connectedAccounts().google) {
               <button
-                mat-stroked-button
+                pButton
+                severity="secondary"
+                [outlined]="true"
                 class="disconnect-btn"
                 [disabled]="disconnectingGoogle()"
                 (click)="disconnectGoogle()"
               >
                 @if (disconnectingGoogle()) {
-                  <mat-spinner diameter="16" class="btn-spinner" />
+                  <p-progressspinner strokeWidth="4" [style]="{width:'16px',height:'16px'}" styleClass="btn-spinner" />
                 }
                 Disconnect
               </button>
             } @else {
-              <button mat-flat-button class="connect-google-btn" (click)="connectGoogle()">
-                <mat-icon>login</mat-icon>
+              <button pButton class="connect-google-btn" (click)="connectGoogle()">
+                <i class="pi pi-sign-in"></i>
                 Connect Google
               </button>
             }
@@ -229,10 +230,10 @@
         </section>
 
       </div>
-    </mat-tab>
+    </p-tab-panel>
 
     <!-- ═══════════════════════════ TAB 3: Notifications ══════════════════ -->
-    <mat-tab label="Notifications">
+    <p-tab-panel header="Notifications">
       <div class="tab-content">
 
         <section class="section">
@@ -243,67 +244,63 @@
 
             <div class="notif-row">
               <div class="notif-info">
-                <mat-icon class="notif-icon">email</mat-icon>
+                <i class="pi pi-envelope notif-icon"></i>
                 <div>
                   <p class="notif-label">Booking Confirmations</p>
                   <p class="notif-desc">Receive email when a booking is confirmed or cancelled</p>
                 </div>
               </div>
-              <mat-slide-toggle
-                [checked]="notifPrefs().emailBookingConfirmations"
-                (change)="onNotifToggle('emailBookingConfirmations', $event.checked)"
-                color="primary"
+              <p-toggleswitch
+                [ngModel]="notifPrefs().emailBookingConfirmations"
+                (ngModelChange)="onNotifToggle('emailBookingConfirmations', $event)"
               />
             </div>
 
-            <mat-divider />
+            <p-divider />
 
             <div class="notif-row">
               <div class="notif-info">
-                <mat-icon class="notif-icon">schedule</mat-icon>
+                <i class="pi pi-clock notif-icon"></i>
                 <div>
                   <p class="notif-label">Email Reminders</p>
                   <p class="notif-desc">Get an email reminder 24 hours before your appointment</p>
                 </div>
               </div>
-              <mat-slide-toggle
-                [checked]="notifPrefs().emailReminders"
-                (change)="onNotifToggle('emailReminders', $event.checked)"
-                color="primary"
+              <p-toggleswitch
+                [ngModel]="notifPrefs().emailReminders"
+                (ngModelChange)="onNotifToggle('emailReminders', $event)"
               />
             </div>
 
-            <mat-divider />
+            <p-divider />
 
             <div class="notif-row">
               <div class="notif-info">
-                <mat-icon class="notif-icon">sms</mat-icon>
+                <i class="pi pi-comment notif-icon"></i>
                 <div>
                   <p class="notif-label">SMS Reminders</p>
                   <p class="notif-desc">Receive an SMS 2 hours before your appointment</p>
                 </div>
               </div>
-              <mat-slide-toggle
-                [checked]="notifPrefs().smsReminders"
-                (change)="onNotifToggle('smsReminders', $event.checked)"
-                color="primary"
+              <p-toggleswitch
+                [ngModel]="notifPrefs().smsReminders"
+                (ngModelChange)="onNotifToggle('smsReminders', $event)"
               />
             </div>
 
-            <mat-divider />
+            <p-divider />
 
             <div class="notif-row">
               <div class="notif-info">
-                <mat-icon class="notif-icon">chat</mat-icon>
+                <i class="pi pi-whatsapp notif-icon"></i>
                 <div>
                   <p class="notif-label">WhatsApp Messages</p>
                   <p class="notif-desc">Receive appointment updates via WhatsApp</p>
                 </div>
               </div>
-              <mat-slide-toggle
-                [checked]="notifPrefs().whatsappMessages"
-                (change)="onNotifToggle('whatsappMessages', $event.checked)"
-                color="primary"
+              <p-toggleswitch
+                [ngModel]="notifPrefs().whatsappMessages"
+                (ngModelChange)="onNotifToggle('whatsappMessages', $event)"
               />
             </div>
 
@@ -311,14 +308,14 @@
         </section>
 
       </div>
-    </mat-tab>
+    </p-tab-panel>
 
-  </mat-tab-group>
+  </p-tabs>
 
   <!-- ── Danger zone ────────────────────────────────────────────────── -->
   <section class="danger-zone">
     <div class="danger-header">
-      <mat-icon class="danger-icon">dangerous</mat-icon>
+      <i class="pi pi-exclamation-triangle danger-icon"></i>
       <div>
         <h3 class="danger-title">Danger Zone</h3>
         <p class="danger-desc">
@@ -328,15 +325,17 @@
       </div>
     </div>
     <button
-      mat-stroked-button
+      pButton
+      severity="danger"
+      [outlined]="true"
       class="delete-account-btn"
       [disabled]="deletingAccount()"
       (click)="openDeleteDialog()"
     >
       @if (deletingAccount()) {
-        <mat-spinner diameter="18" class="btn-spinner" />
+        <p-progressspinner strokeWidth="4" [style]="{width:'18px',height:'18px'}" styleClass="btn-spinner" />
       } @else {
-        <mat-icon>delete_forever</mat-icon>
+        <i class="pi pi-trash"></i>
       }
       Delete My Account
     </button>

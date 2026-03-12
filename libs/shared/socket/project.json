@@ -3,5 +3,5 @@
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/shared/socket",
   "projectType": "library",
-  "tags": ["type:shared", "scope:socket"]
+  "tags": ["scope:shared", "type:util"]
 }

@@ -6,10 +6,10 @@ import {
   signal,
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
-import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatIconModule } from '@angular/material/icon';
+import { FormsModule } from '@angular/forms';
+import { CardModule } from 'primeng/card';
+import { CheckboxModule } from 'primeng/checkbox';
+import { ChipModule } from 'primeng/chip';
 
 import { BookingStateService } from '../services/booking-state.service';
 import { SalonServiceItem } from '@org/models';
@@ -27,10 +27,10 @@ import { SalonServiceItem } from '@org/models';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DecimalPipe,
-    MatCardModule,
-    MatCheckboxModule,
-    MatChipsModule,
-    MatIconModule,
+    FormsModule,
+    CardModule,
+    CheckboxModule,
+    ChipModule,
   ],
   templateUrl: './service-selection-step.component.html',
   styleUrl: './service-selection-step.component.scss',
