@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Logger,
   Param,
   Query,
   Redirect,
@@ -114,47 +115,82 @@ export class CalendarController {
     @CurrentUser() user: JwtUser,
     @Res() res: Response,
   ): Promise<void> {
-    const booking = await this.bookingModel
-      .findById(bookingId)
-      .lean()
-      .exec();
+    try {
+      const booking = await this.bookingModel
+        .findById(bookingId)
+        .lean()
+        .exec();
 
-    if (!booking) {
-      res.status(404).json({ message: `Booking ${bookingId} not found` });
-      return;
-    }
+      if (!booking) {
+        res.status(404).json({ message: `Booking ${bookingId} not found` });
+        return;
+      }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const b = booking as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const b = booking as any;
 
-    const { filename, content } = this.iCal.generateBookingIcs(
-      {
-        id: b._id.toString(),
-        clientId: b.clientId?.toString() ?? '',
-        salonId: b.salonId?.toString() ?? '',
-        services: b.services ?? [],
-        // appointmentDate may be stored as a plain "YYYY-MM-DD" string by booking-service
-        appointmentDate: b.appointmentDate instanceof Date
+      // Safely parse appointmentDate — could be a Date object or a string
+      let appointmentDateIso: string;
+      try {
+        appointmentDateIso = b.appointmentDate instanceof Date
           ? b.appointmentDate.toISOString()
-          : new Date(b.appointmentDate as string).toISOString(),
-        startTime: b.startTime,
-        endTime: b.endTime,
-        totalPrice: b.totalPrice,
-        notes: b.notes ?? undefined,
-        googleEventId: b.googleEventId ?? undefined,
-      },
-      {
-        name: user.email,   // resolved name would come from auth-service in production
-        email: user.email,
-        phone: '',
-      },
-      b.salonName ?? 'SnapSalon',
-      b.salonAddress ?? '',
-      this.configService.get<string>('app.emailFrom') ?? 'noreply@snapsalon.lk',
-    );
+          : new Date(b.appointmentDate as string).toISOString();
+      } catch {
+        appointmentDateIso = new Date().toISOString();
+        Logger.warn(
+          `Booking ${bookingId}: invalid appointmentDate "${b.appointmentDate}", using current date as fallback`,
+          CalendarController.name,
+        );
+      }
 
-    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(content);
+      // Ensure services array has valid entries for iCal generation
+      const services = Array.isArray(b.services)
+        ? b.services.map((s: Record<string, unknown>) => ({
+            serviceId: String(s['serviceId'] ?? s['_id'] ?? ''),
+            name: String(s['name'] ?? 'Service'),
+            price: Number(s['price'] ?? 0),
+            durationMinutes: Number(s['durationMinutes'] ?? 30),
+          }))
+        : [];
+
+      const { filename, content } = this.iCal.generateBookingIcs(
+        {
+          id: b._id.toString(),
+          clientId: b.clientId?.toString() ?? '',
+          salonId: b.salonId?.toString() ?? '',
+          services,
+          appointmentDate: appointmentDateIso,
+          startTime: b.startTime ?? '09:00',
+          endTime: b.endTime ?? '10:00',
+          totalPrice: Number(b.totalPrice ?? 0),
+          notes: b.notes ?? undefined,
+          googleEventId: b.googleEventId ?? undefined,
+        },
+        {
+          name: user.email,   // resolved name would come from auth-service in production
+          email: user.email,
+          phone: '',
+        },
+        b.salonName ?? 'SnapSalon',
+        b.salonAddress ?? '',
+        this.configService.get<string>('app.emailFrom') ?? 'noreply@snapsalon.lk',
+      );
+
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(content);
+    } catch (err) {
+      Logger.error(
+        `Failed to generate .ics for booking ${bookingId}: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined,
+        CalendarController.name,
+      );
+      if (!res.headersSent) {
+        res.status(500).json({
+          statusCode: 500,
+          message: 'Failed to generate calendar file',
+        });
+      }
+    }
   }
 }

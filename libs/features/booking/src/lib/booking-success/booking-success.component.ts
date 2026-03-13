@@ -441,8 +441,13 @@ export class BookingSuccessComponent implements OnInit {
   }
 
   addToGoogleCalendar(): void {
+    const salonId = this.booking()?.salonId;
+    if (!salonId) {
+      this.msgSvc.add({ severity: 'error', summary: 'Error', detail: 'Booking details not loaded yet. Please try again.', life: 4000 });
+      return;
+    }
     this.isCalendarLoading.set(true);
-    this.calendarService.getGoogleAuthUrl().subscribe({
+    this.calendarService.getGoogleAuthUrl(salonId).subscribe({
       next: (res) => {
         window.location.href = res.url;
       },

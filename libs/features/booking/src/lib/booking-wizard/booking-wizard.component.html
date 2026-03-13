@@ -12,10 +12,7 @@
     <div class="wizard-state wizard-state--error">
       <i class="pi pi-exclamation-circle wizard-state__icon"></i>
       <p class="wizard-state__message">{{ error() }}</p>
-      <button pButton (click)="goToDiscover()">
-        <i class="pi pi-search"></i>
-        Back to Discover
-      </button>
+      <p-button label="Back to Discover" icon="pi pi-search" (onClick)="goToDiscover()" />
     </div>
   }
 
@@ -42,111 +39,101 @@
     </div>
 
     <!-- PrimeNG Stepper -->
-    <p-stepper #stepper class="booking-stepper" [linear]="true" [value]="currentStep()" (valueChange)="onActiveStepChange($event)">
-      <!-- Step 1: Service Selection -->
-      <p-step-panel>
-        <ng-template pTemplate="header">
-          <span class="step-label">
-            <i class="pi pi-scissors"></i>
-            <span class="step-label__text">Services</span>
-          </span>
-        </ng-template>
-        <ng-template pTemplate="content">
-          <lib-service-selection-step />
+    <p-stepper #stepper class="booking-stepper" [value]="currentStep()">
+      <p-step-list>
+        <p-step [value]="1">Services</p-step>
+        <p-step [value]="2">Stylist</p-step>
+        <p-step [value]="3">Date & Time</p-step>
+        <p-step [value]="4">Confirm</p-step>
+      </p-step-list>
 
-          <div class="step-actions">
-            <button pButton severity="secondary" (click)="goToDiscover()">
-              <i class="pi pi-times"></i>
-              Cancel
-            </button>
-            <button
-              pButton
-              [disabled]="!isStep1Valid()"
-              (click)="goToNextStep()"
-            >
-              Next
-              <i class="pi pi-arrow-right"></i>
-            </button>
-          </div>
-        </ng-template>
-      </p-step-panel>
+      <p-step-panels>
+        <!-- Step 1: Service Selection -->
+        <p-step-panel [value]="1">
+          <ng-template #content>
+            <lib-service-selection-step />
 
-      <!-- Step 2: Stylist Selection -->
-      <p-step-panel>
-        <ng-template pTemplate="header">
-          <span class="step-label">
-            <i class="pi pi-user"></i>
-            <span class="step-label__text">Stylist</span>
-          </span>
-        </ng-template>
-        <ng-template pTemplate="content">
-          <lib-stylist-selection-step />
+            <div class="step-actions">
+              <p-button
+                label="Cancel"
+                icon="pi pi-times"
+                severity="secondary"
+                (onClick)="goToDiscover()"
+              />
+              <p-button
+                label="Next"
+                icon="pi pi-arrow-right"
+                iconPos="right"
+                [disabled]="!isStep1Valid()"
+                (onClick)="goToNextStep()"
+              />
+            </div>
+          </ng-template>
+        </p-step-panel>
 
-          <div class="step-actions">
-            <button pButton severity="secondary" (click)="goToPreviousStep()">
-              <i class="pi pi-arrow-left"></i>
-              Back
-            </button>
-            <button
-              pButton
-              (click)="goToNextStep()"
-            >
-              Next
-              <i class="pi pi-arrow-right"></i>
-            </button>
-          </div>
-        </ng-template>
-      </p-step-panel>
+        <!-- Step 2: Stylist Selection -->
+        <p-step-panel [value]="2">
+          <ng-template #content>
+            <lib-stylist-selection-step />
 
-      <!-- Step 3: Date & Time -->
-      <p-step-panel>
-        <ng-template pTemplate="header">
-          <span class="step-label">
-            <i class="pi pi-calendar"></i>
-            <span class="step-label__text">Date & Time</span>
-          </span>
-        </ng-template>
-        <ng-template pTemplate="content">
-          <lib-datetime-selection-step />
+            <div class="step-actions">
+              <p-button
+                label="Back"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                (onClick)="goToPreviousStep()"
+              />
+              <p-button
+                label="Next"
+                icon="pi pi-arrow-right"
+                iconPos="right"
+                (onClick)="goToNextStep()"
+              />
+            </div>
+          </ng-template>
+        </p-step-panel>
 
-          <div class="step-actions">
-            <button pButton severity="secondary" (click)="goToPreviousStep()">
-              <i class="pi pi-arrow-left"></i>
-              Back
-            </button>
-            <button
-              pButton
-              [disabled]="!isStep3Valid()"
-              (click)="goToNextStep()"
-            >
-              Next
-              <i class="pi pi-arrow-right"></i>
-            </button>
-          </div>
-        </ng-template>
-      </p-step-panel>
+        <!-- Step 3: Date & Time -->
+        <p-step-panel [value]="3">
+          <ng-template #content>
+            <lib-datetime-selection-step />
 
-      <!-- Step 4: Confirmation -->
-      <p-step-panel>
-        <ng-template pTemplate="header">
-          <span class="step-label">
-            <i class="pi pi-check-circle"></i>
-            <span class="step-label__text">Confirm</span>
-          </span>
-        </ng-template>
-        <ng-template pTemplate="content">
-          <lib-booking-confirmation-step
-            (bookingCreated)="onBookingCreated($event)"
-          />
+            <div class="step-actions">
+              <p-button
+                label="Back"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                (onClick)="goToPreviousStep()"
+              />
+              <p-button
+                label="Next"
+                icon="pi pi-arrow-right"
+                iconPos="right"
+                [disabled]="!isStep3Valid()"
+                (onClick)="goToNextStep()"
+              />
+            </div>
+          </ng-template>
+        </p-step-panel>
 
-          <div class="step-actions">
-            <button pButton severity="secondary" (click)="goToPreviousStep()">
-              <i class="pi pi-arrow-left"></i>
-              Back
-            </button>
-          </div>
-        </ng-template>
-      </p-step-panel>
+        <!-- Step 4: Confirmation -->
+        <p-step-panel [value]="4">
+          <ng-template #content>
+            <lib-booking-confirmation-step
+              (bookingCreated)="onBookingCreated($event)"
+            />
+
+            <div class="step-actions">
+              <p-button
+                label="Back"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                (onClick)="goToPreviousStep()"
+              />
+            </div>
+          </ng-template>
+        </p-step-panel>
+      </p-step-panels>
     </p-stepper>
   }
 </div>

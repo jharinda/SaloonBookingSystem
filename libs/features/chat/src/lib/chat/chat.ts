@@ -407,8 +407,8 @@ export class ChatComponent implements OnInit, OnDestroy {
     const isOwnMessage = apiMessage.senderId === currentUserId;
     const isActiveConversation = this.selectedConversation()?._id === apiMessage.conversationId;
 
-    this.conversations.update(convs =>
-      convs.map(conv => {
+    this.conversations.update(convs => {
+      const updated = convs.map(conv => {
         if (conv._id === apiMessage.conversationId) {
           // Don't increment unread count if:
           // 1. It's the user's own message
@@ -423,8 +423,15 @@ export class ChatComponent implements OnInit, OnDestroy {
           };
         }
         return conv;
-      })
-    );
+      });
+
+      // Sort by lastMessageTime descending (most recent first)
+      return updated.sort((a, b) => {
+        const timeA = a.lastMessageTime?.getTime() ?? 0;
+        const timeB = b.lastMessageTime?.getTime() ?? 0;
+        return timeB - timeA;
+      });
+    });
 
     // Update filtered conversations too
     this.filterConversations();

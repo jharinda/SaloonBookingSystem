@@ -56,6 +56,10 @@ export interface Booking {
   serviceName: string;
   /** Denormalised stylist name (if assigned) */
   stylistName?: string;
+  /** Auto-assigned station ID */
+  stationId?: string;
+  /** Denormalised station name */
+  stationName?: string;
   services: BookedServicePayload[];
   /** ISO date string: "2026-03-15" */
   appointmentDate: string;

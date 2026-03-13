@@ -72,6 +72,14 @@
             [class.max-w-xs]="isExpanded()"
             [class.max-w-0]="!isExpanded()">Staff</span>
     </a>
+    <a [routerLink]="'/salon-dashboard/stations'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Stations" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
+      <span class="flex-shrink-0 w-5 flex items-center justify-center"><i class="pi pi-box"></i></span>
+      <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
+            [class.opacity-100]="isExpanded()"
+            [class.opacity-0]="!isExpanded()"
+            [class.max-w-xs]="isExpanded()"
+            [class.max-w-0]="!isExpanded()">Stations</span>
+    </a>
     <a [routerLink]="'/salon-dashboard/hours'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Working Hours" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
       <span class="flex-shrink-0 w-5 flex items-center justify-center"><i class="pi pi-clock"></i></span>
       <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"

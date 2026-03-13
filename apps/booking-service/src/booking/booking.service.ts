@@ -308,23 +308,50 @@ export class BookingService {
             ],
           },
         ];
+
+        const clash = await this.bookingModel.findOne(clashQuery);
+
+        if (clash) {
+          throw new BadRequestException(
+            `The time slot ${dto.startTime}–${endTime} is no longer available`,
+          );
+        }
       } else {
-        // No stylist specified, check salon-level availability
-        clashQuery['$or'] = [
-          {
-            // New booking starts during an existing one
-            startTime: { $lt: endTime },
-            endTime: { $gt: dto.startTime },
-          },
-        ];
-      }
-
-      const clash = await this.bookingModel.findOne(clashQuery);
-
-      if (clash) {
-        throw new BadRequestException(
-          `The time slot ${dto.startTime}–${endTime} is no longer available`,
+        // No stylist specified — check salon-level availability against
+        // station capacity. A slot is only fully booked when every active
+        // station already has an overlapping booking.
+        const salonServiceUrl = this.configService.get<string>(
+          'services.salonUrl',
+          'http://salon-service:3001',
         );
+
+        let stationCount = 1;
+        try {
+          const { data: stationsData } = await firstValueFrom(
+            this.httpService.get<StationsResponse>(
+              `${salonServiceUrl}/api/salons/${dto.salonId}/stations`,
+            ),
+          );
+          stationCount = stationsData.stationCount || 1;
+        } catch (err) {
+          this.logger.warn(
+            `Failed to fetch station count during clash check: ${(err as Error).message}. Using default of 1.`,
+          );
+        }
+
+        const overlappingCount = await this.bookingModel.countDocuments({
+          salonId: new Types.ObjectId(dto.salonId),
+          appointmentDate,
+          status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+          startTime: { $lt: endTime },
+          endTime: { $gt: dto.startTime },
+        });
+
+        if (overlappingCount >= stationCount) {
+          throw new BadRequestException(
+            `The time slot ${dto.startTime}–${endTime} is no longer available`,
+          );
+        }
       }
 
       // ── Auto-assign station ────────────────────────────────────────────

@@ -9,15 +9,20 @@ import { BookingWizardComponent } from './booking-wizard/booking-wizard.componen
  *   { path: 'booking', loadChildren: () => import('@org/booking').then(m => m.BOOKING_ROUTES) }
  *
  * Resulting URLs:
- *   /booking/success/:bookingId  →  BookingSuccessComponent
- *   /booking/:salonId            →  BookingWizardComponent
+ *   /booking/success/:bookingId  →  BookingSuccessComponent (post-booking confirmation)
+ *   /booking/view/:bookingId     →  BookingSuccessComponent (view existing booking)
+ *   /booking/:salonId            →  BookingWizardComponent  (create new booking)
  *
- * NOTE: 'success/:bookingId' MUST be declared before ':salonId' so Angular
- * Router matches the literal segment 'success' first.
+ * NOTE: Specific literal segments ('success', 'view') MUST be declared before
+ * the wildcard ':salonId' pattern so Angular Router matches them first.
  */
 export const BOOKING_ROUTES: Routes = [
   {
     path: 'success/:bookingId',
+    component: BookingSuccessComponent,
+  },
+  {
+    path: 'view/:bookingId',
     component: BookingSuccessComponent,
   },
   {

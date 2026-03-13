@@ -6,104 +6,105 @@
     </p>
   </div>
 
-  <!-- Custom Calendar -->
-  <div class="calendar">
-    <div class="calendar__header">
-      <button
-        pButton
-        icon="pi pi-chevron-left"
-        class="calendar__nav p-button-text"
-        (click)="previousMonth()"
-        aria-label="Previous month"
-      ></button>
+  <!-- Side-by-side layout: Calendar + Time Slots -->
+  <div class="datetime-layout">
+    <!-- Custom Calendar -->
+    <div class="calendar">
+      <div class="calendar__header">
+        <button
+          pButton
+          icon="pi pi-chevron-left"
+          class="calendar__nav p-button-text"
+          (click)="previousMonth()"
+          aria-label="Previous month"
+        ></button>
 
-      <h3 class="calendar__month">{{ monthLabel() }}</h3>
+        <h3 class="calendar__month">{{ monthLabel() }}</h3>
 
-      <button
-        pButton
-        icon="pi pi-chevron-right"
-        class="calendar__nav p-button-text"
-        (click)="nextMonth()"
-        aria-label="Next month"
-      ></button>
-    </div>
+        <button
+          pButton
+          icon="pi pi-chevron-right"
+          class="calendar__nav p-button-text"
+          (click)="nextMonth()"
+          aria-label="Next month"
+        ></button>
+      </div>
 
-    <!-- Weekday headers -->
-    <div class="calendar__weekdays">
-      <div class="calendar__weekday">Sun</div>
-      <div class="calendar__weekday">Mon</div>
-      <div class="calendar__weekday">Tue</div>
-      <div class="calendar__weekday">Wed</div>
-      <div class="calendar__weekday">Thu</div>
-      <div class="calendar__weekday">Fri</div>
-      <div class="calendar__weekday">Sat</div>
-    </div>
+      <!-- Weekday headers -->
+      <div class="calendar__weekdays">
+        <div class="calendar__weekday">Sun</div>
+        <div class="calendar__weekday">Mon</div>
+        <div class="calendar__weekday">Tue</div>
+        <div class="calendar__weekday">Wed</div>
+        <div class="calendar__weekday">Thu</div>
+        <div class="calendar__weekday">Fri</div>
+        <div class="calendar__weekday">Sat</div>
+      </div>
 
-    <!-- Calendar days grid -->
-    <div class="calendar__days">
-      @for (day of calendarDays(); track trackByDate($index, day)) {
-        @if (day === null) {
-          <div class="calendar__day calendar__day--empty"></div>
-        } @else {
-          <button
-            class="calendar__day"
-            [class.calendar__day--disabled]="isDateDisabled(day)"
-            [class.calendar__day--selected]="isDateSelected(day)"
-            [disabled]="isDateDisabled(day)"
-            (click)="selectDate(day)"
-          >
-            {{ getDayNumber(day) }}
-          </button>
+      <!-- Calendar days grid -->
+      <div class="calendar__days">
+        @for (day of calendarDays(); track trackByDate($index, day)) {
+          @if (day === null) {
+            <div class="calendar__day calendar__day--empty"></div>
+          } @else {
+            <button
+              class="calendar__day"
+              [class.calendar__day--disabled]="isDateDisabled(day)"
+              [class.calendar__day--selected]="isDateSelected(day)"
+              [disabled]="isDateDisabled(day)"
+              (click)="selectDate(day)"
+            >
+              {{ getDayNumber(day) }}
+            </button>
+          }
         }
+      </div>
+    </div>
+
+    <!-- Time Slots Section -->
+    <div class="time-slots">
+      @if (selectedDate()) {
+        <h3 class="time-slots__title">
+          Available Times
+          <span class="time-slots__date">{{ selectedDate() | date:'EEEE, MMM d' }}</span>
+        </h3>
+
+        @if (loadingSlots()) {
+          <div class="time-slots__loading">
+            <p-progressspinner strokeWidth="4" [style]="{width:'40px',height:'40px'}" />
+            <p>Loading available time slots...</p>
+          </div>
+        } @else if (slotsError()) {
+          <div class="time-slots__error">
+            <i class="pi pi-exclamation-circle"></i>
+            <p>{{ slotsError() }}</p>
+          </div>
+        } @else if (availableSlots().length === 0) {
+          <div class="time-slots__empty">
+            <i class="pi pi-calendar-times"></i>
+            <p>No available time slots for this date. Please choose another day.</p>
+          </div>
+        } @else {
+          <div class="time-slots__grid">
+            @for (slot of availableSlots(); track trackByTime($index, slot)) {
+              <button
+                pButton
+                class="time-slot"
+                [class.time-slot--selected]="isTimeSelected(slot.time)"
+                (click)="selectTime(slot.time)"
+                [label]="slot.time"
+              ></button>
+            }
+          </div>
+        }
+      } @else {
+        <div class="time-slots__placeholder">
+          <i class="pi pi-calendar time-slots__placeholder-icon"></i>
+          <p class="time-slots__placeholder-text">
+            Select a date to see available time slots
+          </p>
+        </div>
       }
     </div>
   </div>
-
-  <!-- Time Slots Section -->
-  @if (selectedDate()) {
-    <div class="time-slots">
-      <h3 class="time-slots__title">
-        Available Times
-        <span class="time-slots__date">{{ selectedDate() | date:'EEEE, MMM d' }}</span>
-      </h3>
-
-      @if (loadingSlots()) {
-        <div class="time-slots__loading">
-          <p-progressspinner strokeWidth="4" [style]="{width:'40px',height:'40px'}" />
-          <p>Loading available time slots...</p>
-        </div>
-      } @else if (slotsError()) {
-        <div class="time-slots__error">
-          <i class="pi pi-exclamation-circle"></i>
-          <p>{{ slotsError() }}</p>
-        </div>
-      } @else if (availableSlots().length === 0) {
-        <div class="time-slots__empty">
-          <i class="pi pi-calendar-times"></i>
-          <p>No available time slots for this date. Please choose another day.</p>
-        </div>
-      } @else {
-        <div class="time-slots__grid">
-          @for (slot of availableSlots(); track trackByTime($index, slot)) {
-            <button
-              pButton
-              class="time-slot"
-              [class.time-slot--selected]="isTimeSelected(slot.time)"
-              [class.time-slot--unavailable]="!slot.available"
-              [disabled]="!slot.available"
-              (click)="selectTime(slot.time)"
-              [label]="slot.time"
-            ></button>
-          }
-        </div>
-      }
-    </div>
-  } @else {
-    <div class="time-slots__placeholder">
-      <i class="pi pi-calendar time-slots__placeholder-icon"></i>
-      <p class="time-slots__placeholder-text">
-        Select a date above to see available time slots
-      </p>
-    </div>
-  }
 </div>

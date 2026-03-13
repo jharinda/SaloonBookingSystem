@@ -11,12 +11,7 @@ import { Toolbar } from 'primeng/toolbar';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { MessageService } from 'primeng/api';
 
-interface Station {
-  _id: string;
-  name: string;
-  status: 'active' | 'inactive';
-  createdAt?: string;
-}
+import { SalonAdminService, Station } from '@org/shared-data-access';
 
 @Component({
   selector: 'lib-stations',
@@ -39,8 +34,10 @@ interface Station {
 })
 export class StationsComponent implements OnInit {
   private readonly messageService = inject(MessageService);
+  private readonly salonAdmin = inject(SalonAdminService);
 
   stations = signal<Station[]>([]);
+  salonId = signal<string | null>(null);
   showAddDialog = signal(false);
   newStationName = signal('');
   editingStationId = signal<string | null>(null);
@@ -48,31 +45,43 @@ export class StationsComponent implements OnInit {
   loading = signal(false);
 
   ngOnInit(): void {
-    this.loadStations();
+    // Load salon first, then load its stations
+    this.salonAdmin.getOwnSalon().subscribe({
+      next: (salon) => {
+        this.salonId.set(salon._id);
+        this.loadStations();
+      },
+      error: (err) => {
+        console.error('Error loading salon:', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to load salon. Please register a salon first.'
+        });
+      }
+    });
   }
 
-  async loadStations(): Promise<void> {
-    this.loading.set(true);
-    try {
-      // Mock data - replace with actual API call
-      const mockStations: Station[] = [
-        { _id: '1', name: 'Station 1', status: 'active', createdAt: new Date().toISOString() },
-        { _id: '2', name: 'Station 2', status: 'active', createdAt: new Date().toISOString() },
-        { _id: '3', name: 'Station 3', status: 'inactive', createdAt: new Date().toISOString() },
-        { _id: '4', name: 'VIP Station', status: 'active', createdAt: new Date().toISOString() }
-      ];
+  loadStations(): void {
+    const sid = this.salonId();
+    if (!sid) return;
 
-      this.stations.set(mockStations);
-    } catch (err) {
-      console.error('Error loading stations:', err);
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Failed to load stations'
-      });
-    } finally {
-      this.loading.set(false);
-    }
+    this.loading.set(true);
+    this.salonAdmin.getStations(sid).subscribe({
+      next: (res) => {
+        this.stations.set(res.stations);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        console.error('Error loading stations:', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Failed to load stations'
+        });
+        this.loading.set(false);
+      }
+    });
   }
 
   openAddDialog(): void {
@@ -85,9 +94,10 @@ export class StationsComponent implements OnInit {
     this.newStationName.set('');
   }
 
-  async addStation(): Promise<void> {
+  addStation(): void {
     const name = this.newStationName().trim();
-    if (!name) {
+    const sid = this.salonId();
+    if (!name || !sid) {
       this.messageService.add({
         severity: 'warn',
         summary: 'Warning',
@@ -96,31 +106,25 @@ export class StationsComponent implements OnInit {
       return;
     }
 
-    try {
-      // Mock API call - replace with actual service call
-      const newStation: Station = {
-        _id: Date.now().toString(),
-        name,
-        status: 'active',
-        createdAt: new Date().toISOString()
-      };
-
-      this.stations.update(stations => [...stations, newStation]);
-
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: `Station "${name}" added successfully`
-      });
-
-      this.closeAddDialog();
-    } catch {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Failed to add station'
-      });
-    }
+    this.salonAdmin.addStation(sid, name).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `Station "${name}" added successfully`
+        });
+        this.closeAddDialog();
+        this.loadStations();
+      },
+      error: (err) => {
+        console.error('Error adding station:', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err?.error?.message || 'Failed to add station'
+        });
+      }
+    });
   }
 
   startEditing(station: Station): void {
@@ -129,13 +133,14 @@ export class StationsComponent implements OnInit {
   }
 
   cancelEditing(): void {
+    this.editingStationId.set(null);
     this.editingStationName.set('');
-    this.loadStations(); // Reload to discard changes
   }
 
-  async saveStationName(station: Station): Promise<void> {
+  saveStationName(station: Station): void {
     const trimmedName = this.editingStationName().trim();
-    if (!trimmedName) {
+    const sid = this.salonId();
+    if (!trimmedName || !sid) {
       this.messageService.add({
         severity: 'warn',
         summary: 'Warning',
@@ -144,85 +149,85 @@ export class StationsComponent implements OnInit {
       return;
     }
 
-    try {
-      // Mock API call - replace with actual service call
-      this.stations.update(stations =>
-        stations.map(s =>
-          s._id === station._id ? { ...s, name: trimmedName } : s
-        )
-      );
-
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: 'Station name updated'
-      });
-
-      this.editingStationId.set(null);
-    } catch {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Failed to update station name'
-      });
-    }
+    this.salonAdmin.updateStation(sid, station._id, { name: trimmedName }).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: 'Station name updated'
+        });
+        this.editingStationId.set(null);
+        this.loadStations();
+      },
+      error: (err) => {
+        console.error('Error updating station:', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err?.error?.message || 'Failed to update station name'
+        });
+      }
+    });
   }
 
-  async toggleStatus(station: Station, event: { checked: boolean }): Promise<void> {
-    const status: 'active' | 'inactive' = event.checked ? 'active' : 'inactive';
+  toggleStatus(station: Station, event: { checked: boolean }): void {
+    const sid = this.salonId();
+    if (!sid) return;
 
-    try {
-      // Mock API call - replace with actual service call
-      this.stations.update(stations =>
-        stations.map(s =>
-          s._id === station._id ? { ...s, status } : s
-        )
-      );
-
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: `Station ${status === 'active' ? 'activated' : 'deactivated'}`
-      });
-    } catch {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Failed to update station status'
-      });
-    }
+    const isActive = event.checked;
+    this.salonAdmin.updateStation(sid, station._id, { isActive }).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `Station ${isActive ? 'activated' : 'deactivated'}`
+        });
+        this.loadStations();
+      },
+      error: (err) => {
+        console.error('Error toggling station:', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err?.error?.message || 'Failed to update station status'
+        });
+      }
+    });
   }
 
-  async deleteStation(station: Station): Promise<void> {
+  deleteStation(station: Station): void {
     if (!confirm(`Are you sure you want to delete "${station.name}"?`)) {
       return;
     }
 
-    try {
-      // Mock API call - replace with actual service call
-      this.stations.update(stations =>
-        stations.filter(s => s._id !== station._id)
-      );
+    const sid = this.salonId();
+    if (!sid) return;
 
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: `Station "${station.name}" deleted`
-      });
-    } catch {
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Failed to delete station'
-      });
-    }
+    this.salonAdmin.deleteStation(sid, station._id).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Success',
+          detail: `Station "${station.name}" deleted`
+        });
+        this.loadStations();
+      },
+      error: (err) => {
+        console.error('Error deleting station:', err);
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err?.error?.message || 'Failed to delete station'
+        });
+      }
+    });
   }
 
   getActiveStationsCount(): number {
-    return this.stations().filter(s => s.status === 'active').length;
+    return this.stations().filter(s => s.isActive).length;
   }
 
   getInactiveStationsCount(): number {
-    return this.stations().filter(s => s.status === 'inactive').length;
+    return this.stations().filter(s => !s.isActive).length;
   }
 }

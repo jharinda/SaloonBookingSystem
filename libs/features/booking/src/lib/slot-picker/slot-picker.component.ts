@@ -93,8 +93,7 @@ interface SlotSelection {
               />
               <p class="text-xs text-gray-400 m-0">
                 <span class="inline-block w-2 h-2 rounded-full bg-purple-500 mr-1"></span> Selected &nbsp;
-                <span class="inline-block w-2 h-2 rounded-full bg-gray-200 mr-1 ml-3"></span> Available &nbsp;
-                <span class="inline-block w-2 h-2 rounded-full bg-gray-100 border border-gray-200 mr-1 ml-3"></span> Booked
+                <span class="inline-block w-2 h-2 rounded-full bg-gray-200 mr-1 ml-3"></span> Available
               </p>
             }
           </div>
@@ -140,7 +139,7 @@ interface SlotSelection {
 export class SlotPickerComponent {
   private readonly bookingService = inject(BookingService);
 
-  //  Inputs / outputs 
+  //  Inputs / outputs
   readonly salonId      = input.required<string>();
   readonly duration     = input.required<number>();
   readonly serviceLabel = input<string>('');
@@ -148,7 +147,7 @@ export class SlotPickerComponent {
   readonly slotSelected = output<SlotSelection>();
   readonly back         = output<void>();
 
-  //  State 
+  //  State
   readonly selectedDate = signal<Date | null>(null);
   readonly selectedSlot = signal<string | null>(null);
   readonly slots        = signal<BookingSlot[]>([]);
@@ -157,14 +156,37 @@ export class SlotPickerComponent {
 
   readonly minDate = new Date();
 
-  //  Derived 
+  //  Derived
   readonly canContinue = computed(() => !!this.selectedDate() && !!this.selectedSlot());
 
-  readonly slotOptions = computed(() =>
-    this.slots().map((s) => ({ time: s.time, disabled: !s.available })),
-  );
+  readonly slotOptions = computed(() => {
+    const now = new Date();
+    const date = this.selectedDate();
+    const isToday = date
+      ? date.getFullYear() === now.getFullYear() &&
+        date.getMonth() === now.getMonth() &&
+        date.getDate() === now.getDate()
+      : false;
 
-  //  RxJS pipeline 
+    return this.slots()
+      .filter((s) => {
+        // Remove booked / unavailable slots
+        if (!s.available) return false;
+
+        // Remove past time slots when the selected date is today
+        if (isToday) {
+          const [hours, minutes] = s.time.split(':').map(Number);
+          const slotMinutes = hours * 60 + minutes;
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          if (slotMinutes <= nowMinutes) return false;
+        }
+
+        return true;
+      })
+      .map((s) => ({ time: s.time, disabled: false }));
+  });
+
+  //  RxJS pipeline
   private lastDateStr = '';
   private readonly dateTrigger$ = new Subject<string>();
 
@@ -213,7 +235,7 @@ export class SlotPickerComponent {
   }
 }
 
-//  Utilities 
+//  Utilities
 
 function formatDate(d: Date): string {
   const y = d.getFullYear();

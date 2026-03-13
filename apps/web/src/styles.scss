@@ -171,3 +171,20 @@ html:not(.app-dark):not(.dark) {
   }
 }
 
+// ── Toast Notification Customization ─────────────────────────────────────────
+// Override PrimeNG Aura theme transparency for better visibility
+.p-toast {
+  opacity: 1 !important;
+
+  .p-toast-message {
+    backdrop-filter: blur(10px);
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.app-dark .p-toast .p-toast-message,
+.dark .p-toast .p-toast-message {
+  background-color: rgba(24, 24, 27, 0.95) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}

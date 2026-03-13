@@ -151,13 +151,14 @@ export class DateTimeSelectionStepComponent implements OnInit {
     this.slotsError.set(null);
     this.availableSlots.set([]);
 
-    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const dateStr = this._fmtLocalDate(date);
 
     this.bookingService
       .getAvailableSlots(salonId, dateStr, duration, stylistId || undefined)
       .subscribe({
         next: (response) => {
-          this.availableSlots.set(response.slots);
+          const filtered = this.filterSlots(response.slots, date);
+          this.availableSlots.set(filtered);
           this.loadingSlots.set(false);
         },
         error: (err) => {
@@ -166,6 +167,32 @@ export class DateTimeSelectionStepComponent implements OnInit {
           this.loadingSlots.set(false);
         },
       });
+  }
+
+  /**
+   * Filter out booked slots and past time slots (for today).
+   */
+  private filterSlots(slots: BookingSlot[], date: Date): BookingSlot[] {
+    const now = new Date();
+    const isToday =
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate();
+
+    return slots.filter((slot) => {
+      // Remove booked / unavailable slots
+      if (!slot.available) return false;
+
+      // Remove past time slots when the selected date is today
+      if (isToday) {
+        const [hours, minutes] = slot.time.split(':').map(Number);
+        const slotMinutes = hours * 60 + minutes;
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        if (slotMinutes <= nowMinutes) return false;
+      }
+
+      return true;
+    });
   }
 
   selectTime(time: string): void {
@@ -187,5 +214,13 @@ export class DateTimeSelectionStepComponent implements OnInit {
 
   trackByDate(index: number, date: Date | null): string {
     return date ? date.toISOString() : `empty-${index}`;
+  }
+
+  /** Format a Date as YYYY-MM-DD using LOCAL components (avoids UTC-midnight shift). */
+  private _fmtLocalDate(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 }

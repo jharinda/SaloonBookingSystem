@@ -53,7 +53,6 @@
         <tr>
           <th>Station Name</th>
           <th>Status</th>
-          <th>Created</th>
           <th style="width: 250px">Actions</th>
         </tr>
       </ng-template>
@@ -82,19 +81,14 @@
           <td>
             <div class="status-toggle">
               <p-toggleSwitch
-                [ngModel]="station.status === 'active'"
+                [ngModel]="station.isActive"
                 [ngModelOptions]="{standalone: true}"
                 (onChange)="toggleStatus(station, $event)"
               />
-              <span class="status-label" [class.active]="station.status === 'active'">
-                {{ station.status === 'active' ? 'Active' : 'Inactive' }}
+              <span class="status-label" [class.active]="station.isActive">
+                {{ station.isActive ? 'Active' : 'Inactive' }}
               </span>
             </div>
-          </td>
-
-          <!-- Created Date -->
-          <td>
-            {{ station.createdAt ? (station.createdAt | date: 'MMM d, y') : 'N/A' }}
           </td>
 
           <!-- Actions -->
@@ -141,7 +135,7 @@
       </ng-template>
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="4" class="text-center">
+          <td colspan="3" class="text-center">
             <div class="empty-state">
               <i class="pi pi-inbox" style="font-size: 3rem"></i>
               <p>No stations found. Add your first station to get started.</p>

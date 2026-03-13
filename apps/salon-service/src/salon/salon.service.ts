@@ -1007,14 +1007,15 @@ export class SalonService {
       throw new NotFoundException(`Salon with id ${salonId} not found`);
     }
 
-    const activeStations = (salon.stations ?? []).filter((s: any) => s.isActive);
+    const allStations = salon.stations ?? [];
+    const activeCount = (allStations as any[]).filter((s: any) => s.isActive).length;
     return {
-      stations: activeStations.map((st: any) => ({
+      stations: (allStations as any[]).map((st: any) => ({
         _id: st._id?.toString(),
         name: st.name,
-        isActive: st.isActive,
+        isActive: st.isActive ?? true,
       })),
-      stationCount: activeStations.length,
+      stationCount: activeCount,
     };
   }
 
@@ -1036,14 +1037,15 @@ export class SalonService {
       throw new ForbiddenException('Only the salon owner can add stations');
     }
 
-    // Check subscription limits
+    // Check subscription limits — only active stations count against the cap;
+    // inactive stations are soft-disabled and should not consume quota.
     const limits = await this.subscriptionCheck.getPlanLimits(salonId);
-    const currentStationCount = (salon.stations ?? []).length;
+    const activeStationCount = (salon.stations ?? []).filter((s: any) => s.isActive).length;
 
     // -1 means unlimited
-    if (limits.maxStations !== -1 && currentStationCount >= limits.maxStations) {
+    if (limits.maxStations !== -1 && activeStationCount >= limits.maxStations) {
       throw new ForbiddenException(
-        `Your ${limits.plan} plan allows a maximum of ${limits.maxStations} stations. Please upgrade to add more stations.`,
+        `Your ${limits.plan} plan allows a maximum of ${limits.maxStations} active stations. Please upgrade to add more stations.`,
       );
     }
 

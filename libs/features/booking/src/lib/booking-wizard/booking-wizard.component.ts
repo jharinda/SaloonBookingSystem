@@ -9,9 +9,10 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Stepper, StepperModule } from 'primeng/stepper';
-import { ButtonModule } from 'primeng/button';
-import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { Stepper, StepList, Step, StepPanels, StepPanel } from 'primeng/stepper';
+import { Button } from 'primeng/button';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { catchError, of, switchMap } from 'rxjs';
 
 import { SalonService } from '@org/shared-data-access';
 import { BookingStateService } from '../services/booking-state.service';
@@ -19,6 +20,7 @@ import { ServiceSelectionStepComponent } from '../steps/service-selection-step.c
 import { StylistSelectionStepComponent } from '../steps/stylist-selection-step.component';
 import { DateTimeSelectionStepComponent } from '../steps/datetime-selection-step.component';
 import { BookingConfirmationStepComponent } from '../steps/booking-confirmation-step.component';
+import { BookingService } from '@org/shared-data-access';
 
 /**
  * Booking Wizard Component
@@ -36,9 +38,13 @@ import { BookingConfirmationStepComponent } from '../steps/booking-confirmation-
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
-    StepperModule,
-    ButtonModule,
-    ProgressSpinnerModule,
+    Stepper,
+    StepList,
+    Step,
+    StepPanels,
+    StepPanel,
+    Button,
+    ProgressSpinner,
     ServiceSelectionStepComponent,
     StylistSelectionStepComponent,
     DateTimeSelectionStepComponent,
@@ -54,6 +60,7 @@ export class BookingWizardComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly salonService = inject(SalonService);
+  private readonly bookingService = inject(BookingService);
   readonly bookingState = inject(BookingStateService);
 
   // ── State ────────────────────────────────────────────────────
@@ -90,14 +97,34 @@ export class BookingWizardComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.salonService.getSalonById(salonId).subscribe({
+    this.salonService.getSalonById(salonId).pipe(
+      catchError((salonErr) => {
+        // If salon not found, check if this might be a booking ID
+        console.log('Salon not found, checking if this is a booking ID...');
+        return this.bookingService.getById(salonId).pipe(
+          switchMap(() => {
+            // Found a booking! Redirect to booking view page
+            console.log('Booking found, redirecting to booking view...');
+            this.router.navigate(['/booking/view', salonId]);
+            return of(null);
+          }),
+          catchError(() => {
+            // Not a booking either, show salon error
+            throw salonErr;
+          })
+        );
+      })
+    ).subscribe({
       next: (salon) => {
-        this.bookingState.initState(salonId, salon);
-        this.loading.set(false);
+        if (salon) {
+          this.bookingState.initState(salonId, salon);
+          this.loading.set(false);
+        }
+        // If null, we're redirecting to booking view
       },
       error: (err) => {
         console.error('Failed to load salon:', err);
-        this.error.set('Failed to load salon details. Please try again.');
+        this.error.set('Salon not found. Please check the link and try again.');
         this.loading.set(false);
       },
     });
@@ -105,11 +132,17 @@ export class BookingWizardComponent implements OnInit {
 
   // ── Stepper Navigation ───────────────────────────────────────────────────────
   goToNextStep(): void {
-    this.bookingState.nextStep();
+    const nextStep = this.currentStep() + 1;
+    if (nextStep <= 4) {
+      this.bookingState.setStep(nextStep);
+    }
   }
 
   goToPreviousStep(): void {
-    this.bookingState.previousStep();
+    const prevStep = this.currentStep() - 1;
+    if (prevStep >= 1) {
+      this.bookingState.setStep(prevStep);
+    }
   }
 
   onActiveStepChange(step: number | undefined): void {

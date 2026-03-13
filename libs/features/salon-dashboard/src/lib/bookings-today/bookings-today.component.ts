@@ -24,6 +24,7 @@ import { InputText }               from 'primeng/inputtext';
 import { IconField }               from 'primeng/iconfield';
 import { InputIcon }               from 'primeng/inputicon';
 import { MultiSelect }             from 'primeng/multiselect';
+import { Select }                  from 'primeng/select';
 import { ConfirmDialog }           from 'primeng/confirmdialog';
 import { Toast }                   from 'primeng/toast';
 import { ProgressSpinner }         from 'primeng/progressspinner';
@@ -36,7 +37,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 
-import { SalonAdminService, RealtimeNotificationService } from '@org/shared-data-access';
+import { SalonAdminService, RealtimeNotificationService, Station } from '@org/shared-data-access';
 import { Booking, BookingStatus } from '@org/models';
 
 /** Severity map fed directly into <p-tag> */
@@ -63,6 +64,7 @@ interface StatusOption {
     IconField,
     InputIcon,
     MultiSelect,
+    Select,
     ConfirmDialog,
     Toast,
     ProgressSpinner,
@@ -149,6 +151,8 @@ export class BookingsTodayComponent implements OnInit {
   readonly cancelInFlight  = signal<string | null>(null);
 
   readonly bookings        = signal<Booking[]>([]);
+  readonly stations        = signal<Station[]>([]);
+  readonly selectedStationId = signal<string | null>(null);
   readonly viewMode        = signal<'table' | 'calendar'>('table');
   readonly confirmInFlight = signal<string | null>(null);
 
@@ -158,40 +162,51 @@ export class BookingsTodayComponent implements OnInit {
   /** Booking id read from ?bookingId= query param; consumed once after first data load. */
   private pendingHighlightId: string | null = null;
 
-  readonly calendarOptions = computed<CalendarOptions>(() => ({
-    plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
-    initialView: 'timeGridWeek',
-    headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay',
-    },
-    // ── Real-time "now" indicator (red line + dot, like Microsoft Teams) ──
-    nowIndicator: true,
-    scrollToTime: {
-      hours:   new Date().getHours(),
-      minutes: Math.max(0, new Date().getMinutes() - 15),
-    },
-    events: this.bookings().map((b) => ({
-      id: b._id,
-      title: (b.clientName || ('Client ·' + b._id.slice(-6))) + ' — ' + (b.serviceName || b.services?.[0]?.name || 'Appointment') + (b.stylistName ? ` · ${b.stylistName}` : ''),
-      start: `${b.appointmentDate}T${b.startTime}:00`,
-      end:   `${b.appointmentDate}T${b.endTime}:00`,
-      backgroundColor: this._statusColor(b.status),
-      borderColor:     this._statusColor(b.status),
-      textColor:       '#ffffff',
-      extendedProps: { booking: b },
-    })),
-    height: 'auto',
-    editable: false,
-    selectable: false,
-    eventDisplay: 'block',
-    eventMinHeight: 22,
-    displayEventTime: true,
-    eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
-    moreLinkClick: 'popover',
-    eventClick: (info) => this.viewBooking(info.event.extendedProps['booking']),
-  }));
+  readonly stationFilterOptions = computed(() => {
+    const active = this.stations().filter((s) => s.isActive);
+    return [{ _id: null as string | null, name: 'All Stations', isActive: true }, ...active];
+  });
+
+  readonly calendarOptions = computed<CalendarOptions>(() => {
+    const stationId = this.selectedStationId();
+    const filteredBookings = stationId
+      ? this.bookings().filter((b) => b.stationId === stationId)
+      : this.bookings();
+
+    return {
+      plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
+      initialView: 'timeGridWeek',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: 'dayGridMonth,timeGridWeek,timeGridDay',
+      },
+      nowIndicator: true,
+      scrollToTime: {
+        hours:   new Date().getHours(),
+        minutes: Math.max(0, new Date().getMinutes() - 15),
+      },
+      events: filteredBookings.map((b) => ({
+        id: b._id,
+        title: (b.clientName || ('Client ·' + b._id.slice(-6))) + ' — ' + (b.serviceName || b.services?.[0]?.name || 'Appointment') + (b.stylistName ? ` · ${b.stylistName}` : '') + (b.stationName ? ` · ${b.stationName}` : ''),
+        start: `${b.appointmentDate}T${b.startTime}:00`,
+        end:   `${b.appointmentDate}T${b.endTime}:00`,
+        backgroundColor: this._statusColor(b.status),
+        borderColor:     this._statusColor(b.status),
+        textColor:       '#ffffff',
+        extendedProps: { booking: b },
+      })),
+      height: 'auto',
+      editable: false,
+      selectable: false,
+      eventDisplay: 'block',
+      eventMinHeight: 22,
+      displayEventTime: true,
+      eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+      moreLinkClick: 'popover',
+      eventClick: (info) => this.viewBooking(info.event.extendedProps['booking']),
+    };
+  });
 
   // ── Filter state ──────────────────────────────────────────────────────────
   selectedStatuses: string[] = ['PENDING', 'CONFIRMED'];
@@ -211,6 +226,7 @@ export class BookingsTodayComponent implements OnInit {
     'clientId',
     'serviceName',
     'stylistName',
+    'stationName',
     'appointmentDate',
     'startTime',
     'status',
@@ -259,6 +275,7 @@ export class BookingsTodayComponent implements OnInit {
       next: (salon) => {
         this.salonId = salon._id;
         this._loadBookings();
+        this._loadStations();
       },
       error: () => {
         this.loadError.set('Could not identify your salon. Please refresh.');
@@ -306,6 +323,15 @@ export class BookingsTodayComponent implements OnInit {
   }
 
   // ── Filters ───────────────────────────────────────────────────────────────
+
+  onStationFilterChange(stationId: string | null): void {
+    this.selectedStationId.set(stationId);
+    if (this.dt && stationId) {
+      this.dt.filter(stationId, 'stationId', 'equals');
+    } else if (this.dt) {
+      this.dt.filter(null, 'stationId', 'equals');
+    }
+  }
 
   onSearchInput(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
@@ -393,8 +419,6 @@ export class BookingsTodayComponent implements OnInit {
         this.cdr.markForCheck();
         setTimeout(() => {
           if (this.pendingHighlightId) {
-            // Skip the default status filter — _applyHighlight clears it so
-            // the target booking is visible regardless of its status.
             const id = this.pendingHighlightId;
             this.pendingHighlightId = null;
             this._applyHighlight(id);
@@ -407,6 +431,18 @@ export class BookingsTodayComponent implements OnInit {
         this.loadError.set('Could not load appointments. Please try again.');
         this.isLoading.set(false);
         this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private _loadStations(): void {
+    this.adminService.getStations(this.salonId).subscribe({
+      next: (data) => {
+        this.stations.set(data.stations);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        // Non-fatal — station filter just won't show
       },
     });
   }

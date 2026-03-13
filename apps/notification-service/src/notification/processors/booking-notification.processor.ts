@@ -6,7 +6,6 @@ import { Job, Queue } from 'bull';
 import { SubscriptionCheckService } from '@org/subscription-check';
 
 import {
-  BOOKING_QUEUE,
   NOTIFICATION_QUEUE,
   NotificationChannel,
   NotificationEvent,
@@ -32,7 +31,7 @@ function parseAppointmentMs(appointmentDate: string, startTime: string): number 
   return new Date(`${datePart}T${startTime}:00`).getTime();
 }
 
-@Processor(BOOKING_QUEUE)
+@Processor(NOTIFICATION_QUEUE)
 export class BookingNotificationProcessor {
   private readonly logger = new Logger(BookingNotificationProcessor.name);
 
@@ -46,8 +45,6 @@ export class BookingNotificationProcessor {
     private readonly inboxService: InboxNotificationService,
     private readonly pushNotification: PushNotificationService,
     private readonly subscriptionCheck: SubscriptionCheckService,
-    @InjectQueue(BOOKING_QUEUE)
-    private readonly bookingQueue: Queue,
     @InjectQueue(NOTIFICATION_QUEUE)
     private readonly notifQueue: Queue,
   ) {}
@@ -110,15 +107,37 @@ export class BookingNotificationProcessor {
         booking.salonId,
       ),
     ]);
+    // ── Dedicated inbox saves (clean, human-readable — NOT the HTML email body) ──
+    const inboxData = {
+      bookingId:       booking.id,
+      clientName:      client.name,
+      serviceName:     vars['serviceName'],
+      appointmentDate: vars['date'],
+      startTime:       booking.startTime,
+    };
+
+    await Promise.allSettled([
+      this.saveToInbox(
+        booking.clientId,
+        '📅 Booking Created',
+        `Your ${vars['serviceName']} appointment at ${salonName} is booked for ${vars['date']} at ${booking.startTime}.`,
+        NotificationEvent.BOOKING_CREATED,
+        inboxData,
+      ),
+      salonOwnerId
+        ? this.saveToInbox(
+            salonOwnerId,
+            '📅 New Booking',
+            `${client.name} booked ${vars['serviceName']} on ${vars['date']} at ${booking.startTime}.`,
+            NotificationEvent.BOOKING_CREATED,
+            inboxData,
+          )
+        : Promise.resolve(),
+    ]);
+
     // ── SSE: push booking.new to salon owner in real-time ─────────────────────
     if (salonOwnerId) {
-      await this.ssePush.push(salonOwnerId, 'booking.new', {
-        bookingId:       booking.id,
-        clientName:      client.name,
-        serviceName:     vars['serviceName'],
-        appointmentDate: vars['date'],
-        startTime:       booking.startTime,
-      });
+      await this.ssePush.push(salonOwnerId, 'booking.new', inboxData);
     }
 
     // ── Schedule 15-min and now SSE reminders for the client ──────────────────
@@ -188,6 +207,15 @@ export class BookingNotificationProcessor {
         { bookingId: booking.id, event: NotificationEvent.BOOKING_CONFIRMED },
       ),
     ]);
+
+    // ── Dedicated inbox save ──────────────────────────────────────────────────
+    await this.saveToInbox(
+      booking.clientId,
+      '✅ Booking Confirmed',
+      `Your ${vars.serviceName} appointment at ${salonName} on ${vars.date} at ${vars.time} has been confirmed.`,
+      NotificationEvent.BOOKING_CONFIRMED,
+      { bookingId: booking.id },
+    );
   }
 
   // ── booking.cancelled ──────────────────────────────────────────────────────
@@ -239,6 +267,26 @@ export class BookingNotificationProcessor {
           )
         : Promise.resolve(),
     ]);
+
+    // ── Dedicated inbox saves ─────────────────────────────────────────────────
+    await Promise.allSettled([
+      this.saveToInbox(
+        booking.clientId,
+        '❌ Booking Cancelled',
+        `Your ${vars.serviceName} appointment at ${salonName} on ${vars.date} at ${vars.time} has been cancelled. Reason: ${vars.reason}`,
+        NotificationEvent.BOOKING_CANCELLED,
+        { bookingId: booking.id },
+      ),
+      salonOwnerId
+        ? this.saveToInbox(
+            salonOwnerId,
+            '❌ Booking Cancelled',
+            `Booking by ${client.name} for ${vars.serviceName} on ${vars.date} at ${vars.time} was cancelled.`,
+            NotificationEvent.BOOKING_CANCELLED,
+            { bookingId: booking.id },
+          )
+        : Promise.resolve(),
+    ]);
   }
 
   // ── booking.completed ─────────────────────────────────────────────────────
@@ -255,7 +303,7 @@ export class BookingNotificationProcessor {
     this.logger.log(
       `Scheduling review request for booking ${job.data.booking.id} in 2 hours`,
     );
-    await this.bookingQueue.add(
+    await this.notifQueue.add(
       NotificationEvent.REVIEW_REQUEST,
       job.data,
       {
@@ -312,7 +360,7 @@ export class BookingNotificationProcessor {
   @OnQueueFailed()
   onFailed(job: Job, error: Error): void {
     this.logger.error(
-      `Job failed | queue=${BOOKING_QUEUE} event=${job.name} id=${job.id}: ${error.message}`,
+      `Job failed | queue=${NOTIFICATION_QUEUE} event=${job.name} id=${job.id}: ${error.message}`,
     );
   }
 

@@ -79,6 +79,17 @@
           />
         </p-iconfield>
 
+        <!-- Station filter -->
+        <p-select
+          [options]="stationFilterOptions()"
+          optionLabel="name"
+          optionValue="_id"
+          placeholder="All Stations"
+          [ngModel]="selectedStationId()"
+          (ngModelChange)="onStationFilterChange($event)"
+          styleClass="w-44"
+        />
+
         <!-- Status filter -->
         <p-multiselect
           [(ngModel)]="selectedStatuses"
@@ -146,6 +157,10 @@
           Stylist
           <p-sortIcon field="stylistName" />
         </th>
+        <th pSortableColumn="stationName" class="whitespace-nowrap">
+          Station
+          <p-sortIcon field="stationName" />
+        </th>
         <th pSortableColumn="status" class="whitespace-nowrap">
           Status
           <p-sortIcon field="status" />
@@ -191,6 +206,11 @@
         <!-- Stylist -->
         <td class="text-sm text-zinc-600 dark:text-zinc-400">
           {{ appt.stylistName || '—' }}
+        </td>
+
+        <!-- Station -->
+        <td class="text-sm text-zinc-600 dark:text-zinc-400">
+          {{ appt.stationName || '—' }}
         </td>
 
         <!-- Status -->
@@ -259,7 +279,7 @@
     <!-- ── Empty state ─────────────────────────────────────────────────── -->
     <ng-template pTemplate="emptymessage">
       <tr>
-        <td colspan="7">
+        <td colspan="8">
           <div class="flex flex-col items-center justify-center gap-3 py-16 text-zinc-400 dark:text-zinc-500">
             <i class="pi pi-calendar text-5xl"></i>
             <p class="text-sm m-0">No appointments found.</p>

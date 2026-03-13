@@ -32,6 +32,18 @@ $transition: all 0.2s ease-in-out;
   }
 }
 
+// ─── Side-by-side layout ────────────────────────────────────────────────────
+.datetime-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
 // ─── Custom Calendar ────────────────────────────────────────────────────────
 .calendar {
   background: white;
@@ -132,6 +144,13 @@ $transition: all 0.2s ease-in-out;
 
 // ─── Time Slots ─────────────────────────────────────────────────────────────
 .time-slots {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: $border-radius;
+  padding: 1.5rem;
+  box-shadow: $shadow-md;
+  min-height: 300px;
+
   &__title {
     font-size: 1.25rem;
     font-weight: 600;
@@ -150,15 +169,11 @@ $transition: all 0.2s ease-in-out;
 
   &__grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); // 3 columns on mobile per requirement
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
 
     @media (min-width: 640px) {
-      grid-template-columns: repeat(4, 1fr);
-    }
-
-    @media (min-width: 1024px) {
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(3, 1fr);
     }
   }
 

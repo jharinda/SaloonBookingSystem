@@ -22,6 +22,23 @@ export interface InboxItem {
 const MAX_ITEMS = 50;
 const STORAGE_PREFIX = 'snapsalon-notif-inbox-';
 
+/**
+ * Maps backend `NotificationType` values (stored in DB) to the SSE event names
+ * used by `labelFromEvent` and the click-routing logic.
+ */
+function serverTypeToEvent(type: string): string {
+  switch (type) {
+    case 'booking_created':   return 'booking.new';
+    case 'booking_confirmed': return 'booking.confirmed';
+    case 'booking_cancelled': return 'booking.cancelled';
+    case 'booking_completed': return 'booking.completed';
+    case 'booking_reminder':  return 'booking.reminder.15min';
+    case 'review_request':    return 'review.posted';
+    case 'new_message':       return 'chat.new_message';
+    default:                  return type;
+  }
+}
+
 function labelFromEvent(event: string, data: unknown): { title: string; body: string } {
   const d = (data ?? {}) as Record<string, string>;
 
@@ -119,11 +136,18 @@ export class NotificationInboxService {
         }
       });
 
-    // Append every arriving SSE notification to the inbox.
+    // Append every arriving SSE notification to the inbox and show a toast.
     this.realtimeService.notifications$
       .pipe(takeUntilDestroyed())
       .subscribe(({ event, data }) => {
         this.addItem(event, data);
+        const { title, body } = labelFromEvent(event, data);
+        this.messageService.add({
+          severity: 'info',
+          summary: title,
+          detail: body,
+          life: 5000,
+        });
       });
   }
 
@@ -200,7 +224,15 @@ export class NotificationInboxService {
   private fetchServerInbox(): void {
     this.http
       .get<{
-        notifications: { _id: string; event: string; data: Record<string, unknown>; createdAt: string }[];
+        notifications: {
+          _id: string;
+          title: string;
+          body: string;
+          type: string;
+          data: Record<string, unknown>;
+          isRead: boolean;
+          createdAt: string;
+        }[];
         total: number;
         page: number;
         limit: number;
@@ -213,17 +245,27 @@ export class NotificationInboxService {
           // Add in reverse (oldest first) so the final order is newest-first.
           const reversed = [...response.notifications].reverse();
           for (const s of reversed) {
-            const { title, body } = labelFromEvent(s.event, s.data);
             const itemId = `srv-${s._id}`;
             if (this._items().some(i => i.id === itemId)) continue;
 
+            // Map server type (e.g. "booking_created") → SSE event name
+            // (e.g. "booking.new") for consistent click-routing behaviour.
+            const event = serverTypeToEvent(s.type);
+
+            // Use title & body stored on the server.
+            // Fall back to labelFromEvent only when the server fields are empty.
+            const hasServerLabel = !!(s.title && s.body);
+            const { title, body } = hasServerLabel
+              ? { title: s.title, body: s.body }
+              : labelFromEvent(event, s.data);
+
             const item: InboxItem = {
               id:        itemId,
-              event:     s.event,
+              event,
               title,
               body,
               timestamp: new Date(s.createdAt).getTime(),
-              read:      false,
+              read:      s.isRead,
               data:      s.data,
             };
             this._items.update(items => [item, ...items].slice(0, MAX_ITEMS));

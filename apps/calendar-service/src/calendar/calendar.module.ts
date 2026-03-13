@@ -4,7 +4,7 @@ import { BullModule } from '@nestjs/bull';
 import { HttpModule } from '@nestjs/axios';
 import { SubscriptionCheckModule } from '@org/subscription-check';
 
-import { BOOKING_QUEUE } from './constants/calendar-events.constants';
+import { CALENDAR_QUEUE } from './constants/calendar-events.constants';
 import { GoogleToken, GoogleTokenSchema } from './schemas/google-token.schema';
 import { Booking, BookingRefSchema } from './schemas/booking-ref.schema';
 import { GoogleOAuthService } from './google-oauth.service';
@@ -22,7 +22,7 @@ import { SharedAuthModule } from '@org/shared-auth';
       { name: GoogleToken.name, schema: GoogleTokenSchema },
       { name: Booking.name, schema: BookingRefSchema },
     ]),
-    BullModule.registerQueue({ name: BOOKING_QUEUE }),
+    BullModule.registerQueue({ name: CALENDAR_QUEUE }),
     HttpModule.register({
       timeout: 5000,
       maxRedirects: 3,

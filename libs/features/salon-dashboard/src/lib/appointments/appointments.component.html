@@ -31,17 +31,28 @@
     </ng-template>
 
     <ng-template pTemplate="end">
-      <p-selectButton
-        [options]="viewOptions"
-        [(ngModel)]="viewMode"
-        optionLabel="label"
-        optionValue="value"
-      >
-        <ng-template let-item>
-          <i [class]="item.icon"></i>
-          <span class="ml-2 hidden-on-mobile">{{ item.label }}</span>
-        </ng-template>
-      </p-selectButton>
+      <div class="flex items-center gap-2">
+        <p-select
+          [options]="stationFilterOptions()"
+          optionLabel="name"
+          optionValue="_id"
+          placeholder="All Stations"
+          [ngModel]="selectedStationId()"
+          (ngModelChange)="onStationFilterChange($event)"
+          styleClass="station-filter"
+        />
+        <p-selectButton
+          [options]="viewOptions"
+          [(ngModel)]="viewMode"
+          optionLabel="label"
+          optionValue="value"
+        >
+          <ng-template let-item>
+            <i [class]="item.icon"></i>
+            <span class="ml-2 hidden-on-mobile">{{ item.label }}</span>
+          </ng-template>
+        </p-selectButton>
+      </div>
     </ng-template>
   </p-toolbar>
 
@@ -221,17 +232,7 @@
         <!-- Stylist Info -->
         <div class="detail-section">
           <label>Stylist</label>
-          <div class="reassign-section">
-            <p-select
-              [options]="staff()"
-              optionLabel="name"
-              optionValue="_id"
-              placeholder="Select Stylist"
-              [ngModel]="booking.stylistName"
-              (ngModelChange)="reassignStylist($event)"
-              styleClass="w-full"
-            />
-          </div>
+          <p class="detail-value">{{ booking.stylistName || 'Unassigned' }}</p>
         </div>
 
         <!-- Station Info -->

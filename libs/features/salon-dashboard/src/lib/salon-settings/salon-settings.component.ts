@@ -37,10 +37,10 @@ import {
   UpdateOperatingHoursDto,
   SalonImage,
 } from '@org/shared-data-access';
-import { Salon } from '@org/models';
+import { Salon, SalonAddress } from '@org/models';
 import { SalonImageUploaderComponent } from '../salon-images/salon-image-uploader.component';
 
-//  Constants 
+//  Constants
 
 const DAYS = [
   { key: 'monday',    label: 'Monday' },
@@ -66,7 +66,7 @@ interface NotifSettings {
   weeklySummary: NotifChannel;
 }
 
-// 
+//
 
 @Component({
   selector: 'lib-salon-settings',
@@ -102,10 +102,11 @@ export class SalonSettingsComponent implements OnInit {
   private readonly fb              = inject(FormBuilder);
   private readonly cdr             = inject(ChangeDetectorRef);
 
-  //  State 
+  //  State
   readonly loading     = signal(true);
   protected salonId    = '';
   readonly salonImages = signal<SalonImage[]>([]);
+  private currentAddress: { street: string; city: string; province: string; lat: number; lng: number } | null = null;
 
   readonly savingInfo  = signal(false);
   readonly savingHours = signal(false);
@@ -121,7 +122,7 @@ export class SalonSettingsComponent implements OnInit {
     weeklySummary: { email: true,  sms: false },
   });
 
-  //  Static data 
+  //  Static data
   readonly dayConfigs = DAYS;
 
   readonly notifRows: Array<{
@@ -136,7 +137,7 @@ export class SalonSettingsComponent implements OnInit {
     { key: 'weeklySummary', label: 'Weekly Summary',      desc: "Email every Monday with last week's summary",    hasSms: false },
   ];
 
-  //  Forms 
+  //  Forms
   readonly infoForm = this.fb.group({
     name:                    ['', [Validators.required, Validators.maxLength(100)]],
     street:                  [''],
@@ -161,7 +162,7 @@ export class SalonSettingsComponent implements OnInit {
     ),
   });
 
-  //  Lifecycle 
+  //  Lifecycle
   ngOnInit(): void {
     this.adminService.getOwnSalon().subscribe({
       next: (salon) => {
@@ -176,19 +177,33 @@ export class SalonSettingsComponent implements OnInit {
     });
   }
 
-  //  Form helpers 
+  //  Form helpers
   protected dayAt(i: number): FormGroup {
     return this.hoursForm.controls.days.at(i) as unknown as FormGroup;
   }
 
   private patchInfoForm(salon: Salon): void {
+    // Store the full address including lat/lng/province to preserve them when saving
+    // Note: Backend uses 'province', frontend model uses 'state'
+    if (salon.address) {
+      const addr = salon.address as SalonAddress & { province?: string; postcode?: string };
+      this.currentAddress = {
+        street: addr.street,
+        city: addr.city,
+        province: addr.province || addr.state || '',
+        lat: addr.lat || 0,
+        lng: addr.lng || 0,
+      };
+    }
+
+    const addr = salon.address as SalonAddress & { province?: string; postcode?: string; postalCode?: string };
     this.infoForm.patchValue({
       name:                    salon.name,
       description:             salon.description ?? '',
       phone:                   salon.phone,
-      street:                  salon.address?.street  ?? '',
-      city:                    salon.address?.city    ?? '',
-      postcode:                (salon.address as { postcode?: string })?.postcode ?? '',
+      street:                  addr?.street  ?? '',
+      city:                    addr?.city    ?? '',
+      postcode:                addr?.postcode ?? addr?.postalCode ?? '',
       websiteUrl:              (salon as unknown as { websiteUrl?: string })?.websiteUrl ?? '',
       autoConfirmBookings:     salon.autoConfirmBookings ?? false,
       cancellationWindowHours: salon.cancellationWindowHours ?? 2,
@@ -208,12 +223,12 @@ export class SalonSettingsComponent implements OnInit {
     });
   }
 
-  //  Photos 
+  //  Photos
   onImagesChanged(images: SalonImage[]): void {
     this.salonImages.set(images);
   }
 
-  //  Logo 
+  //  Logo
   onLogoSelected(event: { files: File[] }): void {
     const file = event.files?.[0];
     if (!file) return;
@@ -226,7 +241,7 @@ export class SalonSettingsComponent implements OnInit {
     reader.readAsDataURL(file);
   }
 
-  //  Save info 
+  //  Save info
   saveInfo(): void {
     this.infoForm.markAllAsTouched();
     if (this.infoForm.invalid || !this.salonId) return;
@@ -236,9 +251,13 @@ export class SalonSettingsComponent implements OnInit {
       name:                    v.name        ?? undefined,
       description:             v.description || undefined,
       phone:                   v.phone       ?? undefined,
-      address:                 (v.street || v.city || v.postcode)
-        ? { street: v.street ?? '', city: v.city ?? '', province: v.postcode ?? '' }
-        : undefined,
+      address:                 this.currentAddress ? {
+        street: v.street ?? this.currentAddress.street,
+        city: v.city ?? this.currentAddress.city,
+        province: this.currentAddress.province,
+        lat: this.currentAddress.lat,
+        lng: this.currentAddress.lng,
+      } : undefined,
       autoConfirmBookings:     v.autoConfirmBookings ?? false,
       cancellationWindowHours: v.cancellationWindowHours ?? 2,
     };
@@ -257,7 +276,7 @@ export class SalonSettingsComponent implements OnInit {
     });
   }
 
-  //  Save hours 
+  //  Save hours
   saveHours(): void {
     if (!this.salonId) return;
     const dto: UpdateOperatingHoursDto = {};
@@ -278,7 +297,7 @@ export class SalonSettingsComponent implements OnInit {
     });
   }
 
-  //  Notifications 
+  //  Notifications
   setNotif(key: keyof NotifSettings, channel: 'email' | 'sms', value: boolean): void {
     this.notif.update((n) => ({
       ...n,
@@ -286,7 +305,7 @@ export class SalonSettingsComponent implements OnInit {
     }));
   }
 
-  //  Danger zone 
+  //  Danger zone
   confirmDeleteAccount(): void {
     this.confirmSvc.confirm({
       header:                  'Delete Account',
@@ -301,7 +320,7 @@ export class SalonSettingsComponent implements OnInit {
     });
   }
 
-  //  Validation helpers 
+  //  Validation helpers
   infoError(field: string): string | null {
     const ctrl = this.infoForm.get(field);
     if (!ctrl?.touched || ctrl.valid) return null;
@@ -311,7 +330,7 @@ export class SalonSettingsComponent implements OnInit {
     return null;
   }
 
-  //  Time utilities 
+  //  Time utilities
   private parseTime(t: string | undefined | null): Date | null {
     if (!t) return null;
     const [h, m] = t.split(':').map(Number);
@@ -325,7 +344,7 @@ export class SalonSettingsComponent implements OnInit {
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
 
-  //  Toast 
+  //  Toast
   private toast(severity: 'success' | 'error' | 'info' | 'warn', detail: string): void {
     this.msgSvc.add({ severity, summary: severity === 'error' ? 'Error' : 'Done', detail, life: 3500 });
   }

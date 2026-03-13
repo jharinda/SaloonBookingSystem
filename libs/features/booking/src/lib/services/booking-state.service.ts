@@ -16,7 +16,7 @@ export class BookingStateService {
   readonly selectedDate = signal<Date | null>(null);
   readonly selectedTime = signal<string | null>(null);
   readonly notes = signal<string>('');
-  readonly currentStep = signal<number>(0);
+  readonly currentStep = signal<number>(1);
 
   // ── Computed signals ─────────────────────────────────────────────────────────
   readonly totalPrice = computed(() =>
@@ -42,7 +42,7 @@ export class BookingStateService {
     this.selectedDate.set(null);
     this.selectedTime.set(null);
     this.notes.set('');
-    this.currentStep.set(0);
+    this.currentStep.set(1);
   }
 
   // ── Step 1: Services ─────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ export class BookingStateService {
   }
 
   previousStep(): void {
-    const prev = Math.max(0, this.currentStep() - 1);
+    const prev = Math.max(1, this.currentStep() - 1);
     this.setStep(prev);
   }
 
@@ -115,6 +115,6 @@ export class BookingStateService {
     this.selectedDate.set(null);
     this.selectedTime.set(null);
     this.notes.set('');
-    this.currentStep.set(0);
+    this.currentStep.set(1);
   }
 }

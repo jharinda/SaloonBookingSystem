@@ -170,7 +170,7 @@ export class SalonAdminService {
   getBookingsByRange(salonId: string, startDate: string, endDate: string): Observable<Booking[]> {
     return this.http
       .get<{ data: Booking[] }>('/api/bookings', {
-        params: { salonId, startDate, endDate },
+        params: { salonId, startDate, endDate, limit: '100' },
       })
       .pipe(map((res) => (res.data ?? []).map(normAdminBooking)));
   }
@@ -193,6 +193,13 @@ export class SalonAdminService {
   cancelBooking(bookingId: string, reason?: string): Observable<Booking> {
     return this.http
       .patch<Booking>(`/api/bookings/${bookingId}/cancel`, { reason })
+      .pipe(map(normAdminBooking));
+  }
+
+  /** PATCH /api/bookings/:id/station — reassign a booking to a different station */
+  assignStation(salonId: string, bookingId: string, stationId: string): Observable<Booking> {
+    return this.http
+      .patch<Booking>(`/api/bookings/${bookingId}/station`, { stationId })
       .pipe(map(normAdminBooking));
   }
 
@@ -255,4 +262,32 @@ export class SalonAdminService {
   setPrimaryImage(salonId: string, imageId: string): Observable<Salon> {
     return this.http.patch<Salon>(`/api/salons/${salonId}/images/${imageId}/primary`, {});
   }
+
+  // ── Station management ─────────────────────────────────────────────────────
+
+  /** GET /api/salons/:id/stations */
+  getStations(salonId: string): Observable<{ stations: Station[]; stationCount: number }> {
+    return this.http.get<{ stations: Station[]; stationCount: number }>(`/api/salons/${salonId}/stations`);
+  }
+
+  /** POST /api/salons/:id/stations — creates a new station */
+  addStation(salonId: string, name: string): Observable<Salon> {
+    return this.http.post<Salon>(`/api/salons/${salonId}/stations`, { name });
+  }
+
+  /** PATCH /api/salons/:id/stations/:stationId — updates station name/status */
+  updateStation(salonId: string, stationId: string, dto: { name?: string; isActive?: boolean }): Observable<Salon> {
+    return this.http.patch<Salon>(`/api/salons/${salonId}/stations/${stationId}`, dto);
+  }
+
+  /** DELETE /api/salons/:id/stations/:stationId */
+  deleteStation(salonId: string, stationId: string): Observable<Salon> {
+    return this.http.delete<Salon>(`/api/salons/${salonId}/stations/${stationId}`);
+  }
+}
+
+export interface Station {
+  _id: string;
+  name: string;
+  isActive: boolean;
 }

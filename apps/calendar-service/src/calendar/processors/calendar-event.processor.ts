@@ -5,11 +5,11 @@ import { HttpService } from '@nestjs/axios';
 import { Job } from 'bull';
 import { firstValueFrom } from 'rxjs';
 
-import { BOOKING_QUEUE, CalendarEvent } from '../constants/calendar-events.constants';
+import { CALENDAR_QUEUE, CalendarEvent } from '../constants/calendar-events.constants';
 import { CalendarJobPayload } from '../interfaces/calendar-payload.interface';
 import { GoogleCalendarService } from '../google-calendar.service';
 
-@Processor(BOOKING_QUEUE)
+@Processor(CALENDAR_QUEUE)
 export class CalendarEventProcessor {
   private readonly logger = new Logger(CalendarEventProcessor.name);
 

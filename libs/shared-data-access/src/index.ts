@@ -15,7 +15,7 @@ export { ReviewService } from './lib/services/review.service';
 export type { CreateReviewDto, UploadReviewImageResult } from '@org/models';
 
 export { SalonAdminService } from './lib/services/salon-admin.service';
-export type { AddServiceDto, UpdateOperatingHoursDto, CreateSalonDto, CreateSalonAddressDto, UpdateSalonInfoDto, SalonImage, UploadImageResult } from './lib/services/salon-admin.service';
+export type { AddServiceDto, UpdateOperatingHoursDto, CreateSalonDto, CreateSalonAddressDto, UpdateSalonInfoDto, SalonImage, UploadImageResult, Station } from './lib/services/salon-admin.service';
 
 export { UserService } from './lib/services/user.service';
 

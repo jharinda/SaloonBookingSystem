@@ -89,7 +89,7 @@ export class BookingConfirmationStepComponent {
         price: svc.price,
         durationMinutes: svc.duration,
       })),
-      appointmentDate: date.toISOString().split('T')[0], // YYYY-MM-DD
+      appointmentDate: this._fmtLocalDate(date), // YYYY-MM-DD (local, avoids UTC shift)
       startTime: time, // "HH:mm"
       notes: this.bookingState.notes() || undefined,
     };
@@ -114,5 +114,13 @@ export class BookingConfirmationStepComponent {
 
   getStylistLabel(): string {
     return this.selectedStylistId() ? 'Preferred Stylist' : 'Any Available Stylist';
+  }
+
+  /** Format a Date as YYYY-MM-DD using LOCAL components (avoids UTC-midnight shift). */
+  private _fmtLocalDate(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 }

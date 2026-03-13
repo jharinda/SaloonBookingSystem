@@ -32,14 +32,23 @@ export class SubscriptionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user || !user.salonId) {
-      this.logger.warn('No salonId found in JWT payload');
+    // Resolve salonId from multiple sources (in priority order):
+    // 1. JWT payload (if auth-service ever starts including it)
+    // 2. x-salon-id header (set by API gateway when present in JWT)
+    // 3. salonId query parameter (e.g. client-initiated calendar actions)
+    const salonId =
+      user?.salonId ||
+      request.headers?.['x-salon-id'] ||
+      request.query?.['salonId'] ||
+      null;
+
+    if (!salonId) {
+      this.logger.warn('No salonId found in JWT payload, headers, or query params');
       throw new ForbiddenException(
         'Unable to verify subscription: salonId not found in token',
       );
     }
 
-    const salonId = user.salonId;
     const result = await this.subscriptionCheckService.getFeatureCheckDetails(
       salonId,
       feature,

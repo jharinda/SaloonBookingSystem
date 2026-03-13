@@ -10,7 +10,7 @@ export default () => ({
     emailFrom:   process.env['EMAIL_FROM']    ?? 'noreply@snapsalon.lk',
   },
   db: {
-    uri: process.env['MONGODB_URI'],
+    uri: process.env['CALENDAR_MONGODB_URI'] || process.env['MONGODB_URI'],
   },
   redis: {
     host: process.env['REDIS_HOST'] ?? 'localhost',
