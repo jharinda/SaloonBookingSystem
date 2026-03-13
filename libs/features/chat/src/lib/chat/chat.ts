@@ -332,6 +332,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     // Deduplicate: backend emits to multiple rooms (conversation + salon/user rooms)
     // causing the same message event to arrive multiple times
     if (this.processedMessageIds.has(apiMessage._id)) {
+      console.log('⏭️ Skipping duplicate message event:', apiMessage._id);
       return;
     }
 
