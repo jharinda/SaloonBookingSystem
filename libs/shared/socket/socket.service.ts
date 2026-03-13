@@ -8,9 +8,18 @@ import { AuthService } from '@org/shared-data-access';
 })
 export class SocketService {
   private socket: Socket | null = null;
-  private socketUrl = 'http://localhost:3009'; // Chat service URL
+  private socketUrl: string;
 
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) {
+    // Auto-detect socket URL based on current origin
+    // In dev: uses current origin (works with dev tunnel)
+    // In prod: should be configured to actual chat service URL
+    if (typeof window !== 'undefined') {
+      this.socketUrl = window.location.origin;
+    } else {
+      this.socketUrl = 'http://localhost:3009'; // Fallback for SSR
+    }
+  }
 
   setSocketUrl(url: string): void {
     this.socketUrl = url;

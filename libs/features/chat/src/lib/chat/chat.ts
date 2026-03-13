@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -17,6 +17,7 @@ import { Subject, takeUntil } from 'rxjs';
 @Component({
   selector: 'lib-chat',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
   standalone: true,
   imports: [CommonModule, FormsModule, ToastModule],
   providers: [MessageService],
@@ -57,12 +58,24 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   private wasAtBottom = true;
 
+  // Track processed messages to prevent duplicate handling (backend emits to multiple rooms)
+  private processedMessageIds = new Set<string>();
+
   constructor() {
     // Auto-scroll effect when messages change
     effect(() => {
       const msgs = this.messages();
       if (msgs.length > 0 && this.wasAtBottom) {
         setTimeout(() => this.scrollToBottom(), 100);
+      }
+    });
+
+    // Auto-update filteredConversations when conversations change
+    effect(() => {
+      const convs = this.conversations();
+      const query = this.searchQuery();
+      if (!query) {
+        this.filteredConversations.set(convs);
       }
     });
   }
@@ -316,22 +329,29 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   private handleNewMessage(apiMessage: MessageResponse): void {
+    // Deduplicate: backend emits to multiple rooms (conversation + salon/user rooms)
+    // causing the same message event to arrive multiple times
+    if (this.processedMessageIds.has(apiMessage._id)) {
+      return;
+    }
+
+    // Mark as processed
+    this.processedMessageIds.add(apiMessage._id);
+
+    // Clean up old entries to prevent memory leak (keep last 100 message IDs)
+    if (this.processedMessageIds.size > 100) {
+      const idsArray = Array.from(this.processedMessageIds);
+      this.processedMessageIds = new Set(idsArray.slice(-100));
+    }
+
     const currentConversation = this.selectedConversation();
 
     // Map API message to frontend model
     const message: Message = this.mapMessages([apiMessage])[0];
 
-    // Add message if it belongs to current conversation (check for duplicates)
+    // Add message if it belongs to current conversation
     if (currentConversation && apiMessage.conversationId === currentConversation._id) {
-      this.messages.update(msgs => {
-        // Check if message already exists to prevent duplicates
-        const exists = msgs.some(m => m._id === message._id);
-        if (exists) {
-          console.log('⏭️ Skipping duplicate message:', message._id);
-          return msgs;
-        }
-        return [...msgs, message];
-      });
+      this.messages.update(msgs => [...msgs, message]);
     }
 
     // Update conversation list
@@ -370,17 +390,35 @@ export class ChatComponent implements OnInit, OnDestroy {
         })
       );
     }
+
+    // Clear unread count for this conversation when other participant reads messages
+    const currentUserId = this.authService.currentUser()?.sub;
+    if (userId !== currentUserId) {
+      this.conversations.update(convs =>
+        convs.map(conv => conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv)
+      );
+      this.filterConversations();
+    }
   }
 
   private updateConversationWithMessage(apiMessage: MessageResponse): void {
+    const currentUserId = this.authService.currentUser()?.sub;
+    const isOwnMessage = apiMessage.senderId === currentUserId;
+    const isActiveConversation = this.selectedConversation()?._id === apiMessage.conversationId;
+
     this.conversations.update(convs =>
       convs.map(conv => {
         if (conv._id === apiMessage.conversationId) {
+          // Don't increment unread count if:
+          // 1. It's the user's own message
+          // 2. The conversation is currently active/selected
+          const shouldIncrementUnread = !isOwnMessage && !isActiveConversation;
+
           return {
             ...conv,
             lastMessage: apiMessage.body,
             lastMessageTime: new Date(apiMessage.createdAt),
-            unreadCount: apiMessage.senderId !== 'current-user-id' ? conv.unreadCount + 1 : conv.unreadCount
+            unreadCount: shouldIncrementUnread ? conv.unreadCount + 1 : conv.unreadCount
           };
         }
         return conv;
@@ -399,6 +437,9 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.conversations.update(convs =>
       convs.map(conv => conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv)
     );
+
+    // Update filtered conversations to reflect the change
+    this.filterConversations();
   }
 
   private scrollToBottom(smooth = true): void {

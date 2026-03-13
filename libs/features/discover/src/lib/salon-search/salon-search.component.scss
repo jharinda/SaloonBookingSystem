@@ -6,7 +6,7 @@
 @use 'sass:color';
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────────
-$primary-color: #7C3AED;
+$primary-color: #10B981;
 $accent-color: #10B981;
 $warm-grey-50: #FAFAF9;
 $warm-grey-100: #F5F5F4;
@@ -114,6 +114,7 @@ $desktop: 1024px;
 .search-field {
   flex: 1;
   min-width: 0;
+  position: relative;
 
   ::ng-deep .mat-mdc-form-field-flex {
     align-items: center;
@@ -122,18 +123,62 @@ $desktop: 1024px;
   ::ng-deep .mat-mdc-text-field-wrapper {
     background-color: white;
   }
-}
 
-.search-icon {
-  color: $accent-color;
-  margin-right: 8px;
+  // Make PrimeNG input fill the full width
+  ::ng-deep .p-float-label {
+    width: 100%;
+  }
+
+  input {
+    width: 100%;
+    padding-left: 32px; // Space for icon
+    padding-right: 40px; // Space for clear button
+  }
+
+  // Position icon inside the input
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $accent-color;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  // Position clear button inside the input
+  button {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $warm-grey-400;
+    transition: color 0.2s;
+    z-index: 1;
+
+    &:hover {
+      color: $warm-grey-600;
+    }
+
+    i {
+      font-size: 16px;
+    }
+  }
 }
 
 .search-btn {
-  height: 48px;
-  border-radius: 24px;
+  height: 40px;
+  border-radius: 20px;
   font-weight: 600;
-  padding: 0 24px;
+  font-size: 0.875rem;
+  padding: 0 20px;
   background-color: $primary-color;
   color: white;
 
@@ -147,8 +192,9 @@ $desktop: 1024px;
 }
 
 .near-me-btn {
-  height: 48px;
-  border-radius: 24px;
+  height: 40px;
+  border-radius: 20px;
+  font-size: 0.875rem;
   border-color: $accent-color;
   color: $accent-color;
 

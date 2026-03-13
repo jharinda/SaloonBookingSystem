@@ -54,7 +54,7 @@ export interface PaginatedMessagesResponse {
 })
 export class ChatService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'http://localhost:3009/api'; // Chat service port
+  private readonly apiUrl = '/api'; // Use relative path for proxy/gateway routing
 
   /**
    * Create or get existing conversation with a salon

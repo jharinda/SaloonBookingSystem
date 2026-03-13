@@ -7,14 +7,27 @@ import { PwaInstallService } from '../../shared/services/pwa-install.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [Button],
   template: `
-    @if (pwaInstall.canInstall()) {
+    @if (pwaInstall.canInstall() && !pwaInstall.isStandalone()) {
       <div class="pwa-banner" role="banner">
         <i class="pi pi-download pwa-banner__icon"></i>
-        <span class="pwa-banner__text">Install SnapSalon for a faster experience!</span>
-        <div class="pwa-banner__actions">
-          <p-button label="Install" (onClick)="install()" />
-          <p-button icon="pi pi-times" [rounded]="true" [text]="true" severity="secondary" aria-label="Dismiss" (onClick)="dismiss()" />
-        </div>
+
+        @if (pwaInstall.isIOS()) {
+          <!-- iOS: Show manual instructions -->
+          <div class="pwa-banner__text">
+            <strong>Install SnapSalon:</strong>
+            Tap <i class="pi pi-share-alt" style="font-size: 0.9em;"></i> then "Add to Home Screen"
+          </div>
+          <div class="pwa-banner__actions">
+            <p-button icon="pi pi-times" [rounded]="true" [text]="true" severity="secondary" aria-label="Dismiss" (onClick)="dismiss()" />
+          </div>
+        } @else {
+          <!-- Android/Chrome: Show install button -->
+          <span class="pwa-banner__text">Install SnapSalon for a faster experience!</span>
+          <div class="pwa-banner__actions">
+            <p-button label="Install" (onClick)="install()" />
+            <p-button icon="pi pi-times" [rounded]="true" [text]="true" severity="secondary" aria-label="Dismiss" (onClick)="dismiss()" />
+          </div>
+        }
       </div>
     }
   `,
@@ -29,7 +42,7 @@ import { PwaInstallService } from '../../shared/services/pwa-install.service';
       font-size: 14px;
     }
     .pwa-banner__icon { flex-shrink: 0; font-size: 1.25rem; }
-    .pwa-banner__text { flex: 1; }
+    .pwa-banner__text { flex: 1; line-height: 1.4; }
     .pwa-banner__actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 
     :host-context(.app-dark) {
