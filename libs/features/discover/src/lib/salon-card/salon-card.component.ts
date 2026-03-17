@@ -13,12 +13,13 @@ import { Button } from 'primeng/button';
 import { Rating } from 'primeng/rating';
 
 import { Salon, SalonServiceItem } from '@org/models';
+import { AppCurrencyPipe } from '@org/shared-data-access';
 
 
 @Component({
   selector: 'lib-salon-card',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, NgOptimizedImage, FormsModule, Card, Button, Rating],
+  imports: [DecimalPipe, NgOptimizedImage, FormsModule, Card, Button, Rating, AppCurrencyPipe],
   template: `
     <p-card
       styleClass="salon-card-primeng h-full flex flex-col overflow-hidden"
@@ -72,7 +73,7 @@ import { Salon, SalonServiceItem } from '@org/models';
           @for (svc of topServices(); track svc._id) {
             <li class="flex justify-between items-baseline text-sm">
               <span class="text-gray-700 dark:text-gray-300 truncate mr-2">{{ svc.name }}</span>
-              <span class="text-purple-600 dark:text-purple-400 font-semibold whitespace-nowrap">LKR {{ svc.price | number }}</span>
+              <span class="text-purple-600 dark:text-purple-400 font-semibold whitespace-nowrap">{{ svc.price | appCurrency }}</span>
             </li>
           }
           @if (salon().services.length > 3) {

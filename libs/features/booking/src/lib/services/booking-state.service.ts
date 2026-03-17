@@ -49,18 +49,10 @@ export class BookingStateService {
 
   toggleService(service: SalonServiceItem): void {
     const current = this.selectedServices();
-    const index = current.findIndex((s) => s._id === service._id);
+    const alreadySelected = current.some((s) => s._id === service._id);
 
-    let updated: SalonServiceItem[];
-    if (index >= 0) {
-      // Remove service
-      updated = current.filter((s) => s._id !== service._id);
-    } else {
-      // Add service
-      updated = [...current, service];
-    }
-
-    this.selectedServices.set(updated);
+    // Single-select: deselect if already selected, otherwise replace with this service
+    this.selectedServices.set(alreadySelected ? [] : [service]);
   }
 
   clearServices(): void {

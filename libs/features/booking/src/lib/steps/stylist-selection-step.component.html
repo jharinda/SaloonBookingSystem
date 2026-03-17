@@ -6,94 +6,143 @@
     </p>
   </div>
 
-  <div class="stylist-grid">
-    <!-- "Any Available" Option (Default) -->
-    <p-card
-      class="stylist-card"
-      [styleClass]="selectedStylistId() === null ? 'stylist-card--selected' : ''"
-      (click)="selectStylist(null)"
-      tabindex="0"
-      role="radio"
-      [attr.aria-checked]="selectedStylistId() === null"
-    >
-      <ng-template pTemplate="header">
-        <div class="stylist-card__header">
-          <p-radiobutton
-            [ngModel]="selectedStylistId()"
-            [value]="null"
-            (ngModelChange)="selectStylist(null)"
-            (click)="$event.stopPropagation()"
-            inputId="stylist-any"
-          />
-          <div class="stylist-card__avatar stylist-card__avatar--any">
-            <i class="pi pi-users stylist-card__any-icon"></i>
-          </div>
-        </div>
-      </ng-template>
-
-      <ng-template pTemplate="content">
-        <h3 class="stylist-card__name">Any Available Stylist</h3>
-        <p class="stylist-card__desc">
-          We'll assign the first available stylist based on your selected time
-        </p>
-      </ng-template>
-    </p-card>
-
-    <!-- Staff Members (when staff data is available) -->
-    @if (hasStaff()) {
-      @for (staff of staffMembers; track trackByStaffId($index, staff)) {
-        <p-card
-          class="stylist-card"
-          [styleClass]="selectedStylistId() === staff._id ? 'stylist-card--selected' : ''"
-          (click)="selectStylist(staff._id)"
-          tabindex="0"
-          role="radio"
-          [attr.aria-checked]="selectedStylistId() === staff._id"
-        >
-          <ng-template pTemplate="header">
-            <div class="stylist-card__header">
-              <p-radiobutton
-                [ngModel]="selectedStylistId()"
-                [value]="staff._id"
-                (ngModelChange)="selectStylist(staff._id)"
-                (click)="$event.stopPropagation()"
-                [inputId]="'stylist-' + staff._id"
-              />
-              <div class="stylist-card__avatar">
-                @if (staff.avatar) {
-                  <img [src]="staff.avatar" [alt]="staff.name" class="stylist-card__avatar-img">
-                } @else {
-                  <i class="pi pi-user stylist-card__avatar-placeholder"></i>
-                }
-              </div>
+  @if (loadingStaff()) {
+    <div class="flex items-center justify-center py-12">
+      <p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '36px', height: '36px' }" />
+    </div>
+  } @else {
+    <div class="stylist-grid">
+      <!-- "Any Available" Option (Default) -->
+      <p-card
+        class="stylist-card"
+        [styleClass]="selectedStylistId() === null ? 'stylist-card--selected' : ''"
+        (click)="selectStylist(null)"
+        tabindex="0"
+        role="radio"
+        [attr.aria-checked]="selectedStylistId() === null"
+      >
+        <ng-template pTemplate="header">
+          <div class="stylist-card__header">
+            <p-radiobutton
+              [ngModel]="selectedStylistId()"
+              [value]="null"
+              (ngModelChange)="selectStylist(null)"
+              (click)="$event.stopPropagation()"
+              inputId="stylist-any"
+            />
+            <div class="stylist-card__avatar stylist-card__avatar--any">
+              <i class="pi pi-users stylist-card__any-icon"></i>
             </div>
-          </ng-template>
+          </div>
+        </ng-template>
 
-          <ng-template pTemplate="content">
-            <h3 class="stylist-card__name">{{ staff.name }}</h3>
+        <ng-template pTemplate="content">
+          <h3 class="stylist-card__name">Any Available Stylist</h3>
+          <p class="stylist-card__desc">
+            We'll assign the first available stylist based on your selected time
+          </p>
+        </ng-template>
+      </p-card>
 
-            @if (staff.rating) {
-              <div class="stylist-card__rating">
-                <i class="pi pi-star-fill stylist-card__star"></i>
-                <span>{{ staff.rating | number:'1.1-1' }}</span>
+      <!-- Staff Members -->
+      @if (hasStaff()) {
+        @for (staff of sortedStaffMembers(); track staff._id) {
+          @let onBreak = isOnBreak(staff._id);
+          <p-card
+            class="stylist-card"
+            [styleClass]="[
+              selectedStylistId() === staff._id ? 'stylist-card--selected' : '',
+              onBreak ? 'stylist-card--disabled' : ''
+            ].join(' ')"
+            (click)="selectStylist(staff._id, onBreak)"
+            [tabindex]="onBreak ? -1 : 0"
+            role="radio"
+            [attr.aria-checked]="selectedStylistId() === staff._id"
+            [attr.aria-disabled]="onBreak"
+            [pTooltip]="onBreak ? 'This stylist is currently on a break and cannot be booked' : undefined"
+            tooltipPosition="top"
+          >
+            <ng-template pTemplate="header">
+              <div class="stylist-card__header">
+                <p-radiobutton
+                  [ngModel]="selectedStylistId()"
+                  [value]="staff._id"
+                  (ngModelChange)="selectStylist(staff._id, onBreak)"
+                  (click)="$event.stopPropagation()"
+                  [inputId]="'stylist-' + staff._id"
+                  [disabled]="onBreak"
+                />
+                <div class="stylist-card__avatar" [class.opacity-50]="onBreak">
+                  @if (staff.avatarUrl) {
+                    <img [src]="staff.avatarUrl" [alt]="getStaffName(staff)" class="stylist-card__avatar-img">
+                  } @else {
+                    <p-avatar
+                      [label]="getStaffInitials(staff)"
+                      size="large"
+                      shape="circle"
+                      [styleClass]="onBreak ? 'bg-zinc-200 text-zinc-400 font-bold' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 font-bold'"
+                    />
+                  }
+                </div>
               </div>
-            }
+            </ng-template>
 
-            @if (staff.specialties && staff.specialties.length > 0) {
-              <div class="stylist-card__specialties">
-                @for (specialty of staff.specialties; track specialty) {
-                  <span class="stylist-card__specialty-tag">{{ specialty }}</span>
+            <ng-template pTemplate="content">
+              <div class="flex items-start justify-between gap-2">
+                <h3 class="stylist-card__name" [class.text-zinc-400]="onBreak">
+                  {{ getStaffName(staff) }}
+                </h3>
+                @if (onBreak) {
+                  <p-tag
+                    value="On Break"
+                    severity="warn"
+                    icon="pi pi-clock"
+                    styleClass="text-xs shrink-0"
+                  />
                 }
               </div>
-            }
-          </ng-template>
-        </p-card>
+
+              @if (staff.stylistProfile?.averageRating) {
+                <div class="stylist-card__rating" [class.opacity-50]="onBreak">
+                  <i class="pi pi-star-fill stylist-card__star"></i>
+                  <span>{{ staff.stylistProfile!.averageRating | number:'1.1-1' }}</span>
+                </div>
+              }
+
+              @if (staff.stylistProfile?.yearsExperience) {
+                <p class="stylist-card__experience" [class.opacity-50]="onBreak">
+                  {{ staff.stylistProfile!.yearsExperience }} yrs experience
+                </p>
+              }
+
+              @if (staff.stylistProfile?.specialties?.length) {
+                <div class="stylist-card__specialties" [class.opacity-50]="onBreak">
+                  @for (specialty of staff.stylistProfile!.specialties.slice(0, 3); track specialty) {
+                    <span class="stylist-card__specialty-tag">{{ specialty }}</span>
+                  }
+                  @if (staff.stylistProfile!.specialties.length > 3) {
+                    <span class="stylist-card__specialty-tag stylist-card__specialty-tag--more">
+                      +{{ staff.stylistProfile!.specialties.length - 3 }}
+                    </span>
+                  }
+                </div>
+              }
+
+              @if (onBreak) {
+                <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  <i class="pi pi-info-circle mr-1"></i>
+                  Not available for booking during break hours
+                </p>
+              }
+            </ng-template>
+          </p-card>
+        }
+      } @else {
+        <p class="text-zinc-500 text-sm mt-2">
+          No other stylists are available for this salon.
+          "Any available stylist" has been selected automatically.
+        </p>
       }
-    } @else {
-      <p class="text-zinc-500 text-sm mt-2">
-        Staff profiles are not yet available for this salon.
-        "Any available stylist" has been selected automatically.
-      </p>
-    }
-  </div>
+    </div>
+  }
 </div>

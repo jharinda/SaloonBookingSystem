@@ -23,7 +23,7 @@ import { Card } from 'primeng/card';
 import { Button } from 'primeng/button';
 import { Toast } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
-import { SalonAdminService } from '@org/shared-data-access';
+import { SalonAdminService, CurrencyService } from '@org/shared-data-access';
 
 Chart.register(
   CategoryScale, LinearScale, BarElement, LineElement, PointElement,
@@ -70,6 +70,7 @@ interface BookingStats {
 export class AnalyticsComponent implements OnInit, AfterViewInit {
   private readonly salonService = inject(SalonAdminService);
   private readonly messageService = inject(MessageService);
+  private readonly currency = inject(CurrencyService);
 
   @ViewChild('revenueChart') revenueChartRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('bookingStatusChart') bookingStatusChartRef!: ElementRef<HTMLCanvasElement>;
@@ -221,7 +222,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit {
       data: {
         labels: data.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
         datasets: [{
-          label: 'Revenue (LKR)',
+          label: `Revenue (${this.currency.currencySymbol()})`,
           data: data.map(d => d.revenue),
           borderColor: '#2196f3',
           backgroundColor: 'rgba(33, 150, 243, 0.1)',
@@ -242,7 +243,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit {
           tooltip: {
             callbacks: {
               label: (context) => {
-                return `Revenue: LKR ${(context.parsed.y ?? 0).toLocaleString()}`;
+                return `Revenue: ${this.currency.format(context.parsed.y ?? 0)}`;
               }
             }
           }
@@ -252,7 +253,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit {
             beginAtZero: true,
             ticks: {
               callback: (value) => {
-                return 'LKR ' + (value as number).toLocaleString();
+                return this.currency.format(value as number);
               }
             }
           }
@@ -335,7 +336,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit {
   }
 
   formatCurrency(value: number): string {
-    return `LKR ${value.toLocaleString()}`;
+    return this.currency.format(value);
   }
 
   getTopPerformer(): StaffPerformance | null {

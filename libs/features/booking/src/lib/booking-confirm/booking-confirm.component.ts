@@ -5,7 +5,7 @@
   output,
   signal,
 } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 import { Card } from 'primeng/card';
@@ -15,11 +15,12 @@ import { Textarea } from 'primeng/textarea';
 import { Divider } from 'primeng/divider';
 
 import { BookingDraft } from '@org/models';
+import { AppCurrencyPipe } from '@org/shared-data-access';
 
 @Component({
   selector: 'lib-booking-confirm',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, FormsModule, Card, Button, Dialog, Textarea, Divider],
+  imports: [DatePipe, FormsModule, Card, Button, Dialog, Textarea, Divider, AppCurrencyPipe],
   template: `
     <!-- Summary Card -->
     <div class="mb-5">
@@ -71,7 +72,7 @@ import { BookingDraft } from '@org/models';
         </div>
         <div class="min-w-0">
           <div class="text-xs uppercase tracking-widest text-gray-400 font-medium">Total</div>
-          <div class="font-bold text-lg text-purple-600">LKR {{ draft().service.price | number }}</div>
+          <div class="font-bold text-lg text-purple-600">{{ draft().service.price | appCurrency }}</div>
           <div class="text-sm text-gray-500">Pay at salon</div>
         </div>
       </div>
@@ -126,7 +127,7 @@ import { BookingDraft } from '@org/models';
         </div>
         <div class="flex justify-between items-center text-sm border-t border-gray-100 pt-2 mt-1">
           <span class="text-gray-700 font-medium">Total</span>
-          <span class="font-bold text-purple-600 text-base">LKR {{ draft().service.price | number }}</span>
+          <span class="font-bold text-purple-600 text-base">{{ draft().service.price | appCurrency }}</span>
         </div>
       </div>
       <ng-template #footer>

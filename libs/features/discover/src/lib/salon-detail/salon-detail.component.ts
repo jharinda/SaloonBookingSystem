@@ -20,7 +20,7 @@ import { TableModule } from 'primeng/table';
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from 'primeng/tabs';
 
 import { Salon, SalonServiceItem, Review, ReviewsPage } from '@org/models';
-import { SalonService } from '@org/shared-data-access';
+import { SalonService, AppCurrencyPipe, CurrencyService } from '@org/shared-data-access';
 import { ReviewService } from '@org/shared-data-access';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -87,6 +87,7 @@ function isOpenNow(open: string, close: string): boolean {
     Panel,
     TableModule,
     Tabs, TabList, Tab, TabPanels, TabPanel,
+    AppCurrencyPipe,
   ],
   templateUrl: './salon-detail.component.html',
   styleUrl: './salon-detail.component.scss',
@@ -98,6 +99,7 @@ export class SalonDetailComponent implements OnInit {
   private readonly salonService  = inject(SalonService);
   private readonly reviewService = inject(ReviewService);
   private readonly msgSvc        = inject(MessageService);
+  readonly currencyService       = inject(CurrencyService);
 
   // ── State ───────────────────────────────────────────────────────────────────
   readonly salon          = signal<Salon | null>(null);

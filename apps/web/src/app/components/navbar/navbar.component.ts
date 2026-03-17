@@ -73,6 +73,7 @@ export class NavbarComponent implements OnInit, OnDestroy {
     const user = this.currentUser();
     const url  = this.currentUrl();
     const onDashboard = url.startsWith('/salon-dashboard');
+    const onStylistDashboard = url.startsWith('/stylist-dashboard');
     const items: MenuItem[] = [
       { label: 'My Profile', icon: 'pi pi-user', routerLink: '/account' },
     ];
@@ -83,6 +84,10 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
     if ((user?.role === 'salon_owner' || user?.role === 'franchise_owner') && !onDashboard) {
       items.push({ label: 'Dashboard', icon: 'pi pi-gauge', routerLink: '/salon-dashboard' });
+    }
+
+    if (user?.role === 'stylist' && !onStylistDashboard) {
+      items.push({ label: 'Dashboard', icon: 'pi pi-gauge', routerLink: '/stylist-dashboard' });
     }
 
     if (user?.role === 'admin') {

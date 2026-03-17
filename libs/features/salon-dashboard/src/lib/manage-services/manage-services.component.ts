@@ -12,7 +12,6 @@ import {
   FormBuilder,
   Validators,
 } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
 
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -30,7 +29,7 @@ import { FluidModule } from 'primeng/fluid';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
 
-import { SalonAdminService, AddServiceDto } from '@org/shared-data-access';
+import { SalonAdminService, AddServiceDto, AppCurrencyPipe, CurrencyService } from '@org/shared-data-access';
 import { SalonServiceItem } from '@org/models';
 
 const SERVICE_CATEGORIES = ['Hair', 'Nails', 'Skin', 'Massage', 'Spa', 'Lashes', 'Brows'];
@@ -43,7 +42,6 @@ const SERVICE_CATEGORIES = ['Hair', 'Nails', 'Skin', 'Massage', 'Spa', 'Lashes',
   imports: [
     ReactiveFormsModule,
     FormsModule,
-    DecimalPipe,
     TableModule,
     ButtonModule,
     DialogModule,
@@ -58,6 +56,7 @@ const SERVICE_CATEGORIES = ['Hair', 'Nails', 'Skin', 'Massage', 'Spa', 'Lashes',
     FloatLabelModule,
     FluidModule,
     TooltipModule,
+    AppCurrencyPipe,
   ],
   templateUrl: './manage-services.component.html',
 })
@@ -66,6 +65,7 @@ export class ManageServicesComponent implements OnInit {
   private readonly confirmSvc   = inject(ConfirmationService);
   private readonly msgSvc       = inject(MessageService);
   private readonly fb           = inject(FormBuilder);
+  readonly currencyService      = inject(CurrencyService);
 
   readonly services       = signal<SalonServiceItem[]>([]);
   readonly isLoading      = signal(true);

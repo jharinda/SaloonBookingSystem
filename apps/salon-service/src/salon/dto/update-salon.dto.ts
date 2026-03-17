@@ -12,6 +12,13 @@ import {
 import { Type } from 'class-transformer';
 import { AddressDto, ImageDto, OperatingHoursDto, ServiceItemDto } from './create-salon.dto';
 
+export class BreakLimitsDto {
+  @IsNumber() @Min(0) @IsOptional() LUNCH?: number;
+  @IsNumber() @Min(0) @IsOptional() COFFEE?: number;
+  @IsNumber() @Min(0) @IsOptional() PERSONAL?: number;
+  @IsNumber() @Min(0) @IsOptional() OTHER?: number;
+}
+
 export class UpdateSalonDto {
   @IsString()
   @IsOptional()
@@ -55,6 +62,11 @@ export class UpdateSalonDto {
   @Min(0)
   @IsOptional()
   cancellationWindowHours?: number;
+
+  @ValidateNested()
+  @Type(() => BreakLimitsDto)
+  @IsOptional()
+  breakLimits?: BreakLimitsDto;
 
   @IsArray()
   @ValidateNested({ each: true })

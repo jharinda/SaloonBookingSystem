@@ -1,7 +1,7 @@
 @use 'sass:color';
 
 // ─── Design Tokens ───────────────────────────────────────────────────────────
-$primary-color: #7C3AED;
+$primary-color: #10B981;
 $accent-color: #10B981;
 $border-radius: 12px;
 $shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -73,6 +73,20 @@ $transition: all 0.2s ease-in-out;
     border-width: 3px;
     background-color: rgba($primary-color, 0.02);
     box-shadow: $shadow-xl, 0 0 0 3px rgba($primary-color, 0.1);
+  }
+
+  // On-break stylists: muted appearance, no hover lift, not selectable
+  &--disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+    border-color: #d1d5db !important;
+    background-color: #f9fafb;
+
+    &:hover {
+      transform: none;
+      box-shadow: $shadow-md;
+      border-color: #d1d5db !important;
+    }
   }
 
   mat-card-header {
@@ -183,6 +197,17 @@ $transition: all 0.2s ease-in-out;
     border-radius: 12px;
     font-size: 0.75rem;
     font-weight: 500;
+
+    &--more {
+      background-color: rgba(#6b7280, 0.1);
+      color: #6b7280;
+    }
+  }
+
+  &__experience {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin: 0.25rem 0;
   }
 }
 
@@ -228,7 +253,7 @@ $transition: all 0.2s ease-in-out;
   }
 
   .stylist-card {
-    background-color: #1f2937;
+    background-color: #000000;
     border-color: #374151;
 
     &:hover {
@@ -239,6 +264,18 @@ $transition: all 0.2s ease-in-out;
       border-color: color.adjust($primary-color, $lightness: 20%);
       background-color: rgba(color.adjust($primary-color, $lightness: 20%), 0.1);
       box-shadow: $shadow-xl, 0 0 0 3px rgba(color.adjust($primary-color, $lightness: 20%), 0.2);
+    }
+
+    &--disabled {
+      cursor: not-allowed;
+      background-color: #1f2937;
+      border-color: #374151 !important;
+
+      &:hover {
+        transform: none;
+        box-shadow: $shadow-md;
+        border-color: #374151 !important;
+      }
     }
 
     &__avatar {

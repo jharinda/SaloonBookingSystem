@@ -5,12 +5,13 @@ import {
   input,
   output,
 } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 
 import { Button } from 'primeng/button';
 
 import { Booking, BookingStatus } from '@org/models';
+import { AppCurrencyPipe } from '@org/shared-data-access';
 
 export type AppointmentTab = 'upcoming' | 'past' | 'cancelled';
 
@@ -38,7 +39,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
   selector: 'lib-appointment-card',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, DecimalPipe, Button],
+  imports: [DatePipe, Button, AppCurrencyPipe],
   template: `
     <article class="appt-card" [class.appt-card--cancelled]="tab() === 'cancelled'">
 
@@ -84,7 +85,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
             <i class="pi pi-clock inline-icon-sm" aria-hidden="true"></i>
             {{ booking().startTime }} – {{ booking().endTime }}
           </span>
-          <span class="appt-price">LKR {{ booking().totalPrice | number }}</span>
+          <span class="appt-price">{{ booking().totalPrice | appCurrency }}</span>
         </div>
 
         <!-- Existing review (past tab only) -->
@@ -217,7 +218,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
     .appt-name {
       font-size: 1rem;
       font-weight: 700;
-      color: #1f2937;
+      color: #000000;
       margin: 0 0 2px;
       line-height: 1.3;
     }
@@ -271,7 +272,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
 
     .appt-price {
       font-weight: 700;
-      color: #1f2937;
+      color: #000000;
       font-size: .9rem !important;
     }
 

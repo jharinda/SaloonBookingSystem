@@ -38,4 +38,10 @@ export interface BookingNotificationPayload {
   salonAddress: string;
   /** MongoDB ObjectId of the salon owner — used to push SSE in-app notifications */
   salonOwnerId?: string;
+  /** Assigned stylist info — present when the booking has a specific stylist */
+  stylist?: RecipientInfo;
+  /** MongoDB ObjectId of the assigned stylist */
+  stylistId?: string;
+  /** Denormalised stylist name stored at booking time */
+  stylistName?: string;
 }

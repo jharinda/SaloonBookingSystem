@@ -14,7 +14,7 @@ import { Skeleton } from 'primeng/skeleton';
 import { ChartModule } from 'primeng/chart';
 import { Message } from 'primeng/message';
 
-import { SalonAdminService } from '@org/shared-data-access';
+import { SalonAdminService, CurrencyService } from '@org/shared-data-access';
 import { Booking } from '@org/models';
 
 interface KpiCard {
@@ -39,6 +39,7 @@ interface KpiCard {
 })
 export class DashboardOverviewComponent implements OnInit {
   private readonly adminService = inject(SalonAdminService);
+  private readonly currency     = inject(CurrencyService);
 
   // ── Async state ──────────────────────────────────────────────────────
   readonly isLoading = signal(true);
@@ -135,7 +136,7 @@ export class DashboardOverviewComponent implements OnInit {
       },
       {
         label:        'Monthly Revenue',
-        displayValue: `LKR\u00a0${thisRevenue.toLocaleString()}`,
+        displayValue: this.currency.format(thisRevenue),
         subtitle:     'From completed bookings',
         icon:         'pi pi-pound',
         iconBg:       'bg-emerald-100 dark:bg-emerald-900',
@@ -182,7 +183,7 @@ export class DashboardOverviewComponent implements OnInit {
       labels,
       datasets: [
         {
-          label:           'Revenue (LKR)',
+          label:           `Revenue (${this.currency.currencySymbol()})`,
           data,
           backgroundColor: '#059669',
           borderRadius:    6,
@@ -205,7 +206,7 @@ export class DashboardOverviewComponent implements OnInit {
         tooltip: {
           callbacks: {
             label: (ctx: { parsed: { y: number } }) =>
-              ` LKR ${ctx.parsed.y.toLocaleString()}`,
+              ` ${this.currency.format(ctx.parsed.y)}`,
           },
         },
       },
@@ -219,7 +220,7 @@ export class DashboardOverviewComponent implements OnInit {
           ticks: {
             color:    textColor,
             font:     { size: 11 },
-            callback: (v: number) => `LKR ${v.toLocaleString()}`,
+            callback: (v: number) => this.currency.format(v),
           },
           grid:   { color: gridColor },
           border: { color: 'transparent' },

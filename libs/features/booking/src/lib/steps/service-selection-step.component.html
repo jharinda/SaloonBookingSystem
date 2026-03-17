@@ -2,7 +2,7 @@
   <div class="service-selection__header">
     <h2 class="service-selection__title">Choose Services</h2>
     <p class="service-selection__subtitle">
-      Select one or more services at <strong>{{ salon()?.name }}</strong>
+      Select a service at <strong>{{ salon()?.name }}</strong>
     </p>
   </div>
 
@@ -34,18 +34,15 @@
         [styleClass]="isSelected(service) ? 'service-card--selected' : ''"
         (click)="toggleService(service)"
         tabindex="0"
-        role="checkbox"
+        role="radio"
         [attr.aria-checked]="isSelected(service)"
       >
         <ng-template pTemplate="header">
           <div class="service-card__header">
-            <p-checkbox
-              [ngModel]="isSelected(service)"
-              (ngModelChange)="toggleService(service)"
-              (click)="$event.stopPropagation()"
-              [binary]="true"
-            />
             <h3 class="service-card__name">{{ service.name }}</h3>
+            @if (service.category) {
+              <p class="service-card__category">{{ service.category }}</p>
+            }
           </div>
         </ng-template>
 
@@ -60,7 +57,7 @@
               {{ service.duration }} min
             </span>
             <span class="service-card__price">
-              {{ service.price | number:'1.2-2' }} RON
+              {{ service.price | appCurrency:true }}
             </span>
           </div>
         </ng-template>
@@ -89,7 +86,7 @@
         <div class="total-bar__price">
           <span class="total-bar__price-label">Total:</span>
           <span class="total-bar__price-value">
-            {{ totalPrice() | number:'1.2-2' }} RON
+            {{ totalPrice() | appCurrency:true }}
           </span>
         </div>
       </div>

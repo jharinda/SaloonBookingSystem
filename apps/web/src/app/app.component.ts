@@ -45,7 +45,7 @@ import { Router } from '@angular/router';
       <h1 style="
         font-size: clamp(2rem, 5vw, 3.5rem);
         font-weight: 900;
-        color: #1f2937;
+        color: #000000;
         line-height: 1.15;
         max-width: 720px;
         margin: 0 0 20px;

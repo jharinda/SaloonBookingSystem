@@ -1,4 +1,21 @@
-import { IsMongoId, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsInt, IsMongoId, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+
+export class UpdateStylistProfileDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  bio?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  specialties?: string[];
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  yearsExperience?: number;
+}
 
 export class CreateJoinRequestDto {
   @IsMongoId()
@@ -8,6 +25,18 @@ export class CreateJoinRequestDto {
   @IsString()
   @MaxLength(500)
   message?: string;
+}
+
+export class InviteStylistDto {
+  @IsMongoId()
+  stylistId: string;
+
+  @IsMongoId()
+  salonId: string;
+
+  @IsString()
+  @MaxLength(200)
+  salonName: string;
 }
 
 export class StylistJoinRequestResponseDto {

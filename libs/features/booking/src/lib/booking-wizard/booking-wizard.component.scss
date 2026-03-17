@@ -134,69 +134,7 @@ $transition: all 0.2s ease-in-out;
   }
 }
 
-// ─── Material Stepper Customization ─────────────────────────────────────────
-.booking-stepper {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: $border-radius;
-  box-shadow: $shadow-md;
-  padding: 1.5rem;
 
-  @media (max-width: 640px) {
-    padding: 1rem;
-  }
-
-  // Stepper header customization
-  ::ng-deep .mat-horizontal-stepper-header {
-    padding: 1rem 0.5rem;
-
-    &:hover {
-      background-color: rgba($primary-color, 0.03);
-      border-radius: 8px;
-    }
-  }
-
-  ::ng-deep .mat-step-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-
-  ::ng-deep .mat-step-icon {
-    background-color: #e5e7eb;
-    color: #6b7280;
-  }
-
-  ::ng-deep .mat-step-icon-state-number {
-    background-color: #e5e7eb;
-  }
-
-  ::ng-deep .mat-step-icon-selected {
-    background-color: $primary-color;
-    color: white;
-  }
-
-  ::ng-deep .mat-step-icon-state-done {
-    background-color: $accent-color;
-    color: white;
-  }
-
-  ::ng-deep .mat-step-label-selected {
-    font-weight: 600;
-    color: $primary-color;
-  }
-
-  ::ng-deep .mat-horizontal-stepper-content {
-    padding: 2rem 0.5rem 1rem;
-
-    @media (max-width: 640px) {
-      padding: 1.5rem 0 0.5rem;
-    }
-  }
-
-  ::ng-deep .mat-horizontal-content-container {
-    overflow: visible;
-  }
-}
 
 // ─── Step Label ──────────────────────────────────────────────────────────────
 .step-label {
@@ -273,7 +211,7 @@ $transition: all 0.2s ease-in-out;
   }
 
   .salon-info {
-    background-color: #1f2937;
+    background-color: #000000;
     border-color: #374151;
 
     &__name {
@@ -290,7 +228,7 @@ $transition: all 0.2s ease-in-out;
   }
 
   .booking-stepper {
-    background-color: #1f2937;
+    background-color: #000000;
     border-color: #374151;
 
     ::ng-deep .mat-horizontal-stepper-header:hover {

@@ -6,7 +6,7 @@ export interface SalonServiceItem {
   category: string;
   /** Duration in minutes */
   duration: number;
-  /** Price in LKR */
+  /** Price in the salon's configured currency */
   price: number;
   description?: string;
   /** Whether the service is currently offered */
@@ -58,6 +58,8 @@ export interface Salon {
   operatingHours?: SalonOperatingHours[];
   /** Normalised working-hours record (derived by frontend services from operatingHours) */
   workingHours?: Record<string, SalonWorkingHours>;
+  /** Staff member user IDs */
+  staff?: string[];
   /** Average rating 0–5 */
   rating: number;
   reviewCount: number;
@@ -66,6 +68,15 @@ export interface Salon {
   ownerId: string;
   cancellationWindowHours?: number;
   autoConfirmBookings?: boolean;
+  /** Per-type break limits set by the salon owner */
+  breakLimits?: SalonBreakLimits;
+}
+
+export interface SalonBreakLimits {
+  LUNCH: number;
+  COFFEE: number;
+  PERSONAL: number;
+  OTHER: number;
 }
 
 // ─── Search ───────────────────────────────────────────────────────────────────

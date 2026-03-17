@@ -2,7 +2,7 @@ import { SubscriptionPlan } from './schemas/subscription.schema';
 
 export interface PlanConfig {
   name: string;
-  /** Monthly price in LKR; 0 = free */
+  /** Monthly price in the configured currency; 0 = free */
   price: number;
   /** Trial days (starter only) */
   trialDays?: number;

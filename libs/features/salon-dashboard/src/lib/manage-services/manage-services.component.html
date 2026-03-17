@@ -48,7 +48,7 @@
         <td class="font-medium text-gray-900 dark:text-zinc-100">{{ svc.name }}</td>
         <td class="text-gray-600 dark:text-zinc-400">{{ svc.category }}</td>
         <td class="text-right text-gray-600 dark:text-zinc-400">{{ svc.duration }} mins</td>
-        <td class="text-right font-semibold text-gray-900 dark:text-zinc-100">£ {{ svc.price | number: '1.2-2' }}</td>
+        <td class="text-right font-semibold text-gray-900 dark:text-zinc-100">{{ svc.price | appCurrency:true }}</td>
 
         <!-- Active toggle -->
         <td class="text-center">
@@ -170,7 +170,7 @@
           inputId="svc-price"
           formControlName="price"
           [min]="0"
-          prefix="£ "
+          [prefix]="currencyService.currencySymbol() + ' '"
           [minFractionDigits]="2"
           styleClass="w-full"
           inputStyleClass="w-full"

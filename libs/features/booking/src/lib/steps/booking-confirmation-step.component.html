@@ -30,7 +30,7 @@
             <div class="service-item">
               <span class="service-item__name">{{ service.name }}</span>
               <span class="service-item__duration">{{ service.duration }} min</span>
-              <span class="service-item__price">{{ service.price | number:'1.2-2' }} RON</span>
+              <span class="service-item__price">{{ service.price | appCurrency:true }}</span>
             </div>
           }
         </div>
@@ -69,7 +69,7 @@
         </div>
         <div class="summary-section__content">
           <p class="summary-section__total-price">
-            {{ totalPrice() | number:'1.2-2' }} RON
+            {{ totalPrice() | appCurrency:true }}
           </p>
         </div>
       </div>

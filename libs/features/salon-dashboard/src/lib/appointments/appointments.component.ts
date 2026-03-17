@@ -1,6 +1,8 @@
-import { Component, OnInit, signal, computed, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, DestroyRef, OnInit, signal, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs';
 
 import { Button } from 'primeng/button';
 import { TableModule } from 'primeng/table';
@@ -10,10 +12,14 @@ import { Select } from 'primeng/select';
 import { Toast } from 'primeng/toast';
 import { Toolbar } from 'primeng/toolbar';
 import { SelectButton } from 'primeng/selectbutton';
+import { DialogModule } from 'primeng/dialog';
+import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 
 import { Booking, BookingStatus } from '@org/models';
-import { SalonAdminService, Station } from '@org/shared-data-access';
+import { SalonAdminService, Station, SalonStaffMember, AppCurrencyPipe, RealtimeNotificationService } from '@org/shared-data-access';
+import type { StylistBreakDto, BreakType } from '@org/shared-data-access';
+import { CalendarGridComponent, CalendarColumn } from '@org/shared-ui';
 
 type ViewMode = 'calendar' | 'list';
 type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
@@ -33,6 +39,10 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contr
     Toast,
     Toolbar,
     SelectButton,
+    DialogModule,
+    TooltipModule,
+    AppCurrencyPipe,
+    CalendarGridComponent,
   ],
   providers: [MessageService],
   templateUrl: './appointments.component.html',
@@ -41,10 +51,14 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contr
 export class AppointmentsComponent implements OnInit {
   private readonly salonService = inject(SalonAdminService);
   private readonly messageService = inject(MessageService);
+  private readonly realtimeSvc = inject(RealtimeNotificationService);
+  private readonly destroyRef = inject(DestroyRef);
 
   // ── State ────────────────────────────────────────────────────────────────
   viewMode = signal<ViewMode>('calendar');
   bookings = signal<Booking[]>([]);
+  breaks = signal<StylistBreakDto[]>([]);
+  staffMembers = signal<SalonStaffMember[]>([]);
   stations = signal<Station[]>([]);
   selectedBooking = signal<Booking | null>(null);
   showBookingDetails = signal(false);
@@ -52,6 +66,10 @@ export class AppointmentsComponent implements OnInit {
   selectedDate = signal(new Date());
   selectedStationId = signal<string | null>(null);
   private salonId = '';
+
+  // Slot click state
+  selectedSlot = signal<{ time: string; stationId: string; stationName: string } | null>(null);
+  showSlotDialog = signal(false);
 
   // View options
   viewOptions = [
@@ -65,9 +83,25 @@ export class AppointmentsComponent implements OnInit {
     return [{ _id: null as string | null, name: 'All Stations', isActive: true }, ...active];
   });
 
+  // ── Stylist name map ─────────────────────────────────────────────────────
+  stylistNameMap = computed(() => {
+    const map = new Map<string, string>();
+    for (const s of this.staffMembers()) {
+      map.set(s._id, `${s.firstName} ${s.lastName}`);
+    }
+    return map;
+  });
+
   // ── Active stations for grid + dropdowns ─────────────────────────────────
   activeStations = computed(() => this.stations().filter((s) => s.isActive));
-
+  // ── Grid columns for shared calendar component ───────────────────────
+  gridColumns = computed<CalendarColumn[]>(() => {
+    const stationId = this.selectedStationId();
+    const stations = stationId
+      ? this.activeStations().filter((s) => s._id === stationId)
+      : this.activeStations();
+    return stations.map((s) => ({ id: s._id, name: s.name }));
+  });
   // ── Filtered bookings (by date + optional station) ───────────────────────
   filteredBookings = computed(() => {
     const bookings = this.bookings();
@@ -114,6 +148,17 @@ export class AppointmentsComponent implements OnInit {
     return { grid, timeSlots, stations };
   });
 
+  // ── Breaks indexed by time slot for calendar overlay ───────────────────
+  breaksAtTime = computed(() => {
+    const dayBreaks = this.breaks();
+    const map: { [time: string]: StylistBreakDto[] } = {};
+    for (const brk of dayBreaks) {
+      if (!map[brk.startTime]) map[brk.startTime] = [];
+      map[brk.startTime].push(brk);
+    }
+    return map;
+  });
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.loading.set(true);
@@ -122,6 +167,7 @@ export class AppointmentsComponent implements OnInit {
         this.salonId = salon._id;
         this.loadBookings();
         this.loadStations();
+        this.loadStaff();
       },
       error: () => {
         this.messageService.add({
@@ -132,6 +178,18 @@ export class AppointmentsComponent implements OnInit {
         this.loading.set(false);
       },
     });
+
+    // ── Real-time: reload bookings and breaks on new incoming events ──────
+    this.realtimeSvc.notifications$
+      .pipe(
+        filter(({ event }) => event === 'booking.new' || event === 'booking.created'),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => {
+        if (this.salonId) {
+          this.loadBookings();
+        }
+      });
   }
 
   // ── Data Loading ─────────────────────────────────────────────────────────
@@ -155,6 +213,25 @@ export class AppointmentsComponent implements OnInit {
         });
         this.loading.set(false);
       },
+    });
+
+    this.loadBreaks(dateStr);
+  }
+
+  loadBreaks(dateStr?: string): void {
+    if (!this.salonId) return;
+    const date = dateStr ?? this._fmtDate(this.selectedDate());
+    this.salonService.getSalonStylistBreaks(this.salonId, date).subscribe({
+      next: (data) => this.breaks.set(data),
+      error: () => this.breaks.set([]),
+    });
+  }
+
+  private loadStaff(): void {
+    if (!this.salonId) return;
+    this.salonService.getSalonStaff(this.salonId).subscribe({
+      next: (data) => this.staffMembers.set(data),
+      error: () => { /* ignore */ },
     });
   }
 
@@ -269,6 +346,56 @@ export class AppointmentsComponent implements OnInit {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
+  getStylistName(stylistId: string): string {
+    return this.stylistNameMap().get(stylistId) ?? 'Unknown Stylist';
+  }
+
+  getBreakSeverity(type: string): 'warn' | 'info' | 'secondary' | 'contrast' {
+    switch (type) {
+      case 'LUNCH':    return 'warn';
+      case 'COFFEE':   return 'info';
+      case 'PERSONAL': return 'secondary';
+      default:         return 'contrast';
+    }
+  }
+
+  getBreakIcon(type: string): string {
+    switch (type) {
+      case 'LUNCH':    return 'pi pi-sun';
+      case 'COFFEE':   return 'pi pi-coffee-cup';
+      case 'PERSONAL': return 'pi pi-user';
+      default:         return 'pi pi-clock';
+    }
+  }
+
+  breakTypeLabel(type: string): string {
+    switch (type) {
+      case 'LUNCH':    return 'Lunch';
+      case 'COFFEE':   return 'Coffee';
+      case 'PERSONAL': return 'Personal';
+      default:         return 'Break';
+    }
+  }
+
+  getBreakRowSpan(brk: StylistBreakDto): number {
+    const [sh, sm] = brk.startTime.split(':').map(Number);
+    const [eh, em] = brk.endTime.split(':').map(Number);
+    const duration = (eh * 60 + em) - (sh * 60 + sm);
+    return Math.max(1, Math.ceil(duration / 30));
+  }
+
+  // ── Slot Click (empty calendar cell) ─────────────────────────────────────
+  onEmptySlotClick(time: string, station: { _id: string; name: string }): void {
+    this.selectedSlot.set({ time, stationId: station._id, stationName: station.name });
+    this.showSlotDialog.set(true);
+  }
+
+  getSlotEndTime(startTime: string): string {
+    const [h, m] = startTime.split(':').map(Number);
+    const endMin = h * 60 + m + 30;
+    return `${Math.floor(endMin / 60).toString().padStart(2, '0')}:${(endMin % 60).toString().padStart(2, '0')}`;
+  }
+
   getStatusSeverity(status: BookingStatus): TagSeverity {
     const severityMap: Record<BookingStatus, TagSeverity> = {
       PENDING: 'warn',

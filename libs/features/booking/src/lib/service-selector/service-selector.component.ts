@@ -6,16 +6,16 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { Button } from 'primeng/button';
 import { Ripple } from 'primeng/ripple';
 
 import { Salon, SalonServiceItem } from '@org/models';
+import { AppCurrencyPipe } from '@org/shared-data-access';
 
 @Component({
   selector: 'lib-service-selector',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, Button, Ripple],
+  imports: [Button, Ripple, AppCurrencyPipe],
   template: `
     <div class="service-selector">
       <p class="selector-hint">
@@ -79,7 +79,7 @@ import { Salon, SalonServiceItem } from '@org/models';
                 <i class="pi pi-clock" aria-hidden="true"></i>
                 {{ svc.duration }} min
               </span>
-              <span class="service-card__price">LKR {{ svc.price | number }}</span>
+              <span class="service-card__price">{{ svc.price | appCurrency }}</span>
             </div>
           </div>
         }

@@ -37,7 +37,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 
-import { SalonAdminService, RealtimeNotificationService, Station } from '@org/shared-data-access';
+import { SalonAdminService, RealtimeNotificationService, Station, SalonStaffMember } from '@org/shared-data-access';
+import type { StylistBreakDto } from '@org/shared-data-access';
 import { Booking, BookingStatus } from '@org/models';
 
 /** Severity map fed directly into <p-tag> */
@@ -152,6 +153,8 @@ export class BookingsTodayComponent implements OnInit {
 
   readonly bookings        = signal<Booking[]>([]);
   readonly stations        = signal<Station[]>([]);
+  readonly breaks          = signal<StylistBreakDto[]>([]);
+  readonly staffMembers    = signal<SalonStaffMember[]>([]);
   readonly selectedStationId = signal<string | null>(null);
   readonly viewMode        = signal<'table' | 'calendar'>('table');
   readonly confirmInFlight = signal<string | null>(null);
@@ -161,6 +164,15 @@ export class BookingsTodayComponent implements OnInit {
 
   /** Booking id read from ?bookingId= query param; consumed once after first data load. */
   private pendingHighlightId: string | null = null;
+
+  // ── Stylist name map ──────────────────────────────────────────────────────
+  readonly stylistNameMap = computed(() => {
+    const map = new Map<string, string>();
+    for (const s of this.staffMembers()) {
+      map.set(s._id, `${s.firstName} ${s.lastName}`);
+    }
+    return map;
+  });
 
   readonly stationFilterOptions = computed(() => {
     const active = this.stations().filter((s) => s.isActive);
@@ -186,16 +198,29 @@ export class BookingsTodayComponent implements OnInit {
         hours:   new Date().getHours(),
         minutes: Math.max(0, new Date().getMinutes() - 15),
       },
-      events: filteredBookings.map((b) => ({
-        id: b._id,
-        title: (b.clientName || ('Client ·' + b._id.slice(-6))) + ' — ' + (b.serviceName || b.services?.[0]?.name || 'Appointment') + (b.stylistName ? ` · ${b.stylistName}` : '') + (b.stationName ? ` · ${b.stationName}` : ''),
-        start: `${b.appointmentDate}T${b.startTime}:00`,
-        end:   `${b.appointmentDate}T${b.endTime}:00`,
-        backgroundColor: this._statusColor(b.status),
-        borderColor:     this._statusColor(b.status),
-        textColor:       '#ffffff',
-        extendedProps: { booking: b },
-      })),
+      events: [
+        ...filteredBookings.map((b) => ({
+          id: b._id,
+          title: (b.clientName || ('Client ·' + b._id.slice(-6))) + ' — ' + (b.serviceName || b.services?.[0]?.name || 'Appointment') + (b.stylistName ? ` · ${b.stylistName}` : '') + (b.stationName ? ` · ${b.stationName}` : ''),
+          start: `${b.appointmentDate}T${b.startTime}:00`,
+          end:   `${b.appointmentDate}T${b.endTime}:00`,
+          backgroundColor: this._statusColor(b.status),
+          borderColor:     this._statusColor(b.status),
+          textColor:       '#ffffff',
+          extendedProps: { booking: b },
+        })),
+        ...this.breaks().map((brk) => ({
+          id: `break-${brk._id}`,
+          title: `🛑 ${this._breakTypeLabel(brk.type)} – ${this.getStylistName(brk.stylistId)}`,
+          start: `${brk.date}T${brk.startTime}:00`,
+          end:   `${brk.date}T${brk.endTime}:00`,
+          backgroundColor: '#f59e0b',
+          borderColor:     '#d97706',
+          textColor:       '#ffffff',
+          display: 'block',
+          extendedProps: { isBreak: true, break: brk },
+        })),
+      ],
       height: 'auto',
       editable: false,
       selectable: false,
@@ -204,7 +229,19 @@ export class BookingsTodayComponent implements OnInit {
       displayEventTime: true,
       eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
       moreLinkClick: 'popover',
-      eventClick: (info) => this.viewBooking(info.event.extendedProps['booking']),
+      eventClick: (info) => {
+        if (info.event.extendedProps['isBreak']) {
+          const brk = info.event.extendedProps['break'] as StylistBreakDto;
+          this.msgSvc.add({
+            severity: 'info',
+            summary: `${this._breakTypeLabel(brk.type)} Break`,
+            detail: `${this.getStylistName(brk.stylistId)}\n${brk.startTime} – ${brk.endTime}${brk.note ? '\n' + brk.note : ''}`,
+            life: 5000,
+          });
+        } else {
+          this.viewBooking(info.event.extendedProps['booking']);
+        }
+      },
     };
   });
 
@@ -276,6 +313,8 @@ export class BookingsTodayComponent implements OnInit {
         this.salonId = salon._id;
         this._loadBookings();
         this._loadStations();
+        this._loadStaff();
+        this._loadBreaks();
       },
       error: () => {
         this.loadError.set('Could not identify your salon. Please refresh.');
@@ -319,6 +358,38 @@ export class BookingsTodayComponent implements OnInit {
       case 'IN_PROGRESS': return 'In Progress';
       case 'NO_SHOW':     return 'No Show';
       default:            return status;
+    }
+  }
+
+  // ── Break helpers ─────────────────────────────────────────────────────────
+
+  getStylistName(stylistId: string): string {
+    return this.stylistNameMap().get(stylistId) ?? 'Unknown Stylist';
+  }
+
+  getBreakSeverity(type: string): 'warn' | 'info' | 'secondary' | 'contrast' {
+    switch (type) {
+      case 'LUNCH':    return 'warn';
+      case 'COFFEE':   return 'info';
+      case 'PERSONAL': return 'secondary';
+      default:         return 'contrast';
+    }
+  }
+
+  getBreakIcon(type: string): string {
+    switch (type) {
+      case 'LUNCH':    return 'pi pi-sun';
+      case 'COFFEE':   return 'pi pi-coffee-cup';
+      case 'PERSONAL': return 'pi pi-user';
+      default:         return 'pi pi-clock';
+    }
+  }
+
+  getBreakIconClass(type: string): string {
+    switch (type) {
+      case 'LUNCH':    return 'bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-400';
+      case 'COFFEE':   return 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400';
+      default:         return 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400';
     }
   }
 
@@ -447,6 +518,29 @@ export class BookingsTodayComponent implements OnInit {
     });
   }
 
+  private _loadStaff(): void {
+    if (!this.salonId) return;
+    this.adminService.getSalonStaff(this.salonId).subscribe({
+      next: (data) => {
+        this.staffMembers.set(data);
+        this.cdr.markForCheck();
+      },
+      error: () => { /* non-fatal */ },
+    });
+  }
+
+  private _loadBreaks(): void {
+    if (!this.salonId) return;
+    const today = this._fmtDate(new Date());
+    this.adminService.getSalonStylistBreaks(this.salonId, today).subscribe({
+      next: (data) => {
+        this.breaks.set(data);
+        this.cdr.markForCheck();
+      },
+      error: () => this.breaks.set([]),
+    });
+  }
+
   private _doCancel(appt: Booking): void {
     this.cancelInFlight.set(appt._id);
     this.adminService.cancelBooking(appt._id).subscribe({
@@ -527,5 +621,14 @@ export class BookingsTodayComponent implements OnInit {
     const m   = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  private _breakTypeLabel(type: string): string {
+    switch (type) {
+      case 'LUNCH':    return 'Lunch';
+      case 'COFFEE':   return 'Coffee';
+      case 'PERSONAL': return 'Personal';
+      default:         return 'Break';
+    }
   }
 }

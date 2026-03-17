@@ -626,6 +626,20 @@ export class SalonService {
     return salons.map((s) => this.toResponse(s as unknown as SalonDocument));
   }
 
+  /** Find salons that have a given stylist in their staff array */
+  async findSalonsByStylist(stylistId: string): Promise<Array<{ salonId: string; salonName: string }>> {
+    const salons = await this.salonModel
+      .find({ staff: new Types.ObjectId(stylistId) })
+      .select('_id name')
+      .lean()
+      .exec();
+
+    return salons.map((s) => ({
+      salonId: (s._id as Types.ObjectId).toString(),
+      salonName: (s as any).name,
+    }));
+  }
+
   async addStaff(
     salonId: string,
     stylistId: string,
@@ -660,6 +674,49 @@ export class SalonService {
       throw new NotFoundException(`Salon with id ${salonId} not found`);
     }
 
+    return this.toResponse(salon as unknown as SalonDocument);
+  }
+
+  /**
+   * Add staff — called from controller with ownership check.
+   */
+  async addStaffByOwner(
+    salonId: string,
+    stylistId: string,
+    ownerId: string,
+  ): Promise<SalonResponseDto> {
+    const salon = await this.salonModel.findById(salonId).lean().exec();
+    if (!salon) throw new NotFoundException(`Salon with id ${salonId} not found`);
+    if (salon.ownerId?.toString() !== ownerId) {
+      throw new ForbiddenException('You do not own this salon');
+    }
+    return this.addStaff(salonId, stylistId);
+  }
+
+  /**
+   * Remove a staff member from the salon's staff array.
+   */
+  async removeStaff(
+    salonId: string,
+    stylistId: string,
+    ownerId: string,
+  ): Promise<SalonResponseDto> {
+    const existing = await this.salonModel.findById(salonId).lean().exec();
+    if (!existing) throw new NotFoundException(`Salon with id ${salonId} not found`);
+    if (existing.ownerId?.toString() !== ownerId) {
+      throw new ForbiddenException('You do not own this salon');
+    }
+
+    const salon = await this.salonModel
+      .findByIdAndUpdate(
+        salonId,
+        { $pull: { staff: new Types.ObjectId(stylistId) } },
+        { returnDocument: 'after' },
+      )
+      .lean()
+      .exec();
+
+    if (!salon) throw new NotFoundException(`Salon with id ${salonId} not found`);
     return this.toResponse(salon as unknown as SalonDocument);
   }
 
@@ -771,6 +828,9 @@ export class SalonService {
       subscriptionStatus: salon.subscriptionStatus ?? 'trial',
       rating: salon.rating,
       reviewCount: salon.reviewCount,
+      cancellationWindowHours: salon.cancellationWindowHours ?? 2,
+      autoConfirmBookings: salon.autoConfirmBookings ?? false,
+      breakLimits: salon.breakLimits ?? { LUNCH: 1, COFFEE: 1, PERSONAL: 1, OTHER: 1 },
       createdAt: salon.createdAt,
       updatedAt: salon.updatedAt,
     };

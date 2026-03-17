@@ -168,4 +168,36 @@ export class AdminService {
   removeReview(id: string): Observable<void> {
     return this.http.delete<void>(`/api/reviews/${id}`);
   }
+
+  // ── Specialties management ─────────────────────────────────────────
+
+  getSpecialties(): Observable<AdminSpecialty[]> {
+    return this.http.get<AdminSpecialty[]>('/api/salons/specialties/all');
+  }
+
+  createSpecialty(dto: CreateSpecialtyDto): Observable<AdminSpecialty> {
+    return this.http.post<AdminSpecialty>('/api/salons/specialties', dto);
+  }
+
+  updateSpecialty(id: string, dto: Partial<CreateSpecialtyDto>): Observable<AdminSpecialty> {
+    return this.http.patch<AdminSpecialty>(`/api/salons/specialties/${id}`, dto);
+  }
+
+  deleteSpecialty(id: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`/api/salons/specialties/${id}`);
+  }
+}
+
+export interface AdminSpecialty {
+  _id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  isActive: boolean;
+}
+
+export interface CreateSpecialtyDto {
+  name: string;
+  description?: string;
+  category?: string;
 }

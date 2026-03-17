@@ -49,6 +49,7 @@ export class AdminLayoutComponent implements OnInit {
     { label: 'All Salons',      icon: 'pi-shop',         route: '/admin/salons' },
     { label: 'Users',           icon: 'pi-users',        route: '/admin/users' },
     { label: 'Reviews',         icon: 'pi-star',         route: '/admin/reviews' },
+    { label: 'Specialties',     icon: 'pi-tags',         route: '/admin/specialties' },
   ];
 
   ngOnInit(): void {

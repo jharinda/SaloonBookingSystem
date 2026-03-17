@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -11,9 +12,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { InjectQueue } from '@nestjs/bull';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { HttpService } from '@nestjs/axios';
 import { Model, Schema as MongooseSchema } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { firstValueFrom, timeout } from 'rxjs';
 import type { Queue } from 'bull';
 import type Redis from 'ioredis';
 
@@ -50,14 +53,31 @@ const OTP_TTL_SECONDS = 15 * 60; // 15 minutes
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_TTL_SECONDS = 15 * 60; // 15 minutes
 const EMAIL_VERIFY_TTL_SECONDS = 24 * 60 * 60; // 24 hours
+
+/** Safely extract a hex string from a salonId that may be ObjectId, Schema.Types.ObjectId, or string */
+function toSalonIdStr(val: unknown): string {
+  if (typeof val === 'string') return val;
+  if (val && typeof val === 'object') {
+    // Real ObjectId (has .toHexString())
+    if ('toHexString' in val) return (val as any).toHexString();
+    // Serialized Schema.Types.ObjectId — the original hex is in `.path`
+    if ('path' in val && typeof (val as any).path === 'string' && /^[a-f\d]{24}$/i.test((val as any).path)) {
+      return (val as any).path;
+    }
+  }
+  return val?.toString?.() ?? '';
+}
 const NOTIFICATION_QUEUE = 'notifications';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
     @InjectQueue(NOTIFICATION_QUEUE) private readonly notifQueue: Queue,
     @Inject('REDIS_CLIENT') private readonly redis: Redis,
   ) {}
@@ -90,6 +110,7 @@ export class AuthService {
         portfolioReviews: [],
         currentSalonId: null,
         joinRequestStatus: 'none',
+        salonInvitations: [],
         isAvailable: true,
         workingHours: dto.stylistProfile?.workingHours ?? [],
       };
@@ -438,6 +459,7 @@ export class AuthService {
         portfolioReviews: [],
         currentSalonId: null,
         joinRequestStatus: 'none',
+        salonInvitations: [],
         isAvailable: true,
         workingHours: [],
       };
@@ -600,6 +622,43 @@ export class AuthService {
     return response;
   }
 
+  // ── Update stylist profile ─────────────────────────────────────────────
+
+  async updateStylistProfile(
+    userId: string,
+    dto: { bio?: string; specialties?: string[]; yearsExperience?: number },
+  ): Promise<{ message: string }> {
+    const user = await this.userModel.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== UserRole.STYLIST) {
+      throw new BadRequestException('Only stylists can update stylist profile');
+    }
+
+    if (!user.stylistProfile) {
+      user.stylistProfile = {
+        bio: null,
+        specialties: [],
+        yearsExperience: 0,
+        portfolioImages: [],
+        portfolioReviews: [],
+        currentSalonId: null,
+        joinRequestStatus: 'none' as any,
+        salonInvitations: [],
+        isAvailable: true,
+        workingHours: [],
+      };
+    }
+
+    if (dto.bio !== undefined) user.stylistProfile.bio = dto.bio;
+    if (dto.specialties !== undefined) user.stylistProfile.specialties = dto.specialties;
+    if (dto.yearsExperience !== undefined) user.stylistProfile.yearsExperience = dto.yearsExperience;
+
+    user.markModified('stylistProfile');
+    await user.save();
+
+    return { message: 'Stylist profile updated' };
+  }
+
   // ── Stylist join request methods ────────────────────────────────────────
 
   async createJoinRequest(
@@ -733,6 +792,31 @@ export class AuthService {
     stylist.stylistProfile.joinRequestStatus = 'approved';
     await stylist.save();
 
+    // Add stylist to salon's staff array in salon-service
+    const salonId = stylist.stylistProfile.currentSalonId?.toString();
+    if (salonId) {
+      try {
+        const salonServiceUrl = this.configService.get<string>('services.salonService', 'http://localhost:3001');
+        await firstValueFrom(
+          this.httpService.post(
+            `${salonServiceUrl}/api/salons/${salonId}/staff-internal/${stylistId}`,
+            {},
+            {
+              headers: {
+                'x-internal-token': this.configService.get<string>('internalToken', ''),
+              },
+            },
+          ).pipe(timeout(5000)),
+        );
+        this.logger.log(`Added stylist ${stylistId} to salon ${salonId} staff array`);
+      } catch (err) {
+        this.logger.warn(
+          `Failed to add stylist ${stylistId} to salon ${salonId} staff array: ${err.message}. ` +
+          'The stylist is approved but the salon staff array may be out of sync.',
+        );
+      }
+    }
+
     // Notify stylist
     await this.notifQueue.add('stylist.join_request_approved', {
       stylistId,
@@ -781,6 +865,7 @@ export class AuthService {
     _id: string;
     firstName: string;
     lastName: string;
+    email: string;
     avatarUrl?: string;
     stylistProfile: {
       bio?: string;
@@ -789,11 +874,27 @@ export class AuthService {
       averageRating?: number;
     };
   }>> {
+    // Support both legacy (currentSalonId + approved) and new (salonInvitations) models
+    // Note: salonId may be stored as ObjectId or string depending on how it was inserted,
+    // so we match both forms.
+    const salonOid = new MongooseSchema.Types.ObjectId(salonId);
     const stylists = await this.userModel
       .find({
         role: UserRole.STYLIST,
-        'stylistProfile.joinRequestStatus': 'approved',
-        'stylistProfile.currentSalonId': new MongooseSchema.Types.ObjectId(salonId),
+        $or: [
+          {
+            'stylistProfile.salonInvitations': {
+              $elemMatch: {
+                salonId: { $in: [salonOid, salonId] },
+                status: 'accepted',
+              },
+            },
+          },
+          {
+            'stylistProfile.joinRequestStatus': 'approved',
+            'stylistProfile.currentSalonId': salonOid,
+          },
+        ],
       })
       .lean();
 
@@ -801,15 +902,349 @@ export class AuthService {
       _id: s._id.toString(),
       firstName: s.firstName,
       lastName: s.lastName,
+      email: s.email,
       avatarUrl: s.avatarUrl ?? undefined,
       stylistProfile: {
         bio: s.stylistProfile?.bio,
         specialties: s.stylistProfile?.specialties || [],
         yearsExperience: s.stylistProfile?.yearsExperience || 0,
-        // TODO: Calculate average rating from reviews service
         averageRating: undefined,
       },
     }));
+  }
+
+  // ── Salon-owner-initiated invitation methods ────────────────────────────
+
+  /**
+   * Salon owner invites a stylist to their salon.
+   * The stylist must accept before they become staff.
+   */
+  async inviteStylist(
+    salonOwnerId: string,
+    stylistId: string,
+    salonId: string,
+    salonName: string,
+  ): Promise<{ message: string }> {
+    // Verify the requester is a salon owner
+    const owner = await this.userModel.findById(salonOwnerId);
+    if (!owner || owner.role !== UserRole.SALON_OWNER) {
+      throw new ForbiddenException('Only salon owners can invite stylists');
+    }
+
+    const stylist = await this.userModel.findById(stylistId);
+    if (!stylist) {
+      throw new NotFoundException('Stylist not found');
+    }
+    if (stylist.role !== UserRole.STYLIST) {
+      throw new BadRequestException('User is not a stylist');
+    }
+
+    // Ensure stylistProfile exists
+    if (!stylist.stylistProfile) {
+      throw new BadRequestException('Stylist profile not found');
+    }
+
+    // Initialise salonInvitations array if missing (existing users)
+    if (!stylist.stylistProfile.salonInvitations) {
+      stylist.stylistProfile.salonInvitations = [];
+    }
+
+    // Check for existing invitation from this salon
+    const existing = stylist.stylistProfile.salonInvitations.find(
+      (inv) => toSalonIdStr(inv.salonId) === salonId,
+    );
+    if (existing) {
+      if (existing.status === 'pending') {
+        throw new BadRequestException('An invitation to this stylist is already pending.');
+      }
+      if (existing.status === 'accepted') {
+        throw new BadRequestException('This stylist is already a member of your salon.');
+      }
+      // If rejected, allow re-inviting — update existing entry
+      existing.status = 'pending';
+      existing.invitedAt = new Date();
+      existing.respondedAt = undefined;
+    } else {
+      stylist.stylistProfile.salonInvitations.push({
+        salonId: salonId as any,
+        salonName,
+        status: 'pending',
+        invitedAt: new Date(),
+      });
+    }
+
+    stylist.markModified('stylistProfile');
+    await stylist.save();
+
+    // Notify the stylist
+    await this.notifQueue.add('stylist.salon_invitation', {
+      stylistId,
+      stylistEmail: stylist.email,
+      stylistName: `${stylist.firstName} ${stylist.lastName}`,
+      salonId,
+      salonName,
+    });
+
+    return { message: 'Invitation sent successfully' };
+  }
+
+  /**
+   * Stylist retrieves all their invitations (pending, accepted, rejected).
+   * Auto-repairs corrupted salonId entries by cross-referencing with salon-service.
+   */
+  async getStylistInvitations(
+    stylistId: string,
+  ): Promise<Array<{
+    salonId: string;
+    salonName: string;
+    status: string;
+    invitedAt: Date;
+    respondedAt?: Date;
+  }>> {
+    const stylist = await this.userModel.findById(stylistId).lean();
+    if (!stylist) throw new NotFoundException('User not found');
+    if (stylist.role !== UserRole.STYLIST) {
+      throw new ForbiddenException('Only stylists can view invitations');
+    }
+
+    const invitations = stylist.stylistProfile?.salonInvitations ?? [];
+    const mongoIdRegex = /^[a-f\d]{24}$/i;
+
+    // Check if any salonId is corrupted (not a valid 24-char hex string)
+    const hasCorrupted = invitations.some(
+      (inv) => !mongoIdRegex.test(toSalonIdStr(inv.salonId)),
+    );
+
+    if (hasCorrupted) {
+      // Fetch actual salons from salon-service to repair corrupted entries
+      let salonLookup: Array<{ salonId: string; salonName: string }> = [];
+      try {
+        const salonServiceUrl = this.configService.get<string>('services.salonService', 'http://localhost:3001');
+        const { data } = await firstValueFrom(
+          this.httpService.get<Array<{ salonId: string; salonName: string }>>(
+            `${salonServiceUrl}/api/salons/internal/by-stylist/${stylistId}`,
+            { headers: { 'x-internal-token': this.configService.get<string>('internalToken', '') } },
+          ).pipe(timeout(5000)),
+        );
+        salonLookup = data ?? [];
+      } catch (err) {
+        this.logger.warn(`Failed to look up salons for stylist ${stylistId}: ${err.message}`);
+      }
+
+      if (salonLookup.length) {
+        // Repair corrupted entries in DB
+        const stylistDoc = await this.userModel.findById(stylistId);
+        if (stylistDoc?.stylistProfile?.salonInvitations) {
+          let repaired = false;
+          for (const inv of stylistDoc.stylistProfile.salonInvitations) {
+            const sid = toSalonIdStr(inv.salonId);
+            if (!mongoIdRegex.test(sid)) {
+              // Match by salonName to find the correct salonId
+              const match = salonLookup.find((s) => s.salonName === inv.salonName);
+              if (match) {
+                inv.salonId = match.salonId as any;
+                repaired = true;
+                this.logger.log(
+                  `Repaired corrupted salonId for invitation "${inv.salonName}" → ${match.salonId}`,
+                );
+              }
+            }
+          }
+          if (repaired) {
+            stylistDoc.markModified('stylistProfile');
+            await stylistDoc.save();
+          }
+        }
+
+        // Return repaired data directly
+        const repairedInvitations = stylistDoc?.stylistProfile?.salonInvitations ?? invitations;
+        return repairedInvitations.map((inv) => ({
+          salonId: toSalonIdStr(inv.salonId),
+          salonName: inv.salonName,
+          status: inv.status,
+          invitedAt: inv.invitedAt,
+          respondedAt: inv.respondedAt,
+        }));
+      }
+    }
+
+    return invitations.map((inv) => ({
+      salonId: toSalonIdStr(inv.salonId),
+      salonName: inv.salonName,
+      status: inv.status,
+      invitedAt: inv.invitedAt,
+      respondedAt: inv.respondedAt,
+    }));
+  }
+
+  /**
+   * Get all invitations sent by a specific salon (for salon owner dashboard).
+   */
+  async getSalonSentInvitations(
+    salonId: string,
+  ): Promise<Array<{
+    stylistId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatarUrl?: string;
+    status: string;
+    invitedAt: Date;
+    respondedAt?: Date;
+  }>> {
+    // Find all stylists who have an invitation from this salon
+    const stylists = await this.userModel.find({
+      role: UserRole.STYLIST,
+      'stylistProfile.salonInvitations.salonId': salonId,
+    }).lean();
+
+    const results: Array<{
+      stylistId: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      avatarUrl?: string;
+      status: string;
+      invitedAt: Date;
+      respondedAt?: Date;
+    }> = [];
+
+    for (const stylist of stylists) {
+      const inv = stylist.stylistProfile?.salonInvitations?.find(
+        (i) => toSalonIdStr(i.salonId) === salonId,
+      );
+      if (inv) {
+        results.push({
+          stylistId: (stylist._id ?? stylist.id).toString(),
+          firstName: stylist.firstName,
+          lastName: stylist.lastName,
+          email: stylist.email,
+          avatarUrl: stylist.avatarUrl ?? undefined,
+          status: inv.status,
+          invitedAt: inv.invitedAt,
+          respondedAt: inv.respondedAt,
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Stylist accepts a salon invitation.
+   */
+  async acceptInvitation(
+    stylistId: string,
+    salonId: string,
+  ): Promise<{ message: string }> {
+    const stylist = await this.userModel.findById(stylistId);
+    if (!stylist) throw new NotFoundException('Stylist not found');
+    if (stylist.role !== UserRole.STYLIST) throw new BadRequestException('User is not a stylist');
+    if (!stylist.stylistProfile) throw new BadRequestException('Stylist profile not found');
+
+    if (!stylist.stylistProfile.salonInvitations) {
+      stylist.stylistProfile.salonInvitations = [];
+    }
+
+    const invitation = stylist.stylistProfile.salonInvitations.find(
+      (inv) => toSalonIdStr(inv.salonId) === salonId && inv.status === 'pending',
+    );
+    if (!invitation) {
+      throw new BadRequestException('No pending invitation from this salon');
+    }
+
+    invitation.status = 'accepted';
+    invitation.respondedAt = new Date();
+    stylist.markModified('stylistProfile');
+    await stylist.save();
+
+    // Also add to salon's staff array in salon-service and fetch salon details for notification
+    const salonServiceUrl = this.configService.get<string>('services.salonService', 'http://localhost:3001');
+    const internalHeaders = {
+      'x-internal-token': this.configService.get<string>('internalToken', ''),
+    };
+
+    let salonOwnerId: string | undefined;
+    let salonName: string | undefined;
+
+    // Fetch salon details to get the ownerId for notification
+    try {
+      const { data: salonData } = await firstValueFrom(
+        this.httpService.get(
+          `${salonServiceUrl}/api/salons/${salonId}`,
+        ).pipe(timeout(5000)),
+      );
+      salonOwnerId = salonData?.ownerId;
+      salonName = salonData?.name;
+    } catch (err) {
+      this.logger.warn(
+        `Failed to fetch salon ${salonId} details: ${err.message}`,
+      );
+    }
+
+    try {
+      await firstValueFrom(
+        this.httpService.post(
+          `${salonServiceUrl}/api/salons/${salonId}/staff-internal/${stylistId}`,
+          {},
+          { headers: internalHeaders },
+        ).pipe(timeout(5000)),
+      );
+      this.logger.log(`Added stylist ${stylistId} to salon ${salonId} staff array`);
+    } catch (err) {
+      this.logger.warn(
+        `Failed to add stylist ${stylistId} to salon ${salonId} staff array: ${err.message}`,
+      );
+    }
+
+    // Notify salon owner via notification queue
+    await this.notifQueue.add('stylist.invitation_accepted', {
+      stylistId,
+      stylistName: `${stylist.firstName} ${stylist.lastName}`,
+      salonId,
+      salonName: salonName || invitation.salonName,
+      salonOwnerId,
+    });
+
+    return { message: 'Invitation accepted' };
+  }
+
+  /**
+   * Stylist rejects a salon invitation.
+   */
+  async rejectInvitation(
+    stylistId: string,
+    salonId: string,
+  ): Promise<{ message: string }> {
+    const stylist = await this.userModel.findById(stylistId);
+    if (!stylist) throw new NotFoundException('Stylist not found');
+    if (stylist.role !== UserRole.STYLIST) throw new BadRequestException('User is not a stylist');
+    if (!stylist.stylistProfile) throw new BadRequestException('Stylist profile not found');
+
+    if (!stylist.stylistProfile.salonInvitations) {
+      stylist.stylistProfile.salonInvitations = [];
+    }
+
+    const invitation = stylist.stylistProfile.salonInvitations.find(
+      (inv) => toSalonIdStr(inv.salonId) === salonId && inv.status === 'pending',
+    );
+    if (!invitation) {
+      throw new BadRequestException('No pending invitation from this salon');
+    }
+
+    invitation.status = 'rejected';
+    invitation.respondedAt = new Date();
+    stylist.markModified('stylistProfile');
+    await stylist.save();
+
+    // Notify salon owner
+    await this.notifQueue.add('stylist.invitation_rejected', {
+      stylistId,
+      stylistName: `${stylist.firstName} ${stylist.lastName}`,
+      salonId,
+    });
+
+    return { message: 'Invitation rejected' };
   }
 
   // ── Stylist portfolio methods ───────────────────────────────────────────

@@ -37,6 +37,10 @@ export class BookingListQueryDto {
   salonId?: string;
 
   @IsOptional()
+  @IsMongoId()
+  stylistId?: string;
+
+  @IsOptional()
   @IsEnum(BookingStatus)
   status?: BookingStatus;
 

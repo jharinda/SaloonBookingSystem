@@ -1,7 +1,7 @@
 @use 'sass:color';
 
 // ─── Design Tokens ───────────────────────────────────────────────────────────
-$primary-color: #7C3AED;
+$primary-color: #10B981;
 $accent-color: #10B981;
 $border-radius: 12px;
 $shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -44,19 +44,33 @@ $transition: all 0.2s ease-in-out;
   justify-content: center;
   margin-bottom: 1rem;
 
-  mat-chip-listbox {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  mat-chip-option {
+  ::ng-deep .p-chip {
+    cursor: pointer;
+    border: 1.5px solid #e5e7eb;
+    background-color: #f9fafb;
+    color: #374151;
     border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
     transition: $transition;
+    user-select: none;
 
-    &[aria-selected="true"] {
-      background-color: $primary-color !important;
-      color: white !important;
+    &:hover {
+      border-color: $primary-color;
+      background-color: rgba($primary-color, 0.06);
+      color: $primary-color;
+    }
+
+    &.chip-selected {
+      background-color: $primary-color;
+      border-color: $primary-color;
+      color: #ffffff;
+
+      &:hover {
+        background-color: color.adjust($primary-color, $lightness: -6%);
+        border-color: color.adjust($primary-color, $lightness: -6%);
+        color: #ffffff;
+      }
     }
   }
 }
@@ -111,17 +125,28 @@ $transition: all 0.2s ease-in-out;
 
   &__header {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
     width: 100%;
+    padding: 0.75rem 1rem 0;
   }
 
   &__name {
     font-size: 1.125rem;
     font-weight: 600;
-    color: $primary-color;
-    margin: 0;
+    color: #111827;
+    margin: 0.25rem 0 0 0.25rem;
     flex: 1;
+  }
+
+  &__category {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: #9ca3af;
+    margin: 0 0 0 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   &__desc {
@@ -267,6 +292,31 @@ $transition: all 0.2s ease-in-out;
 
 // ─── Dark Mode Support ──────────────────────────────────────────────────────
 @media (prefers-color-scheme: dark) {
+  .category-filter {
+    ::ng-deep .p-chip {
+      background-color: #1a1a2e;
+      border-color: #374151;
+      color: #d1d5db;
+
+      &:hover {
+        border-color: color.adjust($primary-color, $lightness: 20%);
+        background-color: rgba(color.adjust($primary-color, $lightness: 20%), 0.12);
+        color: color.adjust($primary-color, $lightness: 20%);
+      }
+
+      &.chip-selected {
+        background-color: color.adjust($primary-color, $lightness: 10%);
+        border-color: color.adjust($primary-color, $lightness: 10%);
+        color: #ffffff;
+
+        &:hover {
+          background-color: color.adjust($primary-color, $lightness: 15%);
+          border-color: color.adjust($primary-color, $lightness: 15%);
+        }
+      }
+    }
+  }
+
   .service-selection {
     &__title {
       color: color.adjust($primary-color, $lightness: 20%);
@@ -282,7 +332,7 @@ $transition: all 0.2s ease-in-out;
   }
 
   .service-card {
-    background-color: #1f2937;
+    background-color: #000000;
     border-color: #374151;
 
     &:hover {
@@ -295,7 +345,11 @@ $transition: all 0.2s ease-in-out;
     }
 
     &__name {
-      color: color.adjust($primary-color, $lightness: 20%);
+      color: #ffffff;
+    }
+
+    &__category {
+      color: #6b7280;
     }
 
     &__desc {

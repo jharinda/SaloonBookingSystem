@@ -115,6 +115,35 @@
     </div>
   }
 
+  <!-- ── Stylist Breaks Panel ─────────────────────────────────────────── -->
+  @if (breaks().length) {
+    <div class="mt-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 shadow-sm p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <i class="pi pi-clock text-amber-600 dark:text-amber-400"></i>
+        <span class="text-sm font-semibold text-amber-800 dark:text-amber-300">Stylist Breaks Today ({{ breaks().length }})</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        @for (brk of breaks(); track brk._id) {
+          <div class="flex items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-white dark:bg-zinc-900 p-3 shadow-sm">
+            <div [class]="'flex items-center justify-center w-9 h-9 rounded-full flex-shrink-0 ' + getBreakIconClass(brk.type)">
+              <i [class]="getBreakIcon(brk.type)"></i>
+            </div>
+            <div class="flex flex-col min-w-0">
+              <span class="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{{ getStylistName(brk.stylistId) }}</span>
+              <span class="text-xs text-zinc-500 dark:text-zinc-400 font-mono">{{ brk.startTime }} – {{ brk.endTime }}</span>
+              @if (brk.note) {
+                <span class="text-xs text-zinc-400 dark:text-zinc-500 truncate">{{ brk.note }}</span>
+              }
+            </div>
+            <div class="ml-auto flex-shrink-0">
+              <p-tag [value]="brk.type" [severity]="getBreakSeverity(brk.type)" styleClass="text-xs" />
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
   <!-- ── Table view ─────────────────────────────────────────────────────── -->
   @if (viewMode() === 'table') {
   <p-table

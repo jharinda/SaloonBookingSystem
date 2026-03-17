@@ -51,6 +51,14 @@ class Station {
   @Prop({ default: true }) isActive: boolean;
 }
 
+@Schema({ _id: false })
+class BreakLimits {
+  @Prop({ default: 1, min: 0 }) LUNCH: number;
+  @Prop({ default: 1, min: 0 }) COFFEE: number;
+  @Prop({ default: 1, min: 0 }) PERSONAL: number;
+  @Prop({ default: 1, min: 0 }) OTHER: number;
+}
+
 // ── Root schema ─────────────────────────────────────────────────────────────
 
 @Schema({ timestamps: true })
@@ -117,6 +125,13 @@ export class Salon extends Document {
   /** Minimum hours before the appointment that a client may cancel (default 2). */
   @Prop({ default: 2, min: 0 })
   cancellationWindowHours: number;
+
+  /** Per-type break limits — how many breaks of each type a stylist may take per day. */
+  @Prop({
+    type: BreakLimits,
+    default: () => ({ LUNCH: 1, COFFEE: 1, PERSONAL: 1, OTHER: 1 }),
+  })
+  breakLimits: BreakLimits;
 
   /** When true, new bookings are automatically confirmed without manual owner approval. */
   @Prop({ default: false })

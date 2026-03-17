@@ -106,4 +106,17 @@ export class BookingService {
       .get<Booking>(`/api/bookings/${id}`)
       .pipe(map(normBooking));
   }
+
+  /**
+   * GET /api/bookings/breaks/stylists-on-break?salonId=&date=
+   * Returns the IDs of stylists who have at least one break on the given date.
+   * Used by the booking wizard to visually disable on-break stylists.
+   */
+  getStylistsOnBreak(salonId: string, date: string): Observable<string[]> {
+    return this.http
+      .get<{ stylistIds: string[] }>('/api/bookings/breaks/stylists-on-break', {
+        params: new HttpParams().set('salonId', salonId).set('date', date),
+      })
+      .pipe(map((res) => res.stylistIds));
+  }
 }

@@ -1,0 +1,42 @@
+<!-- Two-column flex layout: slim sidebar + flex-1 content -->
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <lib-stylist-sidebar
+    [stylistName]="stylistName()"
+    [userEmail]="userEmail()"
+    [isExpanded]="isExpanded()"
+    [pendingCount]="pendingInvitations()"
+    (expanded)="isExpanded.set(true)"
+    (collapsed)="isExpanded.set(false)"
+    (logoutClicked)="logout()"
+  />
+
+  <!-- ── Main content area ──────────────────────────────────────────── -->
+  <main class="flex-1 overflow-y-auto bg-slate-100 dark:bg-zinc-950 p-8 transition-all duration-300"
+        [class.ml-56]="isExpanded()"
+        [class.ml-20]="!isExpanded()">
+
+    @if (isLoading()) {
+      <div class="flex flex-col items-center justify-center gap-4 h-1/2 text-gray-500">
+        <p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '40px', height: '40px' }" />
+        <span>Loading your dashboard…</span>
+      </div>
+    } @else if (loadError()) {
+      <div class="flex flex-col items-center justify-center gap-4 h-1/2 text-gray-500 text-center">
+        <i class="pi pi-exclamation-circle text-red-500 text-2xl"></i>
+        <p>{{ loadError() }}</p>
+        <p-button label="Retry" (onClick)="loadProfile()" />
+      </div>
+    } @else if (!isStylist()) {
+      <div class="flex flex-col items-center justify-center gap-4 h-1/2 text-gray-500 text-center">
+        <i class="pi pi-lock text-red-500 text-2xl"></i>
+        <p>You do not have stylist access.</p>
+      </div>
+    } @else {
+      <router-outlet />
+    }
+
+  </main>
+
+</div>

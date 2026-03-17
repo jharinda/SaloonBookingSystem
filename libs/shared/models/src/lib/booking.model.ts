@@ -67,7 +67,7 @@ export interface Booking {
   startTime: string;
   /** "HH:mm" */
   endTime: string;
-  /** Price in LKR */
+  /** Price in the user's configured currency */
   totalPrice: number;
   status: BookingStatus;
   notes?: string;

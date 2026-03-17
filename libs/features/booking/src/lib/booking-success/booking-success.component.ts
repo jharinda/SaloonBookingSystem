@@ -5,7 +5,7 @@ import {
   OnInit,
   signal,
 } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { Button } from 'primeng/button';
@@ -16,6 +16,7 @@ import { MessageService } from 'primeng/api';
 import { DialogService, DynamicDialogRef } from 'primeng/dynamicdialog';
 
 import { Booking } from '@org/models';
+import { AppCurrencyPipe } from '@org/shared-data-access';
 import { BookingService } from '../services/booking.service';
 import { CalendarService } from '../services/calendar.service';
 import { PushNotificationDialogComponent } from './push-notification-dialog.component';
@@ -25,11 +26,11 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     DatePipe,
-    DecimalPipe,
     Button,
     Divider,
     ProgressSpinner,
     Tooltip,
+    AppCurrencyPipe,
   ],
   template: `
     <div class="success-container">
@@ -136,7 +137,7 @@ import { PushNotificationDialogComponent } from './push-notification-dialog.comp
             <div>
               <div class="detail-label">Total</div>
               <div class="detail-value detail-value--price">
-                LKR {{ booking()!.totalPrice | number }}
+                {{ booking()!.totalPrice | appCurrency }}
               </div>
             </div>
           </div>

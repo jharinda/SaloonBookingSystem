@@ -57,6 +57,9 @@ export class SalonResponseDto {
   subscriptionStatus: 'trial' | 'active' | 'past_due' | 'cancelled';
   rating: number;
   reviewCount: number;
+  cancellationWindowHours: number;
+  autoConfirmBookings: boolean;
+  breakLimits: { LUNCH: number; COFFEE: number; PERSONAL: number; OTHER: number };
   createdAt: Date;
   updatedAt: Date;
 }

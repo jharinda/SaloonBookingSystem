@@ -5,32 +5,27 @@ import {
   computed,
   signal,
 } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { CardModule } from 'primeng/card';
-import { CheckboxModule } from 'primeng/checkbox';
 import { ChipModule } from 'primeng/chip';
 
 import { BookingStateService } from '../services/booking-state.service';
+import { AppCurrencyPipe } from '@org/shared-data-access';
 import { SalonServiceItem } from '@org/models';
 
 /**
  * Step 1: Service Selection
- * - Multi-select service cards with checkboxes
+ * - Single-select service cards
  * - Category filter chips
  * - Sticky bottom bar showing running total
- * - Material Design UI
  */
 @Component({
   selector: 'lib-service-selection-step',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    DecimalPipe,
-    FormsModule,
     CardModule,
-    CheckboxModule,
     ChipModule,
+    AppCurrencyPipe,
   ],
   templateUrl: './service-selection-step.component.html',
   styleUrl: './service-selection-step.component.scss',

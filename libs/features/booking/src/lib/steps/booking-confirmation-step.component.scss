@@ -1,7 +1,7 @@
 @use 'sass:color';
 
 // ─── Design Tokens ───────────────────────────────────────────────────────────
-$primary-color: #7C3AED;
+$primary-color: #10B981;
 $accent-color: #10B981;
 $border-radius: 12px;
 $shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -105,7 +105,7 @@ $transition: all 0.2s ease-in-out;
 
   &__value {
     font-size: 1rem;
-    color: #1f2937;
+    color: #000000;
     margin: 0;
   }
 
@@ -157,7 +157,7 @@ $transition: all 0.2s ease-in-out;
   &__name {
     flex: 1;
     font-weight: 500;
-    color: #1f2937;
+    color: #000000;
   }
 
   &__duration {
@@ -298,7 +298,7 @@ $transition: all 0.2s ease-in-out;
   }
 
   .summary-card {
-    background-color: #1f2937;
+    background-color: #000000;
 
     &__title {
       color: color.adjust($primary-color, $lightness: 20%);
@@ -356,7 +356,7 @@ $transition: all 0.2s ease-in-out;
   }
 
   .notes-card {
-    background-color: #1f2937;
+    background-color: #000000;
 
     &__title {
       color: color.adjust($primary-color, $lightness: 20%);

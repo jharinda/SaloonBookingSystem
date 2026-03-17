@@ -9,7 +9,7 @@ import { DecimalPipe } from '@angular/common';
 import { ProgressSpinner } from 'primeng/progressspinner';
 import { Button } from 'primeng/button';
 
-import { AdminService, AdminStats } from '@org/shared-data-access';
+import { AdminService, AdminStats, CurrencyService, AppCurrencyPipe } from '@org/shared-data-access';
 
 interface StatCard {
   key:    keyof AdminStats;
@@ -23,12 +23,13 @@ interface StatCard {
   selector: 'lib-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, ProgressSpinner, Button],
+  imports: [DecimalPipe, ProgressSpinner, Button, AppCurrencyPipe],
   templateUrl: './admin-dashboard.component.html',
   styleUrl:    './admin-dashboard.component.scss',
 })
 export class AdminDashboardComponent implements OnInit {
   private readonly adminService = inject(AdminService);
+  private readonly currencyService = inject(CurrencyService);
 
   readonly loading = signal(true);
   readonly error   = signal<string | null>(null);
@@ -39,7 +40,7 @@ export class AdminDashboardComponent implements OnInit {
     { key: 'pendingApproval', label: 'Pending Approval',   icon: 'pending_actions' },
     { key: 'totalClients',    label: 'Total Clients',      icon: 'group' },
     { key: 'bookingsToday',   label: 'Bookings Today',     icon: 'event_available' },
-    { key: 'monthlyRevenue',  label: 'Monthly Revenue',    icon: 'payments', prefix: 'LKR ' },
+    { key: 'monthlyRevenue',  label: 'Monthly Revenue',    icon: 'payments', prefix: '' },
   ];
 
   ngOnInit(): void {

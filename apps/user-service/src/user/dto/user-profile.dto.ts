@@ -50,6 +50,10 @@ export class UpdateProfileDto {
   timezone?: string;
 
   @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @IsOptional()
   @IsObject()
   @ValidateNested()
   @Type(() => AddressDto)
@@ -155,6 +159,7 @@ export class UserProfileResponseDto {
   avatarUrl?: string;
   role: string;
   timezone: string;
+  currency: string;
   address?: AddressDto;
   notificationPreferences: {
     email: boolean;

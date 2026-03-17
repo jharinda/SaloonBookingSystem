@@ -31,6 +31,7 @@ import { InboxNotificationService } from './inbox-notification.service';
 import { BookingNotificationProcessor } from './processors/booking-notification.processor';
 import { ReminderNotificationProcessor } from './processors/reminder-notification.processor';
 import { AuthNotificationProcessor } from './processors/auth-notification.processor';
+import { InvitationNotificationProcessor } from './processors/invitation-notification.processor';
 import { NotificationController } from './notification.controller';
 
 @Module({
@@ -63,6 +64,7 @@ import { NotificationController } from './notification.controller';
     BookingNotificationProcessor,
     ReminderNotificationProcessor,
     AuthNotificationProcessor,
+    InvitationNotificationProcessor,
   ],
 })
 export class NotificationModule {}

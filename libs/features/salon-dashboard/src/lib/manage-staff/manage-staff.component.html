@@ -5,288 +5,378 @@
 <p-toolbar styleClass="mb-4">
   <ng-template pTemplate="start">
     <span class="text-xl font-semibold text-zinc-900 dark:text-zinc-100">Staff</span>
+    @if (!isLoading() && staff().length > 0) {
+      <p-tag [value]="staff().length + ''" [rounded]="true" severity="secondary" styleClass="ml-2" />
+    }
   </ng-template>
   <ng-template pTemplate="end">
-    <div class="flex items-center gap-3">
-      <p-selectButton
-        [(ngModel)]="layout"
-        [options]="layoutOptions"
-        optionValue="value"
-      >
-        <ng-template let-opt pTemplate>
-          <i [class]="opt.icon"></i>
-        </ng-template>
-      </p-selectButton>
-      <p-button
-        label="Add Staff"
-        icon="pi pi-user-plus"
-        severity="success"
-        (onClick)="openDialog()"
-      />
-    </div>
+    <p-button
+      label="Add Staff"
+      icon="pi pi-user-plus"
+      severity="success"
+      (onClick)="openAddDialog()"
+    />
   </ng-template>
 </p-toolbar>
 
-<!-- ── DataView ─────────────────────────────────────────────────────────── -->
-<p-dataView [value]="staff()" [layout]="layout">
+<!-- ── Loading spinner ───────────────────────────────────────────────────── -->
+@if (isLoading()) {
+  <div class="flex justify-center py-12">
+    <p-progressSpinner strokeWidth="3" />
+  </div>
+}
 
-  <!-- ── Grid layout ────────────────────────────────────────────────────── -->
-  <ng-template pTemplate="grid" let-items>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      @for (member of items; track member.id) {
-        <p-card styleClass="text-center h-full">
+<!-- ── Break Limits Settings ──────────────────────────────────────────────── -->
+@if (!isLoading()) {
+  <div class="mb-6 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-zinc-100 dark:border-zinc-800">
+      <div class="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+        <i class="pi pi-clock text-amber-600 dark:text-amber-400"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-zinc-900 dark:text-zinc-100">Break Management</div>
+        <div class="text-sm text-zinc-500">Set how many breaks of each type staff members may take per day.</div>
+      </div>
+    </div>
 
-          <ng-template pTemplate="header">
-            <div class="flex justify-center pt-5">
-              <p-avatar
-                [image]="member.photo || ''"
-                [label]="member.photo ? undefined : getInitials(member.name)"
-                size="xlarge"
-                shape="circle"
-                styleClass="bg-violet-100 text-violet-700 font-bold"
-              />
+    <div class="px-5 py-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 mb-4">
+        @for (row of breakTypeRows; track row.key) {
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 w-36 shrink-0">
+              <i [class]="row.icon + ' ' + row.color"></i>
+              <span class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ row.label }}</span>
             </div>
-          </ng-template>
-
-          <!-- Name -->
-          <div class="font-semibold text-zinc-900 dark:text-zinc-100 text-base mt-1 leading-snug">
-            {{ member.name }}
+            <p-inputnumber
+              [(ngModel)]="breakLimitsInput[row.key]"
+              [min]="0"
+              [max]="10"
+              [showButtons]="true"
+              buttonLayout="horizontal"
+              decrementButtonIcon="pi pi-minus"
+              incrementButtonIcon="pi pi-plus"
+              inputStyleClass="w-12 text-center"
+              styleClass="w-36"
+            />
           </div>
+        }
+      </div>
 
-          <!-- Role -->
-          <div class="text-emerald-600 text-sm mt-1">{{ member.role }}</div>
+      <div class="flex items-center gap-3">
+        <p-button
+          label="Save Limits"
+          icon="pi pi-check"
+          severity="primary"
+          (onClick)="saveBreakLimits()"
+          [loading]="isSavingBreakLimits()"
+          [disabled]="!limitsChanged()"
+        />
+        <p class="text-sm text-zinc-400 m-0">
+          <i class="pi pi-info-circle mr-1"></i>
+          Stylists who hit a type's limit cannot add more of that break. Breaks outside operating hours are also blocked.
+        </p>
+      </div>
+    </div>
+  </div>
+}
 
-          <!-- Specialties -->
-          <div class="flex flex-wrap justify-center gap-1 mt-3">
-            @for (s of member.specialties; track s) {
-              <p-chip [label]="s" styleClass="text-xs" />
+<!-- ── Pending Join Requests ──────────────────────────────────────────────── -->
+@if (joinRequests().length > 0) {
+  <div class="mb-6">
+    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+      <i class="pi pi-clock mr-2 text-orange-500"></i>
+      Pending Join Requests ({{ joinRequests().length }})
+    </h3>
+    <div class="flex flex-col bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+      @for (request of joinRequests(); track request._id; let last = $last) {
+        <div class="flex items-center gap-4 py-4 px-5">
+          <p-avatar
+            [image]="request.avatarUrl || ''"
+            [label]="request.avatarUrl ? undefined : getInitials(request.firstName + ' ' + request.lastName)"
+            size="large"
+            shape="circle"
+            styleClass="bg-orange-100 text-orange-700 font-bold shrink-0"
+          />
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+              {{ request.firstName }} {{ request.lastName }}
+            </div>
+            <div class="text-sm text-zinc-500">{{ request.email }}</div>
+            @if (request.stylistProfile.specialties.length) {
+              <div class="flex flex-wrap gap-1 mt-1">
+                @for (s of request.stylistProfile.specialties; track s) {
+                  <p-chip [label]="s" styleClass="text-xs" />
+                }
+              </div>
+            }
+            @if (request.stylistProfile.yearsExperience) {
+              <div class="text-xs text-zinc-400 mt-1">
+                {{ request.stylistProfile.yearsExperience }} years experience
+              </div>
             }
           </div>
-
-          <!-- Rating -->
-          <div class="flex justify-center mt-2">
-            <p-rating
-              [(ngModel)]="member.rating"
-              [readonly]="true"
-
+          <div class="flex gap-2 shrink-0">
+            <p-button
+              label="Approve"
+              icon="pi pi-check"
+              severity="success"
+              size="small"
+              (onClick)="approveRequest(request)"
+            />
+            <p-button
+              label="Reject"
+              icon="pi pi-times"
+              severity="danger"
+              size="small"
+              [outlined]="true"
+              (onClick)="rejectRequest(request)"
             />
           </div>
-
-          <ng-template pTemplate="footer">
-            <div class="flex justify-center gap-2">
-              <p-button
-                icon="pi pi-pencil"
-                [rounded]="true"
-                [text]="true"
-                severity="secondary"
-                size="small"
-                pTooltip="Edit"
-                tooltipPosition="top"
-                (onClick)="openDialog(member)"
-                aria-label="Edit"
-              />
-              <p-button
-                icon="pi pi-trash"
-                [rounded]="true"
-                [text]="true"
-                severity="danger"
-                size="small"
-                pTooltip="Remove"
-                tooltipPosition="top"
-                (onClick)="confirmRemove(member)"
-                aria-label="Remove"
-              />
-            </div>
-          </ng-template>
-
-        </p-card>
-      }
-    </div>
-  </ng-template>
-
-  <!-- ── List layout ────────────────────────────────────────────────────── -->
-  <ng-template pTemplate="list" let-items>
-    <div class="flex flex-col bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-      @for (member of items; track member.id; let last = $last) {
-        <div class="flex items-center gap-4 py-4 px-5">
-
-          <!-- Avatar -->
-          <p-avatar
-            [image]="member.photo || ''"
-            [label]="member.photo ? undefined : getInitials(member.name)"
-            size="xlarge"
-            shape="circle"
-            styleClass="bg-violet-100 text-violet-700 font-bold shrink-0"
-          />
-
-          <!-- Name + role + chips -->
-          <div class="flex-1 min-w-0">
-            <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ member.name }}</div>
-            <div class="text-emerald-600 text-sm">{{ member.role }}</div>
-            <div class="flex flex-wrap gap-1 mt-2">
-              @for (s of member.specialties; track s) {
-                <p-chip [label]="s" styleClass="text-xs" />
-              }
-            </div>
-          </div>
-
-          <!-- Rating + actions -->
-          <div class="flex flex-col items-end gap-3 shrink-0">
-            <p-rating
-              [(ngModel)]="member.rating"
-              [readonly]="true"
-
-            />
-            <div class="flex gap-1">
-              <p-button
-                icon="pi pi-pencil"
-                [rounded]="true"
-                [text]="true"
-                severity="secondary"
-                size="small"
-                pTooltip="Edit"
-                tooltipPosition="top"
-                (onClick)="openDialog(member)"
-                aria-label="Edit"
-              />
-              <p-button
-                icon="pi pi-trash"
-                [rounded]="true"
-                [text]="true"
-                severity="danger"
-                size="small"
-                pTooltip="Remove"
-                tooltipPosition="top"
-                (onClick)="confirmRemove(member)"
-                aria-label="Remove"
-              />
-            </div>
-          </div>
-
         </div>
         @if (!last) {
           <p-divider styleClass="my-0" />
         }
       }
     </div>
-  </ng-template>
+  </div>
+}
 
-</p-dataView>
+<!-- ── Sent Invitations ────────────────────────────────────────────────── -->
+@if (sentInvitations().length > 0) {
+  <div class="mb-6">
+    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-3">
+      <i class="pi pi-send mr-2 text-violet-500"></i>
+      Sent Invitations ({{ sentInvitations().length }})
+    </h3>
+    <div class="flex flex-col bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
+      @for (inv of sentInvitations(); track inv.stylistId; let last = $last) {
+        <div class="flex items-center gap-4 py-4 px-5">
+          <p-avatar
+            [image]="inv.avatarUrl || ''"
+            [label]="inv.avatarUrl ? undefined : getInitials(inv.firstName + ' ' + inv.lastName)"
+            size="large"
+            shape="circle"
+            styleClass="bg-violet-100 text-violet-700 font-bold shrink-0"
+          />
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+              {{ inv.firstName }} {{ inv.lastName }}
+            </div>
+            <div class="text-sm text-zinc-500">{{ inv.email }}</div>
+          </div>
+          <p-tag
+            [value]="invitationLabel(inv.status)"
+            [severity]="invitationSeverity(inv.status)"
+          />
+        </div>
+        @if (!last) {
+          <p-divider styleClass="my-0" />
+        }
+      }
+    </div>
+  </div>
+}
 
-<!-- ── Add / Edit Dialog ─────────────────────────────────────────────────── -->
+<!-- ── Staff Table ─────────────────────────────────────────────────────── -->
+@if (!isLoading()) {
+  @if (staff().length === 0) {
+    <div class="text-center py-16 text-zinc-400">
+      <i class="pi pi-users text-5xl mb-4 block"></i>
+      <p class="text-lg">No staff members yet</p>
+      <p class="text-sm mt-1">Search by email to add a stylist to your team.</p>
+    </div>
+  } @else {
+    <p-table
+      [value]="staff()"
+      [rowHover]="true"
+      [stripedRows]="true"
+      styleClass="p-datatable-sm"
+    >
+      <ng-template #header>
+        <tr>
+          <th style="width: 4rem"></th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Specialties</th>
+          <th>Experience</th>
+          <th style="width: 5rem">Actions</th>
+        </tr>
+      </ng-template>
+
+      <ng-template #body let-member>
+        <tr>
+          <!-- Avatar -->
+          <td>
+            <p-avatar
+              [image]="member.photo || ''"
+              [label]="member.photo ? undefined : getInitials(member.name)"
+              shape="circle"
+              styleClass="bg-violet-100 text-violet-700 font-bold"
+            />
+          </td>
+
+          <!-- Name + Bio -->
+          <td>
+            <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ member.name }}</div>
+            @if (member.bio) {
+              <div class="text-xs text-zinc-500 mt-0.5 line-clamp-1">{{ member.bio }}</div>
+            }
+          </td>
+
+          <!-- Email -->
+          <td>
+            <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ member.email }}</span>
+          </td>
+
+          <!-- Specialties -->
+          <td>
+            <div class="flex flex-wrap gap-1">
+              @for (s of member.specialties; track s) {
+                <p-chip [label]="s" styleClass="text-xs" />
+              }
+              @if (member.specialties.length === 0) {
+                <span class="text-xs text-zinc-400">—</span>
+              }
+            </div>
+          </td>
+
+          <!-- Experience -->
+          <td>
+            @if (member.yearsExperience) {
+              <span class="text-sm">{{ member.yearsExperience }} yrs</span>
+            } @else {
+              <span class="text-xs text-zinc-400">—</span>
+            }
+          </td>
+
+          <!-- Actions -->
+          <td>
+            <p-button
+              icon="pi pi-trash"
+              [rounded]="true"
+              [text]="true"
+              severity="danger"
+              size="small"
+              pTooltip="Remove"
+              tooltipPosition="top"
+              (onClick)="confirmRemove(member)"
+              aria-label="Remove"
+            />
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+}
+
+<!-- ── Add Staff Dialog (search by email) ────────────────────────────────── -->
 <p-dialog
-  [(visible)]="dialogVisible"
-  [header]="editingMember() ? 'Edit Staff Member' : 'Add Staff Member'"
+  [(visible)]="addDialogVisible"
+  header="Add Staff Member"
   [modal]="true"
-  [style]="{ width: '480px' }"
+  [style]="{ width: '520px' }"
   [closable]="!isSaving()"
 >
+  <div class="flex flex-col gap-5 pt-2">
 
-  <form [formGroup]="form" p-fluid class="flex flex-col gap-5 pt-2" novalidate>
-
-    <!-- Photo upload + preview -->
-    <div class="flex items-center gap-4">
-      <p-avatar
-        [image]="photoPreview() || ''"
-        [label]="photoPreview() ? undefined : (form.controls.name.value ? getInitials(form.controls.name.value) : '?')"
-        size="xlarge"
-        shape="circle"
-        styleClass="bg-violet-100 text-violet-700 font-bold shrink-0"
-      />
-      <p-fileUpload
-        mode="basic"
-        accept="image/*"
-        [auto]="true"
-        chooseLabel="Upload Photo"
-        (onSelect)="onPhotoSelect($event)"
-      />
+    <!-- Search form -->
+    <div>
+      <p class="text-sm text-zinc-500 mb-3">
+        Search for a registered stylist by their email address to add them to your salon.
+      </p>
+      <form [formGroup]="searchForm" class="flex gap-2" (ngSubmit)="searchByEmail()" novalidate>
+        <div class="flex-1">
+          <p-floatLabel>
+            <input
+              id="search-email"
+              pInputText
+              formControlName="email"
+              type="email"
+              class="w-full"
+              autocomplete="off"
+            />
+            <label for="search-email">Stylist Email</label>
+          </p-floatLabel>
+        </div>
+        <p-button
+          icon="pi pi-search"
+          label="Search"
+          (onClick)="searchByEmail()"
+          [loading]="isSearching()"
+        />
+      </form>
+      @if (searchForm.controls.email.invalid && searchForm.controls.email.touched) {
+        <small class="text-red-500 mt-1 block">Please enter a valid email address.</small>
+      }
     </div>
 
-    <!-- Full Name -->
-    <p-floatLabel>
-      <input
-        id="staff-name"
-        pInputText
-        formControlName="name"
-        class="w-full"
-        autocomplete="off"
-      />
-      <label for="staff-name">Full Name</label>
-    </p-floatLabel>
-    @if (form.controls.name.invalid && form.controls.name.touched) {
-      <small class="text-red-500 -mt-4">Name is required.</small>
+    <!-- Search error -->
+    @if (searchError()) {
+      <div class="flex items-center gap-2 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 p-3 rounded-lg text-sm">
+        <i class="pi pi-info-circle"></i>
+        {{ searchError() }}
+      </div>
     }
 
-    <!-- Role -->
-    <p-floatLabel>
-      <p-select
-        inputId="staff-role"
-        formControlName="role"
-        [options]="roleOptions"
-        optionLabel="label"
-        optionValue="value"
-        styleClass="w-full"
-      />
-      <label for="staff-role">Role</label>
-    </p-floatLabel>
-    @if (form.controls.role.invalid && form.controls.role.touched) {
-      <small class="text-red-500 -mt-4">Role is required.</small>
+    <!-- Search result — stylist preview card -->
+    @if (searchResult(); as stylist) {
+      <div class="border border-zinc-200 dark:border-zinc-700 rounded-xl p-4">
+        <div class="flex items-center gap-4">
+          <p-avatar
+            [image]="stylist.avatarUrl || ''"
+            [label]="stylist.avatarUrl ? undefined : getInitials(stylist.firstName + ' ' + stylist.lastName)"
+            size="large"
+            shape="circle"
+            styleClass="bg-emerald-100 text-emerald-700 font-bold shrink-0"
+          />
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-zinc-900 dark:text-zinc-100">
+              {{ stylist.firstName }} {{ stylist.lastName }}
+            </div>
+            <div class="text-sm text-zinc-500">{{ stylist.email }}</div>
+            <p-tag value="Stylist" severity="info" styleClass="mt-1" />
+          </div>
+        </div>
+
+        @if (stylist.stylistProfile) {
+          <div class="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            @if (stylist.stylistProfile.specialties.length) {
+              <div class="flex flex-wrap gap-1 mb-2">
+                @for (s of stylist.stylistProfile.specialties; track s) {
+                  <p-chip [label]="s" styleClass="text-xs" />
+                }
+              </div>
+            }
+            @if (stylist.stylistProfile.yearsExperience) {
+              <div>{{ stylist.stylistProfile.yearsExperience }} years of experience</div>
+            }
+            @if (stylist.stylistProfile.bio) {
+              <div class="mt-1 italic">{{ stylist.stylistProfile.bio }}</div>
+            }
+          </div>
+        }
+
+        <div class="flex justify-end mt-4">
+          <p-button
+            label="Send Invitation"
+            icon="pi pi-send"
+            severity="success"
+            (onClick)="addSearchedStylist()"
+            [loading]="isSaving()"
+          />
+        </div>
+      </div>
     }
 
-    <!-- Email -->
-    <p-floatLabel>
-      <input
-        id="staff-email"
-        pInputText
-        formControlName="email"
-        type="email"
-        class="w-full"
-        autocomplete="off"
-      />
-      <label for="staff-email">Email</label>
-    </p-floatLabel>
-
-    <!-- Phone -->
-    <p-floatLabel>
-      <input
-        id="staff-phone"
-        pInputText
-        formControlName="phone"
-        type="tel"
-        class="w-full"
-        autocomplete="off"
-      />
-      <label for="staff-phone">Phone</label>
-    </p-floatLabel>
-
-    <!-- Specialties -->
-    <p-floatLabel>
-      <input
-        id="staff-specialties"
-        pInputText
-        formControlName="specialties"
-        class="w-full"
-        autocomplete="off"
-      />
-      <label for="staff-specialties">Specialties (comma-separated)</label>
-    </p-floatLabel>
-
-  </form>
+  </div>
 
   <ng-template pTemplate="footer">
     <p-button
-      label="Cancel"
+      label="Close"
       severity="secondary"
       [text]="true"
-      (onClick)="dialogVisible = false"
+      (onClick)="addDialogVisible = false"
       [disabled]="isSaving()"
-    />
-    <p-button
-      label="Save"
-      severity="success"
-      icon="pi pi-check"
-      (onClick)="saveStaff()"
-      [loading]="isSaving()"
     />
   </ng-template>
 

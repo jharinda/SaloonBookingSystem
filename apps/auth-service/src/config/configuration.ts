@@ -33,5 +33,8 @@ export default () => ({
     host: process.env['REDIS_HOST'] ?? 'localhost',
     port: parseInt(process.env['REDIS_PORT'] ?? '6379', 10),
   },
+  services: {
+    salonService: process.env['SALON_SERVICE_URL'] ?? 'http://localhost:3001',
+  },
   internalToken: process.env['INTERNAL_TOKEN'],
 });

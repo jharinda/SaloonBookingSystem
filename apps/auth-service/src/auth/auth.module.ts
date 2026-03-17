@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bull';
+import { HttpModule } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -23,6 +24,7 @@ import { RolesGuard } from './guards/roles.guard';
     JwtModule.register({}), // Secrets are injected per-call via ConfigService
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     BullModule.registerQueue({ name: 'notifications' }),
+    HttpModule.register({ timeout: 5000 }),
   ],
   controllers: [AuthController],
   providers: [

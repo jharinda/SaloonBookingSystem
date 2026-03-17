@@ -1,0 +1,83 @@
+<div class="calendar-grid-container">
+  <!-- Zoom Controls -->
+  <div class="zoom-controls">
+    <p-button
+      icon="pi pi-search-minus"
+      [rounded]="true"
+      [text]="true"
+      size="small"
+      (onClick)="zoomOut()"
+      pTooltip="Zoom out"
+      tooltipPosition="top"
+      [disabled]="zoomLevel() <= 0.5"
+    />
+    <span class="zoom-label" (click)="resetZoom()" pTooltip="Reset zoom" tooltipPosition="top">
+      {{ zoomPercent() }}%
+    </span>
+    <p-button
+      icon="pi pi-search-plus"
+      [rounded]="true"
+      [text]="true"
+      size="small"
+      (onClick)="zoomIn()"
+      pTooltip="Zoom in"
+      tooltipPosition="top"
+      [disabled]="zoomLevel() >= 3"
+    />
+  </div>
+
+  <!-- Loading State -->
+  @if (loading()) {
+    <div class="loading-state">
+      <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
+      <p>Loading...</p>
+    </div>
+  } @else if (columns().length === 0) {
+    <div class="empty-state">
+      <i class="pi pi-inbox" style="font-size: 3rem"></i>
+      <p>{{ emptyMessage() }}</p>
+    </div>
+  } @else {
+    <div
+      class="calendar-grid"
+      [style.--column-count]="columns().length"
+      [style.--row-height.px]="rowHeight()"
+    >
+      <!-- Header Row -->
+      <div class="calendar-header">
+        <div class="time-column-header">Time</div>
+        @for (col of columns(); track col.id) {
+          <div class="column-header">{{ col.name }}</div>
+        }
+      </div>
+
+      <!-- Time Slot Rows -->
+      @for (time of timeSlots(); track time) {
+        <!-- Optional before-row template (e.g. break overlays) -->
+        @if (beforeRowTemplate) {
+          <ng-container
+            [ngTemplateOutlet]="beforeRowTemplate"
+            [ngTemplateOutletContext]="{
+              $implicit: { time: time, columns: columns() }
+            }"
+          />
+        }
+
+        <!-- Normal data row -->
+        <div class="calendar-row">
+          <div class="time-cell" [style.min-height.px]="rowHeight()">
+            {{ time }}
+          </div>
+          @for (col of columns(); track col.id) {
+            <ng-container
+              [ngTemplateOutlet]="cellTemplate"
+              [ngTemplateOutletContext]="{
+                $implicit: { time: time, columnId: col.id, columnName: col.name }
+              }"
+            />
+          }
+        </div>
+      }
+    </div>
+  }
+</div>

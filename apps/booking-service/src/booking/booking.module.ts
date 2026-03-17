@@ -7,7 +7,9 @@ import Redis from 'ioredis';
 
 import { BookingController } from './booking.controller';
 import { BookingService } from './booking.service';
+import { StylistBreakService } from './stylist-break.service';
 import { Booking, BookingSchema } from './schemas/booking.schema';
+import { StylistBreak, StylistBreakSchema } from './schemas/stylist-break.schema';
 import { BookingProcessor } from './processors/booking.processor';
 import { BOOKING_QUEUE } from './constants/booking-events.constants';
 import { SharedAuthModule } from '@org/shared-auth';
@@ -15,7 +17,10 @@ import { SharedAuthModule } from '@org/shared-auth';
 @Module({
   imports: [
     SharedAuthModule.forRoot(),
-    MongooseModule.forFeature([{ name: Booking.name, schema: BookingSchema }]),
+    MongooseModule.forFeature([
+      { name: Booking.name, schema: BookingSchema },
+      { name: StylistBreak.name, schema: StylistBreakSchema },
+    ]),
     BullModule.registerQueue({ name: BOOKING_QUEUE }),
     BullModule.registerQueue({ name: 'notifications' }),
     BullModule.registerQueue({ name: 'calendar' }),
@@ -27,6 +32,7 @@ import { SharedAuthModule } from '@org/shared-auth';
   controllers: [BookingController],
   providers: [
     BookingService,
+    StylistBreakService,
     BookingProcessor,
     {
       provide: 'REDIS_CLIENT',

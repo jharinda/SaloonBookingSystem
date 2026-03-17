@@ -43,7 +43,8 @@
         />
         <p-selectButton
           [options]="viewOptions"
-          [(ngModel)]="viewMode"
+          [ngModel]="viewMode()"
+          (ngModelChange)="viewMode.set($event)"
           optionLabel="label"
           optionValue="value"
         >
@@ -59,63 +60,100 @@
   <!-- Calendar View -->
   @if (viewMode() === 'calendar') {
     <div class="calendar-view">
-      @if (loading()) {
-        <div class="loading-state">
-          <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
-          <p>Loading appointments...</p>
-        </div>
-      } @else {
-        @let gridData = calendarGrid();
-        @if (gridData.stations.length === 0) {
-          <div class="empty-state">
-            <i class="pi pi-inbox" style="font-size: 3rem"></i>
-            <p>No active stations. Please add stations to view the calendar.</p>
-          </div>
-        } @else {
-          <div class="calendar-grid">
-            <!-- Header Row -->
-            <div class="calendar-header">
-              <div class="time-column-header">Time</div>
-              @for (station of gridData.stations; track station._id) {
-                <div class="station-header">
-                  {{ station.name }}
-                </div>
-              }
-            </div>
-
-            <!-- Time Slots -->
-            @for (time of gridData.timeSlots; track time) {
-              <div class="calendar-row">
-                <div class="time-cell">{{ time }}</div>
-                @for (station of gridData.stations; track station._id) {
-                  @let booking = gridData.grid[time][station._id];
-                  @if (booking) {
-                    <div
-                      class="booking-cell"
-                      [class.status-pending]="booking.status === 'PENDING'"
-                      [class.status-confirmed]="booking.status === 'CONFIRMED'"
-                      [class.status-completed]="booking.status === 'COMPLETED'"
-                      [class.status-no-show]="booking.status === 'NO_SHOW'"
-                      [style.grid-row-end]="'span ' + getBookingRowSpan(booking)"
-                      (click)="openBookingDetails(booking)"
-                    >
-                      <div class="booking-content">
-                        <strong>{{ booking.clientName }}</strong>
-                        <div class="booking-service">{{ booking.serviceName }}</div>
-                        <div class="booking-stylist">{{ booking.stylistName }}</div>
-                        <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-                      </div>
+      @let gridData = calendarGrid();
+      <lib-calendar-grid
+        [timeSlots]="gridData.timeSlots"
+        [columns]="gridColumns()"
+        [loading]="loading()"
+        emptyMessage="No active stations. Please add stations to view the calendar."
+      >
+        <!-- Break overlay rows before each time slot -->
+        <ng-template #beforeRowTemplate let-ctx>
+          @let breaksHere = breaksAtTime()[ctx.time];
+          @if (breaksHere && breaksHere.length > 0) {
+            <div class="calendar-row break-overlay-row">
+              <div class="time-cell break-time-cell">{{ ctx.time }}</div>
+              <div class="break-overlay-cell" [style.grid-column]="'span ' + ctx.columns.length">
+                <div class="break-overlay-items">
+                  @for (brk of breaksHere; track brk._id) {
+                    <div class="break-overlay-badge" [ngClass]="'break-type-' + brk.type.toLowerCase()"
+                         [pTooltip]="brk.note ? brk.note : ''" tooltipPosition="top">
+                      <i [class]="getBreakIcon(brk.type)"></i>
+                      <span class="break-overlay-stylist">{{ getStylistName(brk.stylistId) }}</span>
+                      <span class="break-overlay-time">{{ brk.startTime }} – {{ brk.endTime }}</span>
+                      <p-tag [value]="breakTypeLabel(brk.type)" [severity]="getBreakSeverity(brk.type)" styleClass="text-xs" />
                     </div>
-                  } @else {
-                    <div class="empty-cell"></div>
                   }
-                }
+                </div>
               </div>
-            }
-          </div>
-        }
-      }
+            </div>
+          }
+        </ng-template>
+
+        <!-- Cell template for each station × time slot -->
+        <ng-template #cellTemplate let-ctx>
+          @let booking = calendarGrid().grid[ctx.time][ctx.columnId];
+          @if (booking) {
+            <div
+              class="booking-cell"
+              role="button"
+              tabindex="0"
+              [class.status-pending]="booking.status === 'PENDING'"
+              [class.status-confirmed]="booking.status === 'CONFIRMED'"
+              [class.status-completed]="booking.status === 'COMPLETED'"
+              [class.status-no-show]="booking.status === 'NO_SHOW'"
+              [style.grid-row-end]="'span ' + getBookingRowSpan(booking)"
+              (click)="openBookingDetails(booking)"
+              (keydown.enter)="openBookingDetails(booking)"
+            >
+              <div class="booking-content">
+                <strong>{{ booking.clientName }}</strong>
+                <div class="booking-service">{{ booking.serviceName }}</div>
+                <div class="booking-stylist">{{ booking.stylistName }}</div>
+                <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
+              </div>
+            </div>
+          } @else {
+            <div class="empty-cell empty-cell-clickable" role="button" tabindex="0"
+                 (click)="onEmptySlotClick(ctx.time, { _id: ctx.columnId, name: ctx.columnName })"
+                 (keydown.enter)="onEmptySlotClick(ctx.time, { _id: ctx.columnId, name: ctx.columnName })">
+              <span class="empty-cell-hint">
+                <i class="pi pi-plus"></i>
+              </span>
+            </div>
+          }
+        </ng-template>
+      </lib-calendar-grid>
     </div>
+
+    <!-- Stylist Breaks Panel -->
+    @if (breaks().length) {
+      <div class="breaks-panel mt-4">
+        <div class="breaks-header">
+          <i class="pi pi-clock"></i>
+          <span>Stylist Breaks ({{ breaks().length }})</span>
+        </div>
+        <div class="breaks-grid">
+          @for (brk of breaks(); track brk._id) {
+            <div class="break-card">
+              <div class="break-card-left">
+                <div class="break-icon" [ngClass]="'break-type-' + brk.type.toLowerCase()">
+                  <i [class]="getBreakIcon(brk.type)"></i>
+                </div>
+                <div class="break-info">
+                  <span class="break-stylist-name">{{ getStylistName(brk.stylistId) }}</span>
+                  <span class="break-time">{{ brk.startTime }} – {{ brk.endTime }}</span>
+                  @if (brk.note) {
+                    <span class="break-note">{{ brk.note }}</span>
+                  }
+                </div>
+              </div>
+              <p-tag [value]="brk.type" [severity]="getBreakSeverity(brk.type)" />
+            </div>
+          }
+        </div>
+      </div>
+    }
   }
 
   <!-- List View -->
@@ -148,7 +186,7 @@
             <td>{{ booking.stationName || 'Unassigned' }}</td>
             <td>{{ booking.startTime }} - {{ booking.endTime }}</td>
             <td>{{ getBookingDuration(booking) }}min</td>
-            <td>LKR {{ booking.totalPrice }}</td>
+            <td>{{ booking.totalPrice | appCurrency }}</td>
             <td>
               <p-tag
                 [value]="booking.status"
@@ -177,12 +215,46 @@
           </tr>
         </ng-template>
       </p-table>
+
+      <!-- Breaks in list view -->
+      @if (breaks().length) {
+        <div class="breaks-list-section mt-4">
+          <h3 class="breaks-list-title">
+            <i class="pi pi-clock mr-2"></i>Stylist Breaks
+          </h3>
+          <p-table
+            [value]="breaks()"
+            responsiveLayout="scroll"
+            styleClass="p-datatable-gridlines p-datatable-sm"
+          >
+            <ng-template pTemplate="header">
+              <tr>
+                <th>Stylist</th>
+                <th>Type</th>
+                <th>Time</th>
+                <th>Note</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-brk>
+              <tr>
+                <td>{{ getStylistName(brk.stylistId) }}</td>
+                <td>
+                  <p-tag [value]="brk.type" [severity]="getBreakSeverity(brk.type)" />
+                </td>
+                <td>{{ brk.startTime }} – {{ brk.endTime }}</td>
+                <td>{{ brk.note || '—' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      }
     </div>
   }
 
   <!-- Booking Details Drawer -->
   <p-drawer
-    [(visible)]="showBookingDetails"
+    [visible]="showBookingDetails()"
+    (visibleChange)="showBookingDetails.set($event)"
     position="right"
     [style]="{width: '450px'}"
   >
@@ -203,19 +275,19 @@
 
         <!-- Client Info -->
         <div class="detail-section">
-          <label>Client</label>
+          <span class="detail-label">Client</span>
           <p class="detail-value">{{ booking.clientName }}</p>
         </div>
 
         <!-- Service Info -->
         <div class="detail-section">
-          <label>Service</label>
+          <span class="detail-label">Service</span>
           <p class="detail-value">{{ booking.serviceName }}</p>
           <div class="service-details">
             @for (service of booking.services; track service.serviceId) {
               <div class="service-item">
                 <span>{{ service.name }}</span>
-                <span>{{ service.durationMinutes }}min - LKR {{ service.price }}</span>
+                <span>{{ service.durationMinutes }}min - {{ service.price | appCurrency }}</span>
               </div>
             }
           </div>
@@ -223,7 +295,7 @@
 
         <!-- Time Info -->
         <div class="detail-section">
-          <label>Time</label>
+          <span class="detail-label">Time</span>
           <p class="detail-value">
             {{ booking.appointmentDate }} | {{ booking.startTime }} - {{ booking.endTime }}
           </p>
@@ -231,13 +303,13 @@
 
         <!-- Stylist Info -->
         <div class="detail-section">
-          <label>Stylist</label>
+          <span class="detail-label">Stylist</span>
           <p class="detail-value">{{ booking.stylistName || 'Unassigned' }}</p>
         </div>
 
         <!-- Station Info -->
         <div class="detail-section">
-          <label>Station</label>
+          <span class="detail-label">Station</span>
           <div class="reassign-section">
             <p-select
               [options]="activeStations()"
@@ -253,14 +325,14 @@
 
         <!-- Price Info -->
         <div class="detail-section">
-          <label>Total Price</label>
-          <p class="detail-value price">LKR {{ booking.totalPrice }}</p>
+          <span class="detail-label">Total Price</span>
+          <p class="detail-value price">{{ booking.totalPrice | appCurrency }}</p>
         </div>
 
         <!-- Notes -->
         @if (booking.notes) {
           <div class="detail-section">
-            <label>Notes</label>
+            <span class="detail-label">Notes</span>
             <p class="detail-value notes">{{ booking.notes }}</p>
           </div>
         }
@@ -301,4 +373,69 @@
       </div>
     }
   </p-drawer>
+
+  <!-- Slot Info Dialog -->
+  <p-dialog
+    [visible]="showSlotDialog()"
+    (visibleChange)="showSlotDialog.set($event)"
+    header="Time Slot Details"
+    [modal]="true"
+    [style]="{ width: '380px' }"
+  >
+    @if (selectedSlot(); as slot) {
+      <div class="slot-dialog-content">
+        <div class="slot-info-row">
+          <i class="pi pi-clock slot-info-icon"></i>
+          <div>
+            <div class="slot-info-label">Time</div>
+            <div class="slot-info-value">{{ slot.time }} – {{ getSlotEndTime(slot.time) }}</div>
+          </div>
+        </div>
+        <div class="slot-info-row">
+          <i class="pi pi-building slot-info-icon"></i>
+          <div>
+            <div class="slot-info-label">Station</div>
+            <div class="slot-info-value">{{ slot.stationName }}</div>
+          </div>
+        </div>
+        <div class="slot-info-row">
+          <i class="pi pi-calendar slot-info-icon"></i>
+          <div>
+            <div class="slot-info-label">Date</div>
+            <div class="slot-info-value">{{ formatDate(selectedDate()) }}</div>
+          </div>
+        </div>
+
+        <!-- Breaks active at this time -->
+        @let activeBreaks = breaksAtTime()[slot.time];
+        @if (activeBreaks && activeBreaks.length > 0) {
+          <div class="slot-breaks-section">
+            <div class="slot-info-label mb-2">
+              <i class="pi pi-pause-circle mr-1"></i> Stylist Breaks at This Time
+            </div>
+            @for (brk of activeBreaks; track brk._id) {
+              <div class="slot-break-item">
+                <div class="break-icon" [ngClass]="'break-type-' + brk.type.toLowerCase()">
+                  <i [class]="getBreakIcon(brk.type)"></i>
+                </div>
+                <div>
+                  <strong>{{ getStylistName(brk.stylistId) }}</strong>
+                  <div class="text-sm text-zinc-500">
+                    {{ breakTypeLabel(brk.type) }} · {{ brk.startTime }} – {{ brk.endTime }}
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        <div class="slot-status">
+          <p-tag value="Available" severity="success" icon="pi pi-check" />
+        </div>
+      </div>
+    }
+    <ng-template pTemplate="footer">
+      <p-button label="Close" severity="secondary" [text]="true" (onClick)="showSlotDialog.set(false)" />
+    </ng-template>
+  </p-dialog>
 </div>

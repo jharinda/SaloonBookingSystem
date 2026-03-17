@@ -20,6 +20,7 @@ export class ICalService {
     salonName: string,
     salonAddress: string,
     organizerEmail: string,
+    currency = 'LKR',
   ): ICalResult {
     const calendar = ical({
       name: 'SnapSalon Appointment',
@@ -38,7 +39,7 @@ export class ICalService {
     const description = [
       `Services: ${serviceNames}`,
       `Duration: ${durationMin} min`,
-      `Total: LKR ${booking.totalPrice.toFixed(2)}`,
+      `Total: ${currency} ${booking.totalPrice.toFixed(2)}`,
       booking.notes ? `Notes: ${booking.notes}` : '',
     ]
       .filter(Boolean)

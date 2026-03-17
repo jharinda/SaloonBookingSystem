@@ -78,6 +78,8 @@ export class SsePushService {
     switch (event) {
       case 'booking.new':
         return NotificationType.BOOKING_CREATED;
+      case 'booking.new.stylist':
+        return NotificationType.BOOKING_CREATED;
       case 'booking.confirmed':
         return NotificationType.BOOKING_CONFIRMED;
       case 'booking.cancelled':
@@ -86,6 +88,8 @@ export class SsePushService {
         return NotificationType.BOOKING_COMPLETED;
       case 'staff.joined':
         return NotificationType.STAFF_JOINED;
+      case 'salon.invitation':
+        return NotificationType.SYSTEM;
       case 'message.new':
         return NotificationType.NEW_MESSAGE;
       default:
@@ -100,6 +104,8 @@ export class SsePushService {
     switch (event) {
       case 'booking.new':
         return 'New Booking';
+      case 'booking.new.stylist':
+        return 'New Appointment';
       case 'booking.confirmed':
         return 'Booking Confirmed';
       case 'booking.cancelled':
@@ -108,6 +114,8 @@ export class SsePushService {
         return 'Booking Completed';
       case 'staff.joined':
         return 'New Staff Member';
+      case 'salon.invitation':
+        return 'Salon Invitation';
       case 'message.new':
         return 'New Message';
       default:
@@ -124,6 +132,8 @@ export class SsePushService {
     switch (event) {
       case 'booking.new':
         return `You have a new booking from ${d['clientName'] ?? 'a client'} for ${d['serviceName'] ?? 'services'} on ${d['appointmentDate'] ?? 'today'} at ${d['startTime'] ?? 'scheduled time'}.`;
+      case 'booking.new.stylist':
+        return `${d['clientName'] ?? 'A client'} has booked ${d['serviceName'] ?? 'an appointment'} with you on ${d['appointmentDate'] ?? 'today'} at ${d['startTime'] ?? 'scheduled time'}.`;
       case 'booking.confirmed':
         return `Your booking at ${d['salonName'] ?? 'the salon'} has been confirmed for ${d['appointmentDate'] ?? 'your appointment'}.`;
       case 'booking.cancelled':
@@ -132,6 +142,8 @@ export class SsePushService {
         return `Your booking at ${d['salonName'] ?? 'the salon'} has been completed. We hope you enjoyed your experience!`;
       case 'staff.joined':
         return `${d['staffName'] ?? 'A new staff member'} has joined your salon.`;
+      case 'salon.invitation':
+        return `You have been invited to join ${d['salonName'] ?? 'a salon'}.`;
       case 'message.new':
         return `You have a new message from ${d['senderName'] ?? 'someone'}.`;
       default:

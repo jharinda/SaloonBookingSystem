@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 
 import { Booking, Salon, SalonServiceItem, SalonWorkingHours } from '@org/models';
+import type { StylistBreakDto } from './user.service';
 
 // ── DTOs ─────────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ export interface UpdateSalonInfoDto {
   };
   autoConfirmBookings?: boolean;
   cancellationWindowHours?: number;
+  breakLimits?: { LUNCH?: number; COFFEE?: number; PERSONAL?: number; OTHER?: number };
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -284,10 +286,141 @@ export class SalonAdminService {
   deleteStation(salonId: string, stationId: string): Observable<Salon> {
     return this.http.delete<Salon>(`/api/salons/${salonId}/stations/${stationId}`);
   }
+
+  // ── Staff management ────────────────────────────────────────────────────
+
+  /** GET /api/auth/salons/:salonId/staff — get approved staff for this salon */
+  getSalonStaff(salonId: string): Observable<SalonStaffMember[]> {
+    return this.http.get<SalonStaffMember[]>(`/api/auth/salons/${salonId}/staff`);
+  }
+
+  /** GET /api/users/email/:email — search for a user by email */
+  searchUserByEmail(email: string): Observable<StylistSearchResult | null> {
+    return this.http.get<StylistSearchResult | null>(`/api/users/email/${encodeURIComponent(email)}`);
+  }
+
+  /** POST /api/salons/:salonId/staff/:stylistId — add a staff member directly */
+  addStaff(salonId: string, stylistId: string): Observable<Salon> {
+    return this.http.post<Salon>(`/api/salons/${salonId}/staff/${stylistId}`, {});
+  }
+
+  /** DELETE /api/salons/:salonId/staff/:stylistId — remove a staff member */
+  removeStaff(salonId: string, stylistId: string): Observable<Salon> {
+    return this.http.delete<Salon>(`/api/salons/${salonId}/staff/${stylistId}`);
+  }
+
+  /** POST /api/auth/salon/invite-stylist — send invitation to a stylist */
+  inviteStylist(stylistId: string, salonId: string, salonName: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>('/api/auth/salon/invite-stylist', {
+      stylistId,
+      salonId,
+      salonName,
+    });
+  }
+
+  /** GET /api/auth/salon/:salonId/sent-invitations — get all invitations sent by this salon */
+  getSentInvitations(salonId: string): Observable<SentInvitationDto[]> {
+    return this.http.get<SentInvitationDto[]>(`/api/auth/salon/${salonId}/sent-invitations`);
+  }
+
+  /** GET /api/auth/stylist/join-requests?salonId= — get pending join requests */
+  getJoinRequests(salonId: string): Observable<JoinRequestDto[]> {
+    return this.http.get<JoinRequestDto[]>('/api/auth/stylist/join-requests', {
+      params: { salonId },
+    });
+  }
+
+  /** PATCH /api/auth/stylist/join-requests/:stylistId/approve */
+  approveJoinRequest(stylistId: string): Observable<{ message: string }> {
+    return this.http.patch<{ message: string }>(
+      `/api/auth/stylist/join-requests/${stylistId}/approve`,
+      {},
+    );
+  }
+
+  /** PATCH /api/auth/stylist/join-requests/:stylistId/reject */
+  rejectJoinRequest(stylistId: string): Observable<{ message: string }> {
+    return this.http.patch<{ message: string }>(
+      `/api/auth/stylist/join-requests/${stylistId}/reject`,
+      {},
+    );
+  }
+
+  // ── Stylist Breaks (salon owner view) ─────────────────────────────────────
+
+  /** GET /api/bookings/salon/:salonId/breaks?date=YYYY-MM-DD */
+  getSalonStylistBreaks(salonId: string, date: string): Observable<StylistBreakDto[]> {
+    return this.http.get<StylistBreakDto[]>(`/api/bookings/salon/${salonId}/breaks`, {
+      params: { date },
+    });
+  }
 }
 
 export interface Station {
   _id: string;
   name: string;
   isActive: boolean;
+}
+
+/** Shape returned by GET /api/auth/salons/:salonId/staff */
+export interface SalonStaffMember {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl?: string;
+  stylistProfile?: {
+    bio?: string;
+    specialties: string[];
+    yearsExperience: number;
+    averageRating?: number;
+  };
+}
+
+/** Shape returned by GET /api/users/email/:email */
+export interface StylistSearchResult {
+  _id: string;
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  avatarUrl?: string;
+  role: string;
+  stylistProfile?: {
+    bio?: string;
+    specialties: string[];
+    yearsExperience: number;
+    currentSalonId?: string;
+    joinRequestStatus: string;
+  };
+}
+
+/** Shape returned by GET /api/auth/stylist/join-requests */
+export interface JoinRequestDto {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl?: string;
+  stylistProfile: {
+    bio?: string;
+    specialties: string[];
+    yearsExperience: number;
+    portfolioImages: Array<{ cloudinaryId: string; url: string; caption?: string }>;
+    joinRequestStatus: string;
+  };
+  createdAt: string;
+}
+
+/** Shape returned by GET /api/auth/salon/:salonId/sent-invitations */
+export interface SentInvitationDto {
+  stylistId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  avatarUrl?: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  invitedAt: string;
+  respondedAt?: string;
 }

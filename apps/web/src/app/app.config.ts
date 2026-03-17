@@ -10,7 +10,7 @@ import { IMAGE_LOADER, ImageLoaderConfig } from '@angular/common';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { appRoutes } from './app.routes';
 import { provideServiceWorker } from '@angular/service-worker';
-import { AuthService, authInterceptor, FCM_CONFIG } from '@org/shared-data-access';
+import { AuthService, authInterceptor, CurrencyService, FCM_CONFIG } from '@org/shared-data-access';
 import { environment } from '../environments/environment';
 
 // Images are already stored as full Cloudinary URLs — this pass-through loader
@@ -94,6 +94,19 @@ function provideAuthInit() {
   };
 }
 
+/**
+ * After the session is restored, load the user's preferred currency
+ * from the backend profile so every component/pipe sees the correct symbol.
+ */
+function provideCurrencyInit() {
+  return {
+    provide: APP_INITIALIZER,
+    useFactory: (currency: CurrencyService) => () => currency.loadFromProfile(),
+    deps: [CurrencyService],
+    multi: true,
+  };
+}
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
@@ -117,6 +130,7 @@ export const appConfig: ApplicationConfig = {
     MessageService,
     DialogService,
     provideAuthInit(),
+    provideCurrencyInit(),
     // Provide FCM configuration for push notifications
     {
       provide: FCM_CONFIG,

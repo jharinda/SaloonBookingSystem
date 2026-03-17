@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
@@ -13,8 +14,10 @@ import {
 } from '@nestjs/common';
 
 import { BookingService } from './booking.service';
+import { StylistBreakService } from './stylist-break.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { AvailableSlotsQueryDto, BookingListQueryDto } from './dto/booking-query.dto';
+import { CreateStylistBreakDto } from './dto/stylist-break.dto';
 import {
   AvailableSlotsResponseDto,
   BookingResponseDto,
@@ -27,7 +30,10 @@ import { AssignStationDto } from './dto/assign-station.dto';
 
 @Controller('bookings')
 export class BookingController {
-  constructor(private readonly bookingService: BookingService) {}
+  constructor(
+    private readonly bookingService: BookingService,
+    private readonly breakService: StylistBreakService,
+  ) {}
 
   // ── Public / availability ─────────────────────────────────────────────────
 
@@ -41,6 +47,19 @@ export class BookingController {
       query.date,
       query.durationMinutes,
     );
+  }
+
+  /**
+   * Public endpoint — returns the list of stylist IDs who have at least one
+   * break on the given date for the specified salon.
+   * Used by the booking wizard to disable on-break stylists.
+   */
+  @Get('breaks/stylists-on-break')
+  async stylistsOnBreak(
+    @Query('salonId') salonId: string,
+    @Query('date') date: string,
+  ): Promise<{ stylistIds: string[] }> {
+    return this.breakService.getStylistIdsOnBreak(salonId, date);
   }
 
   // ── Client routes ─────────────────────────────────────────────────────────
@@ -90,7 +109,65 @@ export class BookingController {
     return this.bookingService.rescheduleBooking(id, dto, user.sub);
   }
 
+  // ── Stylist routes ─────────────────────────────────────────────────────────
+
+  @Get('stylist/me')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STYLIST)
+  @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
+  async myStylistBookings(
+    @Query() query: BookingListQueryDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<PaginatedBookingsDto> {
+    const result = await this.bookingService.findAll(query, {
+      stylistId: user.sub,
+    });
+    return result;
+  }
+
+  @Get('stylist/me/breaks')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STYLIST)
+  async myBreaks(
+    @Query('date') date: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.breakService.findByDate(user.sub, date);
+  }
+
+  @Post('stylist/me/breaks')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STYLIST)
+  async createBreak(
+    @Body() dto: CreateStylistBreakDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.breakService.create(user.sub, dto);
+  }
+
+  @Delete('stylist/me/breaks/:id')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STYLIST)
+  async deleteBreak(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.breakService.delete(user.sub, id);
+  }
+
   // ── Salon-owner routes ────────────────────────────────────────────────────
+
+  @Get('salon/:salonId/breaks')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER, UserRole.ADMIN)
+  async salonBreaks(
+    @Param('salonId') salonId: string,
+    @Query('date') date: string,
+  ) {
+    return this.breakService.findBySalonAndDate(salonId, date);
+  }
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)

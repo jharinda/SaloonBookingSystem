@@ -19,7 +19,11 @@
           </div>
           <div class="stat-card__body">
             <span class="stat-value">
-              {{ card.prefix ?? '' }}{{ getStatValue(card.key) | number }}
+              @if (card.key === 'monthlyRevenue') {
+                {{ getStatValue(card.key) | appCurrency }}
+              } @else {
+                {{ card.prefix ?? '' }}{{ getStatValue(card.key) | number }}
+              }
             </span>
           </div>
         </div>

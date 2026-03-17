@@ -23,6 +23,10 @@ interface BookingNotificationPayload {
   salonOwnerId: string;
   salonName: string;
   salonAddress: string;
+  /** Assigned stylist info — only present when booking has a specific stylist */
+  stylist?: RecipientInfo;
+  stylistId?: string;
+  stylistName?: string;
 }
 
 @Processor(BOOKING_QUEUE)
@@ -78,6 +82,11 @@ export class BookingProcessor {
 
       // Push real-time SSE notification to the salon owner.
       await this.pushSseToOwner(payload.salonOwnerId, job.data);
+
+      // Push real-time SSE notification to the assigned stylist.
+      if (payload.stylistId) {
+        await this.pushSseToStylist(payload.stylistId, job.data);
+      }
     }
   }
 
@@ -227,12 +236,15 @@ export class BookingProcessor {
     booking: BookingResponseDto,
   ): Promise<BookingNotificationPayload | null> {
     try {
-      const [client, salonData] = await Promise.all([
+      const fetches: [Promise<RecipientInfo>, Promise<{ owner: RecipientInfo; ownerId: string; name: string; address: string }>, Promise<RecipientInfo | null>] = [
         this.fetchClient(booking.clientId),
         this.fetchSalon(booking.salonId),
-      ]);
+        booking.stylistId ? this.fetchStylist(booking.stylistId) : Promise.resolve(null),
+      ];
 
-      return {
+      const [client, salonData, stylist] = await Promise.all(fetches);
+
+      const payload: BookingNotificationPayload = {
         booking,
         client,
         salonOwner: salonData.owner,
@@ -240,6 +252,15 @@ export class BookingProcessor {
         salonName: salonData.name,
         salonAddress: salonData.address,
       };
+
+      // Include stylist info if the booking has an assigned stylist
+      if (booking.stylistId && stylist) {
+        payload.stylist = stylist;
+        payload.stylistId = booking.stylistId;
+        payload.stylistName = booking.stylistName ?? stylist.name;
+      }
+
+      return payload;
     } catch (err) {
       this.logger.warn(
         `Failed to build notification payload for bookingId=${booking.id}: ${(err as Error).message}`,
@@ -263,6 +284,24 @@ export class BookingProcessor {
     } catch (err) {
       this.logger.warn(`Could not fetch client ${clientId}: ${(err as Error).message}`);
       return { name: 'Unknown', email: '', phone: '' };
+    }
+  }
+
+  private async fetchStylist(stylistId: string): Promise<RecipientInfo | null> {
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get(`${this.authUrl}/api/auth/users/${stylistId}`, {
+          headers: { 'x-internal-token': this.internalToken ?? '' },
+        }),
+      );
+      return {
+        name: data.name ?? `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
+        email: data.email ?? '',
+        phone: data.phone ?? '',
+      };
+    } catch (err) {
+      this.logger.warn(`Could not fetch stylist ${stylistId}: ${(err as Error).message}`);
+      return null;
     }
   }
 
@@ -337,6 +376,51 @@ export class BookingProcessor {
       // Non-fatal: owner may not have an active SSE connection.
       this.logger.warn(
         `[SSE] Failed to push booking.new to owner ${salonOwnerId}: ${(err as Error).message}`,
+      );
+    }
+  }
+
+  private async pushSseToStylist(
+    stylistId: string,
+    booking: BookingResponseDto,
+  ): Promise<void> {
+    if (!stylistId) {
+      return;
+    }
+
+    if (!this.internalToken) {
+      this.logger.warn('[SSE] INTERNAL_TOKEN not configured — skipping stylist SSE push');
+      return;
+    }
+
+    try {
+      await firstValueFrom(
+        this.httpService.post(
+          `${this.apiGatewayUrl}/api/notifications/push`,
+          {
+            userId: stylistId,
+            event:  'booking.new.stylist',
+            data: {
+              bookingId:       booking.id,
+              clientName:      booking.clientName,
+              serviceName:     booking.serviceName,
+              startTime:       booking.startTime,
+              appointmentDate: booking.appointmentDate,
+              salonName:       booking.salonName,
+            },
+          },
+          {
+            headers: { 'x-internal-token': this.internalToken },
+          },
+        ),
+      );
+      this.logger.log(
+        `[SSE] Pushed booking.new.stylist to stylist ${stylistId} for bookingId=${booking.id}`,
+      );
+    } catch (err) {
+      // Non-fatal: stylist may not have an active SSE connection.
+      this.logger.warn(
+        `[SSE] Failed to push booking.new.stylist to stylist ${stylistId}: ${(err as Error).message}`,
       );
     }
   }

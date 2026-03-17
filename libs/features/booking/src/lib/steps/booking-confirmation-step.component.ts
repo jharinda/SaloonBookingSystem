@@ -5,7 +5,7 @@ import {
   signal,
   output,
 } from '@angular/core';
-import { DecimalPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { FloatLabelModule } from 'primeng/floatlabel';
 import { InputTextModule } from 'primeng/inputtext';
@@ -14,7 +14,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { FormsModule } from '@angular/forms';
 
 import { BookingStateService } from '../services/booking-state.service';
-import { BookingService, CreateBookingDto } from '@org/shared-data-access';
+import { BookingService, CreateBookingDto, AppCurrencyPipe } from '@org/shared-data-access';
 import { SalonServiceItem } from '@org/models';
 
 /**
@@ -30,7 +30,6 @@ import { SalonServiceItem } from '@org/models';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
-    DecimalPipe,
     DatePipe,
     FormsModule,
     CardModule,
@@ -38,6 +37,7 @@ import { SalonServiceItem } from '@org/models';
     InputTextModule,
     ButtonModule,
     ProgressSpinnerModule,
+    AppCurrencyPipe,
   ],
   templateUrl: './booking-confirmation-step.component.html',
   styleUrl: './booking-confirmation-step.component.scss',

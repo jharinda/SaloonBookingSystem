@@ -75,6 +75,15 @@ export const appRoutes: Route[] = [
       import('@org/salon-dashboard').then((m) => m.DASHBOARD_ROUTES),
   },
 
+  // Stylist dashboard — role-gated
+  {
+    path: 'stylist-dashboard',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['stylist'] },
+    loadChildren: () =>
+      import('@org/stylist-dashboard').then((m) => m.STYLIST_DASHBOARD_ROUTES),
+  },
+
   // Admin panel — admin role only
   {
     path: 'admin',

@@ -138,6 +138,27 @@ export class UserService {
     userId: string,
     dto: UpdateStylistProfileDto,
   ): Promise<UserProfileResponseDto> {
+    // Ensure stylistProfile is initialised (MongoDB can't $set nested
+    // dot-notation fields on a null parent object).
+    await this.userProfileModel.updateOne(
+      { userId, stylistProfile: null },
+      {
+        $set: {
+          stylistProfile: {
+            bio: '',
+            specialties: [],
+            yearsExperience: 0,
+            portfolioImages: [],
+            portfolioReviews: [],
+            currentSalonId: null,
+            joinRequestStatus: 'none',
+            isAvailable: true,
+            workingHours: [],
+          },
+        },
+      },
+    );
+
     const updateFields: Record<string, unknown> = {};
 
     if (dto.bio !== undefined) updateFields['stylistProfile.bio'] = dto.bio;
@@ -305,6 +326,7 @@ export class UserService {
       avatarUrl: profile.avatarUrl,
       role: profile.role,
       timezone: profile.timezone,
+      currency: profile.currency ?? 'LKR',
       address: profile.address,
       notificationPreferences: profile.notificationPreferences,
       stylistProfile: profile.stylistProfile ? {

@@ -1,0 +1,90 @@
+<aside
+  class="flex flex-col items-center bg-slate-50 dark:bg-zinc-950 flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden fixed left-3 top-[4.75rem] h-[calc(100vh-5.5rem)] rounded-2xl border border-zinc-200 dark:border-zinc-700 z-40"
+  [class.w-52]="isExpanded()"
+  [class.w-16]="!isExpanded()"
+  [class.shadow-\[0_0_20px_rgba\(139\,92\,246\,0\.2\)\,0_0_40px_rgba\(139\,92\,246\,0\.1\)\]]="isExpanded()"
+  [class.shadow-\[0_0_15px_rgba\(139\,92\,246\,0\.12\)\,0_0_30px_rgba\(139\,92\,246\,0\.06\)\]]="!isExpanded()"
+  (mouseenter)="expanded.emit()"
+  (mouseleave)="collapsed.emit()"
+>
+
+  <!-- Stylist avatar -->
+  @if (stylistName()) {
+    <div class="flex flex-col items-center gap-1 pb-4 mb-2 border-b border-zinc-200 dark:border-zinc-800 w-full px-2 mt-2">
+      <div class="flex items-center gap-2 w-full min-w-0 transition-all duration-300"
+           [class.justify-center]="!isExpanded()"
+           [class.justify-start]="isExpanded()">
+        <div class="w-9 h-9 flex-shrink-0 rounded-lg bg-zinc-100 dark:bg-zinc-700 flex items-center justify-center text-xs font-bold text-violet-600 dark:text-violet-400">
+          {{ stylistName()!.charAt(0).toUpperCase() }}
+        </div>
+        <span class="text-sm font-semibold text-zinc-800 dark:text-zinc-100 truncate overflow-hidden transition-all duration-200 whitespace-nowrap"
+              [class.opacity-100]="isExpanded()"
+              [class.opacity-0]="!isExpanded()"
+              [class.max-w-xs]="isExpanded()"
+              [class.max-w-0]="!isExpanded()">{{ stylistName() }}</span>
+      </div>
+    </div>
+  }
+
+  <!-- Icon nav -->
+  <nav class="flex flex-col items-center gap-1 flex-1 w-full px-2 py-2">
+    <a [routerLink]="'/stylist-dashboard/overview'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Overview" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
+      <span class="flex-shrink-0 w-5 flex items-center justify-center"><i class="pi pi-home"></i></span>
+      <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
+            [class.opacity-100]="isExpanded()"
+            [class.opacity-0]="!isExpanded()"
+            [class.max-w-xs]="isExpanded()"
+            [class.max-w-0]="!isExpanded()">Overview</span>
+    </a>
+    <a [routerLink]="'/stylist-dashboard/invitations'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Invitations" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
+      <span class="flex-shrink-0 w-5 flex items-center justify-center relative">
+        <i class="pi pi-envelope"></i>
+        @if (pendingCount() > 0) {
+          <span class="absolute -top-2 -right-2 min-w-[1rem] h-4 px-0.5 flex items-center justify-center rounded-full bg-violet-500 text-white text-[0.6rem] font-bold leading-none">
+            {{ pendingCount() > 99 ? '99+' : pendingCount() }}
+          </span>
+        }
+      </span>
+      <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
+            [class.opacity-100]="isExpanded()"
+            [class.opacity-0]="!isExpanded()"
+            [class.max-w-xs]="isExpanded()"
+            [class.max-w-0]="!isExpanded()">Invitations</span>
+    </a>
+    <a [routerLink]="'/stylist-dashboard/appointments'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Appointments" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
+      <span class="flex-shrink-0 w-5 flex items-center justify-center"><i class="pi pi-calendar"></i></span>
+      <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
+            [class.opacity-100]="isExpanded()"
+            [class.opacity-0]="!isExpanded()"
+            [class.max-w-xs]="isExpanded()"
+            [class.max-w-0]="!isExpanded()">Appointments</span>
+    </a>
+    <a [routerLink]="'/stylist-dashboard/details'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="My Details" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
+      <span class="flex-shrink-0 w-5 flex items-center justify-center"><i class="pi pi-id-card"></i></span>
+      <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
+            [class.opacity-100]="isExpanded()"
+            [class.opacity-0]="!isExpanded()"
+            [class.max-w-xs]="isExpanded()"
+            [class.max-w-0]="!isExpanded()">My Details</span>
+    </a>
+  </nav>
+
+  <!-- Footer: logout -->
+  <div class="flex items-center gap-2 pb-3 border-t border-zinc-200 dark:border-zinc-800 w-full pt-3 px-2 min-w-0">
+    <p-button
+      icon="pi pi-sign-out"
+      [rounded]="true"
+      [text]="true"
+      severity="secondary"
+      (onClick)="logout()"
+      aria-label="Sign out"
+      styleClass="text-zinc-400 flex-shrink-0"
+    />
+    <span class="text-xs text-zinc-400 truncate overflow-hidden transition-all duration-200"
+          [class.opacity-100]="isExpanded()"
+          [class.opacity-0]="!isExpanded()"
+          [class.w-auto]="isExpanded()"
+          [class.w-0]="!isExpanded()" class="text-zinc-500 dark:text-zinc-400">{{ userEmail() }}</span>
+  </div>
+
+</aside>

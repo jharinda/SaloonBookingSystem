@@ -10,7 +10,7 @@ $danger: #dc2626;
 .page-title {
   font-size: 1.75rem;
   font-weight: 800;
-  color: #1f2937;
+  color: #000000;
   margin: 0 0 24px;
 }
 
@@ -35,7 +35,7 @@ $danger: #dc2626;
 .empty-state {
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   padding: 64px 24px; text-align: center; color: #52525b;
-  h3 { margin: 0; font-size: 1.1rem; font-weight: 700; color: #1f2937; }
+  h3 { margin: 0; font-size: 1.1rem; font-weight: 700; color: #000000; }
   p  { margin: 0; font-size: .9rem; }
 }
 
@@ -77,7 +77,7 @@ table.mat-mdc-table { width: 100%; }
 .mat-mdc-row:hover { background: #f5f3ff; }
 
 // ── Common cell helpers ───────────────────────────────────────────────────
-.bold { font-weight: 600; color: #1f2937; }
+.bold { font-weight: 600; color: #000000; }
 
 .owner-cell {
   display: flex; flex-direction: column;
@@ -86,7 +86,7 @@ table.mat-mdc-table { width: 100%; }
 
 .owner-email { font-size: .78rem; color: #52525b; }
 
-.salon-name { font-weight: 600; color: #1f2937; }
+.salon-name { font-weight: 600; color: #000000; }
 
 // ── Badges ────────────────────────────────────────────────────────────────
 .badge {

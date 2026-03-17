@@ -80,6 +80,10 @@ export class UserProfile extends Document {
   @Prop({ type: String, default: 'UTC' })
   timezone: string;
 
+  /** ISO 4217 currency code — resolved from the user's region */
+  @Prop({ type: String, default: 'LKR' })
+  currency: string;
+
   @Prop({
     type: Object,
     default: { email: true, sms: false, whatsapp: false, push: false },
@@ -103,7 +107,5 @@ export class UserProfile extends Document {
 
 export const UserProfileSchema = SchemaFactory.createForClass(UserProfile);
 
-// Create indexes for common queries
-UserProfileSchema.index({ email: 1 });
-UserProfileSchema.index({ userId: 1 });
+// Create indexes for common queries (email and userId already indexed via @Prop)
 UserProfileSchema.index({ role: 1 });

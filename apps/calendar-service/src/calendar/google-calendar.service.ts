@@ -24,6 +24,7 @@ export class GoogleCalendarService {
     client: RecipientInfo,
     salonName: string,
     salonAddress: string,
+    currency = 'LKR',
   ): Promise<CreatedEventResult | null> {
     const authClient = await this.oAuth.getAuthorizedClient(booking.clientId);
     if (!authClient) {
@@ -46,7 +47,7 @@ export class GoogleCalendarService {
       location: salonAddress,
       description: [
         `Services: ${serviceNames}`,
-        `Total: LKR ${booking.totalPrice.toFixed(2)}`,
+        `Total: ${currency} ${booking.totalPrice.toFixed(2)}`,
         booking.notes ? `Notes: ${booking.notes}` : '',
       ]
         .filter(Boolean)

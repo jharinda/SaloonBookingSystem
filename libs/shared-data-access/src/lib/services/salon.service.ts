@@ -112,4 +112,26 @@ export class SalonService {
       map(normSalon),
     );
   }
+
+  /**
+   * Fetch staff members for a salon (public endpoint).
+   * GET /api/auth/salons/:salonId/staff
+   */
+  getSalonStaff(salonId: string): Observable<SalonStaffDto[]> {
+    return this.http.get<SalonStaffDto[]>(`/api/auth/salons/${salonId}/staff`);
+  }
+}
+
+export interface SalonStaffDto {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  avatarUrl?: string;
+  stylistProfile?: {
+    bio?: string;
+    specialties: string[];
+    yearsExperience: number;
+    averageRating?: number;
+  };
 }

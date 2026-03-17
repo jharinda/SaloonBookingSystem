@@ -36,8 +36,10 @@ import { Roles } from './decorators/roles.decorator';
 import { CurrentUser, JwtUser } from './decorators/current-user.decorator';
 import {
   CreateJoinRequestDto,
+  InviteStylistDto,
   StylistJoinRequestResponseDto,
   SalonStaffResponseDto,
+  UpdateStylistProfileDto,
 } from './dto/stylist-join-request.dto';
 import { AddPortfolioReviewDto, StylistPortfolioResponseDto } from './dto/portfolio.dto';
 import { AddFcmTokenDto, RemoveFcmTokenDto, FcmTokensResponseDto } from './dto/fcm-token.dto';
@@ -273,6 +275,83 @@ export class AuthController {
     @Param('salonId') salonId: string,
   ): Promise<SalonStaffResponseDto[]> {
     return this.authService.getSalonStaff(salonId);
+  }
+
+  // ── Salon-owner invitation endpoints ───────────────────────────────────
+
+  @Post('salon/invite-stylist')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async inviteStylist(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: InviteStylistDto,
+  ): Promise<{ message: string }> {
+    return this.authService.inviteStylist(user.sub, dto.stylistId, dto.salonId, dto.salonName);
+  }
+
+  @Get('salon/:salonId/sent-invitations')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async getSalonSentInvitations(
+    @Param('salonId') salonId: string,
+  ): Promise<Array<{
+    stylistId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatarUrl?: string;
+    status: string;
+    invitedAt: Date;
+    respondedAt?: Date;
+  }>> {
+    return this.authService.getSalonSentInvitations(salonId);
+  }
+
+  @Get('stylist/invitations')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STYLIST)
+  async getStylistInvitations(
+    @CurrentUser() user: JwtUser,
+  ): Promise<Array<{ salonId: string; salonName: string; status: string; invitedAt: Date }>> {
+    return this.authService.getStylistInvitations(user.sub);
+  }
+
+  @Patch('stylist/invitations/:salonId/accept')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STYLIST)
+  async acceptInvitation(
+    @CurrentUser() user: JwtUser,
+    @Param('salonId') salonId: string,
+  ): Promise<{ message: string }> {
+    return this.authService.acceptInvitation(user.sub, salonId);
+  }
+
+  @Patch('stylist/invitations/:salonId/reject')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STYLIST)
+  async rejectInvitation(
+    @CurrentUser() user: JwtUser,
+    @Param('salonId') salonId: string,
+  ): Promise<{ message: string }> {
+    return this.authService.rejectInvitation(user.sub, salonId);
+  }
+
+  // ── Stylist profile update ─────────────────────────────────────────────
+
+  @Patch('stylist/profile')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STYLIST)
+  async updateStylistProfile(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: UpdateStylistProfileDto,
+  ): Promise<{ message: string }> {
+    return this.authService.updateStylistProfile(user.sub, dto);
   }
 
   // ── Stylist portfolio endpoints ────────────────────────────────────────

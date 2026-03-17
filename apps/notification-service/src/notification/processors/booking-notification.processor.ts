@@ -55,7 +55,7 @@ export class BookingNotificationProcessor {
   async handleBookingCreated(
     job: Job<BookingNotificationPayload>,
   ): Promise<void> {
-    const { booking, client, salonOwner, salonName, salonAddress, salonOwnerId } = job.data;
+    const { booking, client, salonOwner, salonName, salonAddress, salonOwnerId, stylist, stylistId, stylistName } = job.data;
 
     const vars: TemplateVariables = {
       salonName,
@@ -66,7 +66,7 @@ export class BookingNotificationProcessor {
       totalPrice: booking.totalPrice.toFixed(2),
     };
 
-    // ── Client notifications ─────────────────────────────────────────────
+    // ── Client notifications (email + WhatsApp + push) ───────────────────
     await Promise.allSettled([
       this.sendEmail(
         NotificationEvent.BOOKING_CREATED,
@@ -84,6 +84,12 @@ export class BookingNotificationProcessor {
         booking.id,
         booking.clientId,
         booking.salonId,
+      ),
+      this.pushNotification.sendToUser(
+        booking.clientId,
+        '📅 Booking Created',
+        `Your ${vars.serviceName} appointment at ${salonName} is booked for ${vars.date} at ${booking.startTime}.`,
+        { bookingId: booking.id, event: NotificationEvent.BOOKING_CREATED },
       ),
     ]);
 
@@ -107,6 +113,28 @@ export class BookingNotificationProcessor {
         booking.salonId,
       ),
     ]);
+
+    // ── Stylist notifications (email + push) — only when a stylist is assigned ──
+    if (stylist && stylistId) {
+      const stylistDisplayName = stylistName ?? stylist.name;
+      await Promise.allSettled([
+        this.sendEmail(
+          NotificationEvent.BOOKING_CREATED,
+          TemplateType.BOOKING_CREATED,
+          stylist.email,
+          { ...vars, clientName: stylistDisplayName },
+          booking.id,
+          // NOTE: do NOT pass stylistId here — inbox save is handled by ssePush.push below
+        ),
+        this.pushNotification.sendToUser(
+          stylistId,
+          '💇 New Appointment',
+          `${client.name} booked ${vars.serviceName} with you at ${salonName} on ${vars.date} at ${booking.startTime}.`,
+          { bookingId: booking.id, event: NotificationEvent.BOOKING_CREATED },
+        ),
+      ]);
+    }
+
     // ── Dedicated inbox saves (clean, human-readable — NOT the HTML email body) ──
     const inboxData = {
       bookingId:       booking.id,
@@ -133,11 +161,20 @@ export class BookingNotificationProcessor {
             inboxData,
           )
         : Promise.resolve(),
+      // Stylist inbox is saved via ssePush.push below — no duplicate here
     ]);
 
     // ── SSE: push booking.new to salon owner in real-time ─────────────────────
     if (salonOwnerId) {
       await this.ssePush.push(salonOwnerId, 'booking.new', inboxData);
+    }
+
+    // ── SSE: push booking.new.stylist to assigned stylist in real-time ─────────
+    if (stylistId) {
+      await this.ssePush.push(stylistId, 'booking.new.stylist', {
+        ...inboxData,
+        salonName,
+      });
     }
 
     // ── Schedule 15-min and now SSE reminders for the client ──────────────────

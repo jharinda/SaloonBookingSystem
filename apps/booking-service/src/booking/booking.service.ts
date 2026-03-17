@@ -19,6 +19,7 @@ import Redis from 'ioredis';
 import { fromZonedTime } from 'date-fns-tz';
 
 import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
+import { StylistBreak, StylistBreakDocument } from './schemas/stylist-break.schema';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { BookingListQueryDto } from './dto/booking-query.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
@@ -95,6 +96,8 @@ export class BookingService {
   constructor(
     @InjectModel(Booking.name)
     private readonly bookingModel: Model<BookingDocument>,
+    @InjectModel(StylistBreak.name)
+    private readonly breakModel: Model<StylistBreakDocument>,
     @InjectQueue(BOOKING_QUEUE)
     private readonly bookingQueue: Queue,
     private readonly httpService: HttpService,
@@ -216,16 +219,33 @@ export class BookingService {
     // For stylist-specific queries, we still use the old blocking logic.
     // For salon-level queries, we count concurrent bookings per slot.
     if (stylistId) {
+      // Also fetch breaks for this stylist on this date to block those slots
+      const stylistBreaks = await this.breakModel
+        .find({
+          stylistId: new Types.ObjectId(stylistId),
+          date: new Date(`${date}T00:00:00.000Z`),
+        })
+        .lean()
+        .exec();
+
       // Original logic for stylist-specific availability
       const blocked = existingBookings.map((b) => ({
         start: toMinutes(b.startTime),
         end:   toMinutes(b.endTime) + BOOKING_BUFFER_MINUTES,
       }));
 
+      // Treat each break window as fully blocked (no buffer needed)
+      const breakBlocked = stylistBreaks.map((br) => ({
+        start: toMinutes(br.startTime),
+        end:   toMinutes(br.endTime),
+      }));
+
       const available = allSlots.filter((slot) => {
         const slotStart = toMinutes(slot);
         const slotEnd   = slotStart + durationMinutes;
-        return !blocked.some((b) => slotStart < b.end && slotEnd > b.start);
+        const blockedByBooking = blocked.some((b) => slotStart < b.end && slotEnd > b.start);
+        const blockedByBreak  = breakBlocked.some((br) => slotStart < br.end && slotEnd > br.start);
+        return !blockedByBooking && !blockedByBreak;
       });
 
       const result: AvailableSlotsResponseDto = { salonId, date, slots: available };
@@ -350,6 +370,25 @@ export class BookingService {
         if (overlappingCount >= stationCount) {
           throw new BadRequestException(
             `The time slot ${dto.startTime}–${endTime} is no longer available`,
+          );
+        }
+      }
+
+      // ── Break conflict check (when stylistId is known) ─────────────────
+      // This applies whether the stylist was explicitly chosen or auto-assigned.
+      // We check before auto-assign because the assigned stylist's break isn't
+      // known yet — after auto-assign (below) we re-validate.
+      if (dto.stylistId) {
+        const breakConflict = await this.breakModel.findOne({
+          stylistId: new Types.ObjectId(dto.stylistId),
+          date: new Date(`${dto.appointmentDate}T00:00:00.000Z`),
+          startTime: { $lt: endTime },
+          endTime: { $gt: dto.startTime },
+        });
+
+        if (breakConflict) {
+          throw new BadRequestException(
+            `The selected stylist is on a break from ${breakConflict.startTime} to ${breakConflict.endTime}. Please choose a different time or stylist.`,
           );
         }
       }
@@ -523,6 +562,29 @@ export class BookingService {
         }
       }
 
+      // ── Break conflict check for auto-assigned stylist ──────────────────
+      // When the client didn't pick a stylist, we must also verify the
+      // auto-assigned one isn't on break during the requested slot.
+      if (!dto.stylistId && assignedStylistId) {
+        const autoBreakConflict = await this.breakModel.findOne({
+          stylistId: assignedStylistId,
+          date: new Date(`${dto.appointmentDate}T00:00:00.000Z`),
+          startTime: { $lt: endTime },
+          endTime: { $gt: dto.startTime },
+        });
+
+        if (autoBreakConflict) {
+          // Auto-assigned stylist is on break — clear the assignment so booking
+          // is recorded without a stylist (owner can assign manually later).
+          this.logger.warn(
+            `Auto-assigned stylist ${assignedStylistName} is on a break at ${dto.startTime}; proceeding without stylist assignment`,
+          );
+          assignedStylistId = null;
+          assignedStylistName = '';
+          wasAssignedAutomatically = false;
+        }
+      }
+
       const booking = await this.bookingModel.create({
         clientId: new Types.ObjectId(clientId),
         salonId: new Types.ObjectId(dto.salonId),
@@ -601,7 +663,18 @@ export class BookingService {
       where['clientId'] = new Types.ObjectId(where['clientId'] as string);
     }
 
+    // stylistId is stored as ObjectId — convert when passed via filter from controller
+    if (where['stylistId'] && typeof where['stylistId'] === 'string') {
+      where['stylistId'] = new Types.ObjectId(where['stylistId'] as string);
+    }
+
+    // salonId passed via filter also needs ObjectId conversion
+    if (where['salonId'] && typeof where['salonId'] === 'string') {
+      where['salonId'] = new Types.ObjectId(where['salonId'] as string);
+    }
+
     if (query.salonId) where['salonId'] = new Types.ObjectId(query.salonId);
+    if (query.stylistId) where['stylistId'] = new Types.ObjectId(query.stylistId);
     if (query.status) where['status'] = query.status;
     if (query.date) {
       where['appointmentDate'] = new Date(`${query.date}T00:00:00.000Z`);
@@ -614,7 +687,13 @@ export class BookingService {
     }
 
     const [data, total] = await Promise.all([
-      this.bookingModel.find(where).skip(skip).limit(limit).lean().exec(),
+      this.bookingModel
+        .find(where)
+        .sort({ appointmentDate: 1, startTime: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
       this.bookingModel.countDocuments(where),
     ]);
 

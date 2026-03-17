@@ -42,10 +42,11 @@ import {
   UserProfile,
   UserService,
   ConnectedAccounts,
+  SalonInvitationDto,
 } from '@org/shared-data-access';
 import { Booking, BookingStatus } from '@org/models';
 
-//  Validators 
+//  Validators
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=[\]{}|;':",.<>?/`~])/;
 
@@ -71,7 +72,7 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
   NO_SHOW:     'secondary',
 };
 
-// 
+//
 
 @Component({
   selector: 'lib-account',
@@ -176,6 +177,16 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                 <p-tab value="notifications">
                   <i class="pi pi-bell mr-2"></i>Notifications
                 </p-tab>
+                @if (isStylist()) {
+                  <p-tab value="invitations">
+                    <i class="pi pi-envelope mr-2"></i>Invitations
+                    @if (invitations().length) {
+                      <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-purple-600 rounded-full">
+                        {{ invitations().length }}
+                      </span>
+                    }
+                  </p-tab>
+                }
               </p-tablist>
 
               <p-tabpanels>
@@ -533,6 +544,62 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                   </div>
                 </p-tabpanel>
 
+                <!--  INVITATIONS TAB (stylists only)  -->
+                @if (isStylist()) {
+                  <p-tabpanel value="invitations">
+                    <div class="flex flex-col gap-4 pt-4">
+                      <h3 class="text-base font-semibold text-gray-800 m-0">Salon Invitations</h3>
+                      <p class="text-sm text-gray-500 mt-0 mb-2">
+                        Salon owners can invite you to join their team. Accept to become a staff member.
+                      </p>
+
+                      @if (invitationsLoading()) {
+                        <div class="flex justify-center py-8">
+                          <p-progressSpinner styleClass="w-8 h-8" strokeWidth="4" />
+                        </div>
+                      } @else if (invitations().length === 0) {
+                        <div class="text-center py-12 text-gray-400">
+                          <i class="pi pi-inbox text-4xl mb-3 block"></i>
+                          <p class="text-sm">No pending invitations</p>
+                        </div>
+                      } @else {
+                        @for (inv of invitations(); track inv.salonId) {
+                          <div class="flex items-center justify-between py-4 px-4 border border-gray-200 rounded-xl">
+                            <div class="flex items-center gap-3">
+                              <span class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                                <i class="pi pi-building text-purple-600"></i>
+                              </span>
+                              <div>
+                                <div class="font-semibold text-gray-900">{{ inv.salonName }}</div>
+                                <div class="text-xs text-gray-400">
+                                  Invited {{ inv.invitedAt | date:'mediumDate' }}
+                                </div>
+                              </div>
+                            </div>
+                            <div class="flex gap-2">
+                              <p-button
+                                label="Accept"
+                                icon="pi pi-check"
+                                severity="success"
+                                size="small"
+                                (onClick)="acceptInv(inv.salonId)"
+                              />
+                              <p-button
+                                label="Decline"
+                                icon="pi pi-times"
+                                severity="danger"
+                                size="small"
+                                [outlined]="true"
+                                (onClick)="rejectInv(inv.salonId)"
+                              />
+                            </div>
+                          </div>
+                        }
+                      }
+                    </div>
+                  </p-tabpanel>
+                }
+
               </p-tabpanels>
             </p-tabs>
           </p-card>
@@ -573,7 +640,7 @@ export class AccountComponent implements OnInit {
   private readonly fb             = inject(FormBuilder);
   private readonly cdr            = inject(ChangeDetectorRef);
 
-  //  State 
+  //  State
   readonly loading             = signal(true);
   readonly profile             = signal<UserProfile | null>(null);
   readonly avatarPreview       = signal<string | null>(null);
@@ -593,6 +660,10 @@ export class AccountComponent implements OnInit {
   readonly savingPassword      = signal(false);
   readonly disconnectingGoogle = signal(false);
   readonly deletingAccount     = signal(false);
+  readonly invitations         = signal<SalonInvitationDto[]>([]);
+  readonly invitationsLoading  = signal(false);
+
+  readonly isStylist = computed(() => this.profile()?.role?.toLowerCase() === 'stylist');
 
   deleteDialogVisible = false;
   deleteConfirmText   = '';
@@ -609,7 +680,7 @@ export class AccountComponent implements OnInit {
     ).slice(0, 5)
   );
 
-  //  Options 
+  //  Options
   readonly languageOptions = [
     { label: 'English', value: 'en' },
     { label: 'Sinhala', value: 'si' },
@@ -654,7 +725,7 @@ export class AccountComponent implements OnInit {
     },
   ];
 
-  //  Forms 
+  //  Forms
   readonly profileForm = this.fb.group({
     firstName:         ['', [Validators.required, Validators.maxLength(50)]],
     lastName:          ['', [Validators.required, Validators.maxLength(50)]],
@@ -673,7 +744,7 @@ export class AccountComponent implements OnInit {
     { validators: confirmPasswordMatch },
   );
 
-  //  Lifecycle 
+  //  Lifecycle
   ngOnInit(): void {
     this.loadProfile();
     this.loadConnectedAccounts();
@@ -692,6 +763,10 @@ export class AccountComponent implements OnInit {
           email:     p.email,
         });
         this.loading.set(false);
+        // Load invitations for stylists
+        if (p.role?.toLowerCase() === 'stylist') {
+          this.loadInvitations();
+        }
       },
       error: () => {
         this.loading.set(false);
@@ -715,7 +790,7 @@ export class AccountComponent implements OnInit {
     });
   }
 
-  //  Avatar 
+  //  Avatar
   onAvatarFileChange(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file  = input.files?.[0];
@@ -743,7 +818,7 @@ export class AccountComponent implements OnInit {
     });
   }
 
-  //  Profile save 
+  //  Profile save
   saveProfile(): void {
     this.profileForm.markAllAsTouched();
     if (this.profileForm.invalid) return;
@@ -763,7 +838,7 @@ export class AccountComponent implements OnInit {
     });
   }
 
-  //  Password change 
+  //  Password change
   changePassword(): void {
     this.passwordForm.markAllAsTouched();
     if (this.passwordForm.invalid) return;
@@ -785,7 +860,7 @@ export class AccountComponent implements OnInit {
     });
   }
 
-  //  Connected accounts 
+  //  Connected accounts
   connectGoogle(): void { window.location.href = '/api/auth/google'; }
 
   disconnectGoogle(): void {
@@ -800,7 +875,7 @@ export class AccountComponent implements OnInit {
     });
   }
 
-  //  Notification toggle 
+  //  Notification toggle
   onNotifToggle(key: keyof NotificationPreferences, value: boolean): void {
     this.notifPrefs.update((p) => ({ ...p, [key]: value }));
     this.userService.updateNotificationPreferences({ [key]: value }).subscribe({
@@ -811,7 +886,7 @@ export class AccountComponent implements OnInit {
     });
   }
 
-  //  Delete account 
+  //  Delete account
   openDeleteDialog(): void {
     this.deleteConfirmText = '';
     this.deleteDialogVisible = true;
@@ -834,12 +909,12 @@ export class AccountComponent implements OnInit {
     });
   }
 
-  //  Status helper 
+  //  Status helper
   statusSeverity(s: BookingStatus): StatusSeverity {
     return STATUS_SEVERITY[s] ?? 'secondary';
   }
 
-  //  Error helpers 
+  //  Error helpers
   profileError(field: string): string | null {
     const ctrl = this.profileForm.get(field);
     if (!ctrl?.touched || ctrl.valid) return null;
@@ -866,5 +941,40 @@ export class AccountComponent implements OnInit {
 
   private toast(severity: 'success' | 'error' | 'info' | 'warn', detail: string): void {
     this.msgSvc.add({ severity, summary: severity === 'error' ? 'Error' : 'Done', detail, life: 3500 });
+  }
+
+  // ── Stylist invitations ──────────────────────────────────────────────────
+
+  private loadInvitations(): void {
+    this.invitationsLoading.set(true);
+    this.userService.getStylistInvitations().subscribe({
+      next: (invs) => {
+        this.invitations.set(invs);
+        this.invitationsLoading.set(false);
+      },
+      error: () => {
+        this.invitationsLoading.set(false);
+      },
+    });
+  }
+
+  acceptInv(salonId: string): void {
+    this.userService.acceptInvitation(salonId).subscribe({
+      next: () => {
+        this.toast('success', 'Invitation accepted! You are now a staff member of this salon.');
+        this.loadInvitations();
+      },
+      error: () => this.toast('error', 'Failed to accept invitation'),
+    });
+  }
+
+  rejectInv(salonId: string): void {
+    this.userService.rejectInvitation(salonId).subscribe({
+      next: () => {
+        this.toast('info', 'Invitation declined.');
+        this.loadInvitations();
+      },
+      error: () => this.toast('error', 'Failed to decline invitation'),
+    });
   }
 }

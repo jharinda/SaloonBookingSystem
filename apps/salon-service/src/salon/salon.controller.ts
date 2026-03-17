@@ -3,14 +3,17 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
   Query,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { SalonService } from './salon.service';
 import { CreateSalonDto, OperatingHoursDto } from './dto/create-salon.dto';
@@ -28,7 +31,10 @@ import { JwtAuthGuard, RolesGuard, Roles, CurrentUser, JwtUser, UserRole } from 
 
 @Controller('salons')
 export class SalonController {
-  constructor(private readonly salonService: SalonService) {}
+  constructor(
+    private readonly salonService: SalonService,
+    private readonly configService: ConfigService,
+  ) {}
 
   // ── Public routes ─────────────────────────────────────────────────────────
 
@@ -56,6 +62,20 @@ export class SalonController {
   @Roles(UserRole.SALON_OWNER, UserRole.ADMIN)
   async mySalons(@CurrentUser() user: JwtUser): Promise<SalonResponseDto[]> {
     return this.salonService.getSalonsByOwner(user.sub);
+  }
+
+  /** Internal route — find salons that contain a given stylist in their staff */
+  @Get('internal/by-stylist/:stylistId')
+  @HttpCode(HttpStatus.OK)
+  async findSalonsByStylist(
+    @Param('stylistId') stylistId: string,
+    @Headers('x-internal-token') token: string | undefined,
+  ): Promise<Array<{ salonId: string; salonName: string }>> {
+    const expected = this.configService.get<string>('internalToken');
+    if (!expected || !token || token !== expected) {
+      throw new UnauthorizedException('Internal access only');
+    }
+    return this.salonService.findSalonsByStylist(stylistId);
   }
 
   @Get(':id')
@@ -213,6 +233,47 @@ export class SalonController {
     @CurrentUser() user: JwtUser,
   ): Promise<SalonResponseDto> {
     return this.salonService.setPrimaryImage(id, imageId, user.sub);
+  }
+
+  // ── Staff Management ────────────────────────────────────────────────────
+
+  @Post(':id/staff/:stylistId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async addStaff(
+    @Param('id') id: string,
+    @Param('stylistId') stylistId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.addStaffByOwner(id, stylistId, user.sub);
+  }
+
+  @Delete(':id/staff/:stylistId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async removeStaff(
+    @Param('id') id: string,
+    @Param('stylistId') stylistId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.removeStaff(id, stylistId, user.sub);
+  }
+
+  /** Internal route — called by auth-service when approving a join request */
+  @Post(':id/staff-internal/:stylistId')
+  @HttpCode(HttpStatus.OK)
+  async addStaffInternal(
+    @Param('id') id: string,
+    @Param('stylistId') stylistId: string,
+    @Headers('x-internal-token') token: string | undefined,
+  ): Promise<SalonResponseDto> {
+    const expected = this.configService.get<string>('internalToken');
+    if (!expected || !token || token !== expected) {
+      throw new UnauthorizedException('Internal access only');
+    }
+    return this.salonService.addStaff(id, stylistId);
   }
 
   @Get(':salonId/staff-analytics')

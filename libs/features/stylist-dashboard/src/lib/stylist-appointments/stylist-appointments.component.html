@@ -1,0 +1,331 @@
+<div class="appointments-container">
+  <p-toast />
+
+  <!-- Toolbar -->
+  <p-toolbar styleClass="mb-4">
+    <ng-template pTemplate="start">
+      <h2 class="m-0 text-xl font-semibold">My Appointments</h2>
+    </ng-template>
+
+    <ng-template pTemplate="center">
+      <div class="date-navigation">
+        <p-button icon="pi pi-chevron-left" [text]="true" (onClick)="previousDay()" />
+        <span class="date-display">{{ formatDate(selectedDate()) }}</span>
+        <p-button icon="pi pi-chevron-right" [text]="true" (onClick)="nextDay()" />
+        <p-button label="Today" [outlined]="true" size="small" (onClick)="today()" styleClass="ml-2" />
+      </div>
+    </ng-template>
+
+    <ng-template pTemplate="end">
+      <p-selectButton
+        [options]="viewOptions"
+        [ngModel]="viewMode()"
+        (ngModelChange)="viewMode.set($event)"
+        optionLabel="label"
+        optionValue="value"
+      >
+        <ng-template let-item>
+          <i [class]="item.icon"></i>
+          <span class="ml-2 hidden-on-mobile">{{ item.label }}</span>
+        </ng-template>
+      </p-selectButton>
+    </ng-template>
+  </p-toolbar>
+
+  <!-- Calendar View -->
+  @if (viewMode() === 'calendar') {
+    <div class="calendar-view">
+      @let gridData = calendarGrid();
+      <lib-calendar-grid
+        [timeSlots]="gridData.timeSlots"
+        [columns]="gridColumns"
+        [loading]="loading()"
+        emptyMessage="No schedule to display"
+      >
+        <!-- Cell template for each time slot -->
+        <ng-template #cellTemplate let-ctx>
+          @let entry = calendarGrid().grid[ctx.time]?.schedule;
+          @if (entry) {
+            @if (isBreakEntry(entry)) {
+              <!-- Break block -->
+              <div
+                [class]="'break-cell ' + getBreakBgClass(entry.type)"
+                [style.grid-row-end]="'span ' + getBreakRowSpan(entry)"
+              >
+                <div class="break-content">
+                  <div class="flex items-center gap-2">
+                    <i [class]="breakTypeIcon(entry.type) + ' text-current'"></i>
+                    <strong class="text-current font-semibold">{{ breakTypeLabel(entry.type) }}</strong>
+                  </div>
+                  <span class="break-time text-current opacity-70 text-xs">{{ entry.startTime }} - {{ entry.endTime }}</span>
+                  @if (entry.note) {
+                    <span class="break-note text-current opacity-50 text-xs italic">{{ entry.note }}</span>
+                  }
+                </div>
+                <p-button
+                  icon="pi pi-times"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="danger"
+                  size="small"
+                  styleClass="break-delete-btn"
+                  (onClick)="deleteBreak(entry._id)"
+                />
+              </div>
+            } @else {
+              <!-- Booking block — clickable to see details -->
+              <div
+                class="booking-cell"
+                [class.status-pending]="entry.status === 'PENDING'"
+                [class.status-confirmed]="entry.status === 'CONFIRMED'"
+                [class.status-completed]="entry.status === 'COMPLETED'"
+                [class.status-no-show]="entry.status === 'NO_SHOW'"
+                [style.grid-row-end]="'span ' + getBookingRowSpan(entry)"
+                (click)="openBookingDetails(entry)"
+              >
+                <div class="booking-content">
+                  <strong>{{ entry.clientName }}</strong>
+                  <div class="booking-service">{{ entry.serviceName }}</div>
+                  <div class="booking-time">{{ entry.startTime }} - {{ entry.endTime }}</div>
+                  <p-tag
+                    [value]="entry.status"
+                    [severity]="getStatusSeverity(entry.status)"
+                    styleClass="mt-1 text-xs"
+                  />
+                </div>
+              </div>
+            }
+          } @else {
+            <!-- Empty slot — clickable to add break -->
+            <div class="empty-cell" (click)="onEmptySlotClick(ctx.time)">
+              <span class="empty-cell-hint">
+                <i class="pi pi-plus-circle"></i> Add break
+              </span>
+            </div>
+          }
+        </ng-template>
+      </lib-calendar-grid>
+    </div>
+  }
+
+  <!-- List View -->
+  @if (viewMode() === 'list') {
+    <div class="list-view">
+      <p-table
+        [value]="filteredBookings()"
+        [loading]="loading()"
+        [rowHover]="true"
+        [stripedRows]="true"
+        styleClass="p-datatable-sm"
+      >
+        <ng-template #header>
+          <tr>
+            <th>Client</th>
+            <th>Service</th>
+            <th>Time</th>
+            <th>Duration</th>
+            <th>Salon</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </ng-template>
+        <ng-template #body let-booking>
+          <tr>
+            <td>{{ booking.clientName || 'Unknown' }}</td>
+            <td>{{ booking.serviceName }}</td>
+            <td>{{ booking.startTime }} - {{ booking.endTime }}</td>
+            <td>{{ getBookingDuration(booking) }}min</td>
+            <td>{{ booking.salonName }}</td>
+            <td>
+              <p-tag [value]="booking.status" [severity]="getStatusSeverity(booking.status)" />
+            </td>
+            <td>
+              <p-button
+                icon="pi pi-eye"
+                [text]="true"
+                [rounded]="true"
+                severity="info"
+                (onClick)="openBookingDetails(booking)"
+              />
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template #emptymessage>
+          <tr>
+            <td colspan="7" class="text-center">
+              <div class="empty-state">
+                <i class="pi pi-calendar-times" style="font-size: 3rem"></i>
+                <p>No appointments for this date</p>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+
+      <!-- Breaks for this day (list view) -->
+      @if (breaks().length > 0) {
+        <div class="mt-4">
+          <h3 class="text-lg font-semibold mb-2">Breaks</h3>
+          <div class="flex flex-col gap-2">
+            @for (brk of breaks(); track brk._id) {
+              <div class="flex items-center gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+                <i [class]="breakTypeIcon(brk.type) + ' text-amber-600 dark:text-amber-400'"></i>
+                <div class="flex-1">
+                  <strong class="text-sm text-zinc-800 dark:text-zinc-100">{{ breakTypeLabel(brk.type) }}</strong>
+                  <span class="text-sm text-zinc-500 dark:text-zinc-400 ml-2">{{ brk.startTime }} - {{ brk.endTime }}</span>
+                  @if (brk.note) {
+                    <span class="text-xs text-zinc-400 ml-2">{{ brk.note }}</span>
+                  }
+                </div>
+                <p-button
+                  icon="pi pi-trash"
+                  [rounded]="true"
+                  [text]="true"
+                  severity="danger"
+                  size="small"
+                  (onClick)="deleteBreak(brk._id)"
+                />
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Booking Details Drawer -->
+  <p-drawer
+    [visible]="showBookingDetails()"
+    (visibleChange)="showBookingDetails.set($event)"
+    position="right"
+    [style]="{width: '420px'}"
+  >
+    @if (selectedBooking(); as booking) {
+      <ng-template pTemplate="header">
+        <h3>Booking Details</h3>
+      </ng-template>
+
+      <div class="booking-details">
+        <div class="detail-section">
+          <p-tag
+            [value]="booking.status"
+            [severity]="getStatusSeverity(booking.status)"
+            styleClass="text-lg"
+          />
+        </div>
+
+        <div class="detail-section">
+          <label>Client</label>
+          <p class="detail-value">{{ booking.clientName }}</p>
+        </div>
+
+        <div class="detail-section">
+          <label>Service</label>
+          <p class="detail-value">{{ booking.serviceName }}</p>
+          <div class="service-details">
+            @for (service of booking.services; track service.serviceId) {
+              <div class="service-item">
+                <span>{{ service.name }}</span>
+                <span>{{ service.durationMinutes }}min</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <label>Time</label>
+          <p class="detail-value">
+            {{ booking.appointmentDate }} &bull; {{ booking.startTime }} - {{ booking.endTime }}
+          </p>
+        </div>
+
+        <div class="detail-section">
+          <label>Salon</label>
+          <p class="detail-value">{{ booking.salonName }}</p>
+        </div>
+
+        @if (booking.stationName) {
+          <div class="detail-section">
+            <label>Station</label>
+            <p class="detail-value">{{ booking.stationName }}</p>
+          </div>
+        }
+
+        @if (booking.notes) {
+          <div class="detail-section">
+            <label>Notes</label>
+            <p class="detail-value notes">{{ booking.notes }}</p>
+          </div>
+        }
+      </div>
+    }
+  </p-drawer>
+
+  <!-- Add Break Dialog -->
+  <p-dialog
+    [visible]="showBreakDialog()"
+    (visibleChange)="showBreakDialog.set($event)"
+    header="Add Break"
+    [modal]="true"
+    [style]="{ width: '400px' }"
+    [closable]="!breakSaving()"
+  >
+    <div class="flex flex-col gap-4 pt-2">
+      <div>
+        <label class="block text-sm font-medium mb-1">Break Type</label>
+        <p-select
+          [options]="breakTypeOptions"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="breakForm.type"
+          styleClass="w-full"
+        />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium mb-1">Start Time</label>
+          <input
+            pInputText
+            type="time"
+            [(ngModel)]="breakForm.startTime"
+            class="w-full"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">End Time</label>
+          <input
+            pInputText
+            type="time"
+            [(ngModel)]="breakForm.endTime"
+            class="w-full"
+          />
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Note (optional)</label>
+        <input
+          pInputText
+          [(ngModel)]="breakForm.note"
+          placeholder="e.g. Quick coffee"
+          class="w-full"
+        />
+      </div>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <p-button
+        label="Cancel"
+        severity="secondary"
+        [text]="true"
+        (onClick)="showBreakDialog.set(false)"
+        [disabled]="breakSaving()"
+      />
+      <p-button
+        label="Add Break"
+        icon="pi pi-check"
+        (onClick)="saveBreak()"
+        [loading]="breakSaving()"
+      />
+    </ng-template>
+  </p-dialog>
+</div>

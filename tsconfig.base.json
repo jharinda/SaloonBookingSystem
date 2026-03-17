@@ -24,10 +24,14 @@
       "@org/booking": ["libs/features/booking/src/index.ts"],
       "@org/discover": ["libs/features/discover/src/index.ts"],
       "@org/salon-dashboard": ["libs/features/salon-dashboard/src/index.ts"],
+      "@org/stylist-dashboard": [
+        "libs/features/stylist-dashboard/src/index.ts"
+      ],
       "@org/reviews": ["libs/features/reviews/src/index.ts"],
       "@org/account": ["libs/features/account/src/index.ts"],
       "@org/admin": ["libs/features/admin/src/index.ts"],
-      "@org/chat": ["libs/features/chat/src/index.ts"]
+      "@org/chat": ["libs/features/chat/src/index.ts"],
+      "@org/shared-ui": ["libs/shared/ui/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

@@ -6,6 +6,16 @@ export type UserDocument = HydratedDocument<User>;
 
 export type JoinRequestStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
+export type InvitationStatus = 'pending' | 'accepted' | 'rejected';
+
+export interface SalonInvitation {
+  salonId: MongooseSchema.Types.ObjectId;
+  salonName: string;
+  status: InvitationStatus;
+  invitedAt: Date;
+  respondedAt?: Date;
+}
+
 export interface WorkingHours {
   day: number; // 0-6 (Sunday to Saturday)
   start: string;
@@ -37,6 +47,7 @@ export interface StylistProfile {
   portfolioReviews: PortfolioReview[];
   currentSalonId?: MongooseSchema.Types.ObjectId | null;
   joinRequestStatus: JoinRequestStatus;
+  salonInvitations: SalonInvitation[];
   isAvailable: boolean;
   workingHours: WorkingHours[];
 }

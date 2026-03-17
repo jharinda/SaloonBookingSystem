@@ -254,7 +254,7 @@
                       <p-tag [value]="svc.category" severity="secondary" class="mt-1" />
                     </td>
                     <td class="text-center text-gray-600 dark:text-gray-400">{{ svc.duration }} min</td>
-                    <td class="text-right font-semibold text-purple-600 dark:text-purple-400">LKR {{ svc.price | number }}</td>
+                    <td class="text-right font-semibold text-purple-600 dark:text-purple-400">{{ svc.price | appCurrency }}</td>
                     <td class="text-right">
                       <p-button
                         label="Book"
@@ -370,7 +370,7 @@
   <!--  Sticky Mobile CTA  -->
   <div class="fixed bottom-0 left-0 right-0 sm:hidden p-4 bg-white dark:bg-zinc-900 border-t border-gray-200 dark:border-zinc-700 shadow-lg z-30">
     <p-button
-      [label]="lowestPrice() > 0 ? 'Book  From LKR ' + (lowestPrice() | number) : 'Book Appointment'"
+      [label]="lowestPrice() > 0 ? 'Book  From ' + currencyService.format(lowestPrice()) : 'Book Appointment'"
       icon="pi pi-calendar"
       styleClass="w-full justify-center"
       (onClick)="bookSalon()"

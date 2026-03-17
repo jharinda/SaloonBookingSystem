@@ -24,6 +24,11 @@ export enum NotificationEvent {
 
   // Auth events — pushed to the notifications queue by auth-service
   AUTH_PASSWORD_RESET = 'auth.password_reset',
+
+  // Stylist invitation events — pushed to the notifications queue by auth-service
+  STYLIST_INVITATION_ACCEPTED = 'stylist.invitation_accepted',
+  STYLIST_INVITATION_REJECTED = 'stylist.invitation_rejected',
+  STYLIST_SALON_INVITATION    = 'stylist.salon_invitation',
 }
 
 export enum NotificationChannel {
