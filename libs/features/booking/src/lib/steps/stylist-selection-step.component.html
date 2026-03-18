@@ -2,7 +2,7 @@
   <div class="stylist-selection__header">
     <h2 class="stylist-selection__title">Choose Your Stylist</h2>
     <p class="stylist-selection__subtitle">
-      Select a preferred stylist or let us assign one for you
+      Select a preferred stylist or let us assign the best available one
     </p>
   </div>
 
@@ -39,7 +39,7 @@
         <ng-template pTemplate="content">
           <h3 class="stylist-card__name">Any Available Stylist</h3>
           <p class="stylist-card__desc">
-            We'll assign the first available stylist based on your selected time
+            We'll randomly assign an available stylist for your selected time
           </p>
         </ng-template>
       </p-card>
@@ -59,7 +59,7 @@
             role="radio"
             [attr.aria-checked]="selectedStylistId() === staff._id"
             [attr.aria-disabled]="onBreak"
-            [pTooltip]="onBreak ? 'This stylist is currently on a break and cannot be booked' : undefined"
+            [pTooltip]="onBreak ? 'This stylist is unavailable at your selected time (on break or already booked)' : undefined"
             tooltipPosition="top"
           >
             <ng-template pTemplate="header">
@@ -94,9 +94,9 @@
                 </h3>
                 @if (onBreak) {
                   <p-tag
-                    value="On Break"
+                    value="Not Available"
                     severity="warn"
-                    icon="pi pi-clock"
+                    icon="pi pi-ban"
                     styleClass="text-xs shrink-0"
                   />
                 }
@@ -131,7 +131,7 @@
               @if (onBreak) {
                 <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                   <i class="pi pi-info-circle mr-1"></i>
-                  Not available for booking during break hours
+                  Not available at your selected time
                 </p>
               }
             </ng-template>
@@ -139,7 +139,7 @@
         }
       } @else {
         <p class="text-zinc-500 text-sm mt-2">
-          No other stylists are available for this salon.
+          No other stylists are available for your selected time.
           "Any available stylist" has been selected automatically.
         </p>
       }

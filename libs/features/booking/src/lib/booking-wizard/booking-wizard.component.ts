@@ -26,8 +26,8 @@ import { BookingService } from '@org/shared-data-access';
  * Booking Wizard Component
  * - 4-step booking flow using Angular CDK Stepper
  * - Step 1: Service selection with multi-select
- * - Step 2: Stylist selection (any available or specific)
- * - Step 3: Date & time picker with API slot fetching
+ * - Step 2: Date & time picker with API slot fetching
+ * - Step 3: Stylist selection (any available or specific)
  * - Step 4: Confirmation with summary and notes
  * - Material Design UI
  */
@@ -70,14 +70,15 @@ export class BookingWizardComponent implements OnInit {
 
   readonly steps = [
     { label: 'Services', icon: 'content_cut' },
-    { label: 'Stylist', icon: 'person' },
     { label: 'Date & Time', icon: 'schedule' },
+    { label: 'Stylist', icon: 'person' },
     { label: 'Confirm', icon: 'check_circle' },
   ];
 
   // ── Computed ─────────────────────────────────────────────────────────────────
   readonly salon = this.bookingState.salon;
   readonly isStep1Valid = this.bookingState.isStep1Valid;
+  readonly isStep2Valid = this.bookingState.isStep2Valid;
   readonly isStep3Valid = this.bookingState.isStep3Valid;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────────

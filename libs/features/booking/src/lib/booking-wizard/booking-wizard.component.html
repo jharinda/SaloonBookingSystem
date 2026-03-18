@@ -42,8 +42,8 @@
     <p-stepper #stepper class="booking-stepper" [value]="currentStep()">
       <p-step-list>
         <p-step [value]="1">Services</p-step>
-        <p-step [value]="2">Stylist</p-step>
-        <p-step [value]="3">Date & Time</p-step>
+        <p-step [value]="2">Date & Time</p-step>
+        <p-step [value]="3">Stylist</p-step>
         <p-step [value]="4">Confirm</p-step>
       </p-step-list>
 
@@ -71,30 +71,8 @@
           </ng-template>
         </p-step-panel>
 
-        <!-- Step 2: Stylist Selection -->
+        <!-- Step 2: Date & Time -->
         <p-step-panel [value]="2">
-          <ng-template #content>
-            <lib-stylist-selection-step />
-
-            <div class="step-actions">
-              <p-button
-                label="Back"
-                icon="pi pi-arrow-left"
-                severity="secondary"
-                (onClick)="goToPreviousStep()"
-              />
-              <p-button
-                label="Next"
-                icon="pi pi-arrow-right"
-                iconPos="right"
-                (onClick)="goToNextStep()"
-              />
-            </div>
-          </ng-template>
-        </p-step-panel>
-
-        <!-- Step 3: Date & Time -->
-        <p-step-panel [value]="3">
           <ng-template #content>
             <lib-datetime-selection-step />
 
@@ -109,7 +87,29 @@
                 label="Next"
                 icon="pi pi-arrow-right"
                 iconPos="right"
-                [disabled]="!isStep3Valid()"
+                [disabled]="!isStep2Valid()"
+                (onClick)="goToNextStep()"
+              />
+            </div>
+          </ng-template>
+        </p-step-panel>
+
+        <!-- Step 3: Stylist Selection -->
+        <p-step-panel [value]="3">
+          <ng-template #content>
+            <lib-stylist-selection-step />
+
+            <div class="step-actions">
+              <p-button
+                label="Back"
+                icon="pi pi-arrow-left"
+                severity="secondary"
+                (onClick)="goToPreviousStep()"
+              />
+              <p-button
+                label="Next"
+                icon="pi pi-arrow-right"
+                iconPos="right"
                 (onClick)="goToNextStep()"
               />
             </div>

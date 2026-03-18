@@ -253,20 +253,80 @@ export class BookingService {
       return result;
     }
 
-    // ── Step 6: Filter slots based on station capacity ───────────────────
-    // A slot is available if concurrent bookings < stationCount
+    // ── Step 6: Check per-stylist availability for "any stylist" bookings ──
+    // A slot is shown only if at least one stylist has no break AND no booking
+    // overlapping it. Falls back to station-capacity logic if staff cannot be
+    // fetched (e.g. auth-service is down).
+
+    // 6a. Fetch all staff IDs for this salon
+    let staffIds: string[] = [];
+    try {
+      const authServiceUrl = this.configService.get<string>(
+        'services.authUrl',
+        'http://localhost:3003',
+      );
+      const { data: staffMembers } = await firstValueFrom(
+        this.httpService.get<Array<{ _id: string }>>(
+          `${authServiceUrl}/api/auth/salons/${salonId}/staff`,
+        ),
+      );
+      staffIds = staffMembers.map((s) => s._id);
+    } catch (err) {
+      this.logger.warn(
+        `Failed to fetch staff for salon ${salonId}: ${(err as Error).message}. Falling back to station-capacity logic.`,
+      );
+    }
+
+    if (staffIds.length === 0) {
+      // Fallback: original station-capacity check
+      const available = allSlots.filter((slot) => {
+        const slotStart = toMinutes(slot);
+        const slotEnd   = slotStart + durationMinutes;
+        const concurrent = existingBookings.filter((b) => {
+          const bs = toMinutes(b.startTime);
+          const be = toMinutes(b.endTime);
+          return slotStart < be && slotEnd > bs;
+        }).length;
+        return concurrent < stationCount;
+      });
+      const result: AvailableSlotsResponseDto = { salonId, date, slots: available };
+      await this.cacheResult(cacheKey, result);
+      return result;
+    }
+
+    // 6b. Fetch all breaks for the salon on this date
+    const salonBreaks = await this.breakModel
+      .find({
+        salonId: new Types.ObjectId(salonId),
+        date: new Date(`${date}T00:00:00.000Z`),
+      })
+      .lean()
+      .exec();
+
+    // 6c. A slot is available if at least one stylist is free at that slot
     const available = allSlots.filter((slot) => {
       const slotStart = toMinutes(slot);
       const slotEnd   = slotStart + durationMinutes;
 
-      // Count how many bookings overlap with this slot
-      const concurrentBookings = existingBookings.filter((b) => {
-        const bookingStart = toMinutes(b.startTime);
-        const bookingEnd = toMinutes(b.endTime);
-        return slotStart < bookingEnd && slotEnd > bookingStart;
-      }).length;
+      return staffIds.some((staffId) => {
+        // Check breaks
+        const hasBreak = salonBreaks.some((br) => {
+          if (br.stylistId.toString() !== staffId) return false;
+          const brStart = toMinutes(br.startTime);
+          const brEnd   = toMinutes(br.endTime);
+          return slotStart < brEnd && slotEnd > brStart;
+        });
+        if (hasBreak) return false;
 
-      return concurrentBookings < stationCount;
+        // Check existing bookings
+        const hasBooking = existingBookings.some((b) => {
+          if (!b.stylistId || b.stylistId.toString() !== staffId) return false;
+          const bStart = toMinutes(b.startTime);
+          const bEnd   = toMinutes(b.endTime) + BOOKING_BUFFER_MINUTES;
+          return slotStart < bEnd && slotEnd > bStart;
+        });
+        return !hasBooking;
+      });
     });
 
     const result: AvailableSlotsResponseDto = { salonId, date, slots: available };
@@ -492,62 +552,60 @@ export class BookingService {
           );
 
           if (staffMembers.length > 0) {
-            // For each stylist, count bookings on this date that overlap the timeslot
-            const stylistBookingCounts: Array<{ stylistId: string; name: string; count: number }> = [];
+            // Fetch all breaks for the salon on this date once (avoids N+1)
+            const dateStart = new Date(`${dto.appointmentDate}T00:00:00.000Z`);
+            const allBreaks = await this.breakModel
+              .find({ salonId: new Types.ObjectId(dto.salonId), date: dateStart })
+              .lean()
+              .exec();
+
+            // Collect stylists who are fully free at this slot (no booking, no break)
+            const freeStylists: Array<{ stylistId: string; name: string }> = [];
 
             for (const staff of staffMembers) {
-              // Check if this stylist is already booked at this exact time
-              const overlapQuery: Record<string, unknown> = {
+              // Check break overlap
+              const hasBreak = allBreaks.some((br) => {
+                if (br.stylistId.toString() !== staff._id) return false;
+                const brStart = toMinutes(br.startTime);
+                const brEnd   = toMinutes(br.endTime);
+                return toMinutes(dto.startTime) < brEnd && toMinutes(endTime) > brStart;
+              });
+              if (hasBreak) continue;
+
+              // Check booking overlap
+              const hasOverlap = await this.bookingModel.findOne({
                 salonId: new Types.ObjectId(dto.salonId),
                 appointmentDate,
                 stylistId: new Types.ObjectId(staff._id),
                 status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
-                $or: [
-                  {
-                    startTime: { $lt: endTime },
-                    endTime: { $gt: dto.startTime },
-                  },
-                ],
-              };
+                startTime: { $lt: endTime },
+                endTime:   { $gt: dto.startTime },
+              }).lean().exec();
+              if (hasOverlap) continue;
 
-              const hasOverlap = await this.bookingModel.findOne(overlapQuery).lean().exec();
-
-              // If stylist is free at this time, count their total bookings that day
-              if (!hasOverlap) {
-                const dayBookingsCount = await this.bookingModel.countDocuments({
-                  salonId: new Types.ObjectId(dto.salonId),
-                  appointmentDate,
-                  stylistId: new Types.ObjectId(staff._id),
-                  status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
-                });
-
-                stylistBookingCounts.push({
-                  stylistId: staff._id,
-                  name: `${staff.firstName} ${staff.lastName}`.trim(),
-                  count: dayBookingsCount,
-                });
-              }
+              freeStylists.push({
+                stylistId: staff._id,
+                name: `${staff.firstName} ${staff.lastName}`.trim(),
+              });
             }
 
-            // Pick the stylist with the fewest bookings (load balancing)
-            if (stylistBookingCounts.length > 0) {
-              stylistBookingCounts.sort((a, b) => a.count - b.count);
-              const leastBusy = stylistBookingCounts[0];
-
-              assignedStylistId = new Types.ObjectId(leastBusy.stylistId);
-              assignedStylistName = leastBusy.name;
+            if (freeStylists.length > 0) {
+              // Pick a random free stylist
+              const picked = freeStylists[Math.floor(Math.random() * freeStylists.length)];
+              assignedStylistId = new Types.ObjectId(picked.stylistId);
+              assignedStylistName = picked.name;
               wasAssignedAutomatically = true;
-
               this.logger.log(
-                `Auto-assigned stylist ${leastBusy.name} (${leastBusy.count} bookings) to booking at ${dto.startTime}`,
+                `Auto-assigned stylist ${picked.name} (random from ${freeStylists.length} available) to booking at ${dto.startTime}`,
               );
             } else {
-              this.logger.log(
-                `No available stylists for ${dto.appointmentDate} at ${dto.startTime} — stylist will remain unassigned`,
+              throw new BadRequestException(
+                'No stylists are available at this time slot. Please choose a different time.',
               );
             }
           }
         } catch (err) {
+          if (err instanceof BadRequestException) throw err;
           this.logger.warn(
             `Stylist auto-assignment failed: ${(err as Error).message} — proceeding without stylist`,
           );
@@ -559,29 +617,6 @@ export class BookingService {
           assignedStylistName = await this.fetchStylistName(dto.stylistId);
         } catch (err) {
           this.logger.warn(`Failed to fetch stylist name: ${(err as Error).message}`);
-        }
-      }
-
-      // ── Break conflict check for auto-assigned stylist ──────────────────
-      // When the client didn't pick a stylist, we must also verify the
-      // auto-assigned one isn't on break during the requested slot.
-      if (!dto.stylistId && assignedStylistId) {
-        const autoBreakConflict = await this.breakModel.findOne({
-          stylistId: assignedStylistId,
-          date: new Date(`${dto.appointmentDate}T00:00:00.000Z`),
-          startTime: { $lt: endTime },
-          endTime: { $gt: dto.startTime },
-        });
-
-        if (autoBreakConflict) {
-          // Auto-assigned stylist is on break — clear the assignment so booking
-          // is recorded without a stylist (owner can assign manually later).
-          this.logger.warn(
-            `Auto-assigned stylist ${assignedStylistName} is on a break at ${dto.startTime}; proceeding without stylist assignment`,
-          );
-          assignedStylistId = null;
-          assignedStylistName = '';
-          wasAssignedAutomatically = false;
         }
       }
 

@@ -291,7 +291,7 @@ $transition: all 0.2s ease-in-out;
 }
 
 // ─── Dark Mode Support ──────────────────────────────────────────────────────
-@media (prefers-color-scheme: dark) {
+:host-context(.app-dark), :host-context(.dark) {
   .category-filter {
     ::ng-deep .p-chip {
       background-color: #1a1a2e;
@@ -349,7 +349,7 @@ $transition: all 0.2s ease-in-out;
     }
 
     &__category {
-      color: #6b7280;
+      color: #9ca3af;
     }
 
     &__desc {
@@ -366,6 +366,16 @@ $transition: all 0.2s ease-in-out;
 
     &__price {
       color: color.adjust($accent-color, $lightness: 15%);
+    }
+  }
+
+  .empty-state {
+    &__icon {
+      color: #4b5563;
+    }
+
+    &__text {
+      color: #9ca3af;
     }
   }
 }

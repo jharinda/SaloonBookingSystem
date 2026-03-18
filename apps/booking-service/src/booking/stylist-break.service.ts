@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -10,6 +11,7 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { Model, Types } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
+import Redis from 'ioredis';
 
 import { StylistBreak, StylistBreakDocument } from './schemas/stylist-break.schema';
 import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
@@ -47,6 +49,8 @@ export class StylistBreakService {
     private readonly bookingModel: Model<BookingDocument>,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    @Inject('REDIS_CLIENT')
+    private readonly redis: Redis,
   ) {}
 
   async findByDate(stylistId: string, date: string) {
@@ -97,24 +101,77 @@ export class StylistBreakService {
   }
 
   /**
-   * Returns the list of distinct stylist IDs who have at least one break on
-   * the given date for the specified salon.
-   * Used by the public booking flow to disable on-break stylists.
+   * Returns the distinct stylist IDs who are unavailable for the given salon/date.
+   *
+   * When `time` and `durationMinutes` are provided, only returns stylists who
+   * are unavailable at that specific slot — either because:
+   *   - they have a break that overlaps [time, time+duration), OR
+   *   - they already have a confirmed booking that overlaps [time, time+duration).
+   *
+   * Used by the booking wizard (step 3) to disable unavailable stylists.
    */
-  async getStylistIdsOnBreak(salonId: string, date: string): Promise<{ stylistIds: string[] }> {
+  async getStylistIdsOnBreak(
+    salonId: string,
+    date: string,
+    time?: string,
+    durationMinutes?: number,
+  ): Promise<{ stylistIds: string[] }> {
     if (!date) return { stylistIds: [] };
 
+    const unavailable = new Set<string>();
+
+    // ── Breaks ────────────────────────────────────────────────────────────────
     const breaks = await this.breakModel
       .find({
         salonId: new Types.ObjectId(salonId),
         date: new Date(`${date}T00:00:00.000Z`),
       })
-      .select('stylistId')
       .lean()
       .exec();
 
-    const unique = [...new Set(breaks.map((b) => b.stylistId.toString()))];
-    return { stylistIds: unique };
+    let filteredBreaks = breaks;
+    if (time && durationMinutes) {
+      const slotStart = toMinutes(time);
+      const slotEnd   = slotStart + durationMinutes;
+      filteredBreaks = breaks.filter((b) => {
+        const brStart = toMinutes(b.startTime);
+        const brEnd   = toMinutes(b.endTime);
+        return slotStart < brEnd && slotEnd > brStart;
+      });
+    }
+    for (const b of filteredBreaks) {
+      unavailable.add(b.stylistId.toString());
+    }
+
+    // ── Existing bookings (only when a specific time slot is provided) ─────
+    if (time && durationMinutes) {
+      const slotStart = toMinutes(time);
+      const slotEnd   = slotStart + durationMinutes;
+
+      const bookings = await this.bookingModel
+        .find({
+          salonId: new Types.ObjectId(salonId),
+          appointmentDate: {
+            $gte: new Date(`${date}T00:00:00.000Z`),
+            $lte: new Date(`${date}T23:59:59.999Z`),
+          },
+          status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+          stylistId: { $exists: true, $ne: null },
+        })
+        .lean()
+        .exec();
+
+      for (const b of bookings) {
+        if (!b.stylistId) continue;
+        const bStart = toMinutes(b.startTime);
+        const bEnd   = toMinutes(b.endTime);
+        if (slotStart < bEnd && slotEnd > bStart) {
+          unavailable.add(b.stylistId.toString());
+        }
+      }
+    }
+
+    return { stylistIds: [...unavailable] };
   }
 
   async create(stylistId: string, dto: CreateStylistBreakDto) {
@@ -230,6 +287,9 @@ export class StylistBreakService {
       `Created ${dto.type} break for stylist ${stylistId} on ${dto.date} ${dto.startTime}-${dto.endTime}`,
     );
 
+    // Invalidate slot cache so clients see updated availability immediately
+    await this.invalidateSlotCache(dto.salonId, dto.date);
+
     return {
       _id: doc._id.toString(),
       stylistId: doc.stylistId.toString(),
@@ -251,8 +311,33 @@ export class StylistBreakService {
       throw new ForbiddenException('You can only delete your own breaks');
     }
 
+    // Capture metadata before deletion for cache invalidation
+    const salonId = doc.salonId.toString();
+    const date = (doc.date as Date).toISOString().substring(0, 10);
+
     await this.breakModel.deleteOne({ _id: breakId });
     this.logger.log(`Deleted break ${breakId} for stylist ${stylistId}`);
+
+    // Invalidate slot cache so clients see updated availability immediately
+    await this.invalidateSlotCache(salonId, date);
+
     return { message: 'Break deleted' };
+  }
+
+  private async invalidateSlotCache(salonId: string, date: string): Promise<void> {
+    try {
+      const pattern = `slots:${salonId}:${date}:*`;
+      const keys = await this.redis.keys(pattern);
+      if (keys.length > 0) {
+        await this.redis.del(...keys);
+        this.logger.debug(
+          `Invalidated ${keys.length} slot cache key(s) for salon ${salonId} on ${date}`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Failed to invalidate slot cache for salon ${salonId} on ${date}: ${(err as Error).message}`,
+      );
+    }
   }
 }

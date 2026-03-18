@@ -58,8 +58,15 @@ export class BookingController {
   async stylistsOnBreak(
     @Query('salonId') salonId: string,
     @Query('date') date: string,
+    @Query('time') time?: string,
+    @Query('durationMinutes') durationMinutes?: string,
   ): Promise<{ stylistIds: string[] }> {
-    return this.breakService.getStylistIdsOnBreak(salonId, date);
+    return this.breakService.getStylistIdsOnBreak(
+      salonId,
+      date,
+      time,
+      durationMinutes ? parseInt(durationMinutes, 10) : undefined,
+    );
   }
 
   // ── Client routes ─────────────────────────────────────────────────────────

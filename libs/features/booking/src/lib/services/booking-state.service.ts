@@ -29,9 +29,11 @@ export class BookingStateService {
 
   readonly isStep1Valid = computed(() => this.selectedServices().length > 0);
 
-  readonly isStep3Valid = computed(() =>
+  readonly isStep2Valid = computed(() =>
     this.selectedDate() !== null && this.selectedTime() !== null
   );
+
+  readonly isStep3Valid = computed(() => true); // null = "any available" is a valid choice
 
   // ── Initialization ───────────────────────────────────────────────────────────
 
@@ -59,21 +61,23 @@ export class BookingStateService {
     this.selectedServices.set([]);
   }
 
-  // ── Step 2: Stylist ──────────────────────────────────────────────────────────
-
-  selectStylist(stylistId: string | null): void {
-    this.selectedStylistId.set(stylistId);
-  }
-
-  // ── Step 3: Date & Time ──────────────────────────────────────────────────────
+  // ── Step 2: Date & Time ──────────────────────────────────────────────────
 
   selectDate(date: Date): void {
     this.selectedDate.set(date);
     this.selectedTime.set(null); // Reset time when date changes
+    this.selectedStylistId.set(null); // Reset stylist when date changes
   }
 
   selectTime(time: string): void {
     this.selectedTime.set(time);
+    this.selectedStylistId.set(null); // Reset stylist when time changes
+  }
+
+  // ── Step 3: Stylist ──────────────────────────────────────────────────────
+
+  selectStylist(stylistId: string | null): void {
+    this.selectedStylistId.set(stylistId);
   }
 
   // ── Step 4: Notes ────────────────────────────────────────────────────────────

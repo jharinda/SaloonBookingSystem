@@ -108,15 +108,27 @@ export class BookingService {
   }
 
   /**
-   * GET /api/bookings/breaks/stylists-on-break?salonId=&date=
-   * Returns the IDs of stylists who have at least one break on the given date.
+   * GET /api/bookings/breaks/stylists-on-break?salonId=&date=&time=&durationMinutes=
+   * Returns the IDs of stylists who have at least one break overlapping the
+   * given time slot on the specified date.
+   * When time/duration are omitted, returns all stylists with any break that day.
    * Used by the booking wizard to visually disable on-break stylists.
    */
-  getStylistsOnBreak(salonId: string, date: string): Observable<string[]> {
+  getStylistsOnBreak(
+    salonId: string,
+    date: string,
+    time?: string,
+    durationMinutes?: number,
+  ): Observable<string[]> {
+    let params = new HttpParams()
+      .set('salonId', salonId)
+      .set('date', date);
+
+    if (time) params = params.set('time', time);
+    if (durationMinutes) params = params.set('durationMinutes', String(durationMinutes));
+
     return this.http
-      .get<{ stylistIds: string[] }>('/api/bookings/breaks/stylists-on-break', {
-        params: new HttpParams().set('salonId', salonId).set('date', date),
-      })
+      .get<{ stylistIds: string[] }>('/api/bookings/breaks/stylists-on-break', { params })
       .pipe(map((res) => res.stylistIds));
   }
 }

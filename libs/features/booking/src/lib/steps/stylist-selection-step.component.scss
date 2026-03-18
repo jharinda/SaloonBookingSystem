@@ -241,7 +241,7 @@ $transition: all 0.2s ease-in-out;
 }
 
 // ─── Dark Mode Support ──────────────────────────────────────────────────────
-@media (prefers-color-scheme: dark) {
+:host-context(.app-dark), :host-context(.dark) {
   .stylist-selection {
     &__title {
       color: color.adjust($primary-color, $lightness: 20%);
@@ -310,6 +310,19 @@ $transition: all 0.2s ease-in-out;
 
     &__text {
       color: #9ca3af;
+    }
+  }
+
+  .stylist-card {
+    &__experience {
+      color: #9ca3af;
+    }
+
+    &__specialty-tag {
+      &--more {
+        background-color: rgba(#6b7280, 0.2);
+        color: #d1d5db;
+      }
     }
   }
 }

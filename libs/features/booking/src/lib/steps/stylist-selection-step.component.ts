@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   OnInit,
   signal,
@@ -19,10 +20,10 @@ import { BookingStateService } from '../services/booking-state.service';
 import { BookingService, SalonService, SalonStaffDto } from '@org/shared-data-access';
 
 /**
- * Step 2: Stylist Selection
+ * Step 3: Stylist Selection (after Date & Time)
  * - "Any available stylist" option (default, null stylistId)
  * - Staff member cards with avatar/name/rating/specialties
- * - On-break stylists are shown disabled at the end of the list
+ * - Stylists on break at the selected time slot are shown disabled
  * - Single-select with ring border highlight
  */
 @Component({
@@ -66,6 +67,22 @@ export class StylistSelectionStepComponent implements OnInit {
 
   readonly hasStaff = computed(() => this.staffMembers().length > 0);
 
+  constructor() {
+    // Re-fetch break data whenever the selected date or time changes.
+    // This handles the case where the user goes back to step 2 and picks a
+    // different time slot, then returns to step 3 (ngOnInit won't re-fire
+    // because PrimeNG stepper keeps components alive after first render).
+    effect(() => {
+      const date = this.bookingState.selectedDate();
+      const time = this.bookingState.selectedTime();
+      const salonId = this.bookingState.salon()?._id;
+
+      if (date && time && salonId) {
+        this.fetchBreakData(salonId);
+      }
+    });
+  }
+
   ngOnInit(): void {
     const salon = this.salon();
     if (salon?._id) {
@@ -77,8 +94,7 @@ export class StylistSelectionStepComponent implements OnInit {
           if (staff.length === 0) {
             this.bookingState.selectStylist(null);
           }
-          // After loading staff, fetch break data for the relevant date
-          this.fetchBreakData(salon._id);
+          // Break data is fetched reactively via effect() – no manual call needed here
         },
         error: () => {
           this.loadingStaff.set(false);
@@ -91,13 +107,21 @@ export class StylistSelectionStepComponent implements OnInit {
   }
 
   private fetchBreakData(salonId: string): void {
-    // Use the booking date if already selected, otherwise use today
+    // Use the selected booking date (always available since Date & Time is now step 2)
     const bookingDate = this.bookingState.selectedDate();
+    const bookingTime = this.bookingState.selectedTime();
+    const duration = this.bookingState.totalDuration();
+
     const dateStr = bookingDate
       ? this.formatDateStr(bookingDate)
       : this.formatDateStr(new Date());
 
-    this.bookingService.getStylistsOnBreak(salonId, dateStr).subscribe({
+    this.bookingService.getStylistsOnBreak(
+      salonId,
+      dateStr,
+      bookingTime || undefined,
+      duration || undefined,
+    ).subscribe({
       next: (ids) => this.onBreakStylistIds.set(new Set(ids)),
       error: () => { /* non-fatal: silently ignore */ },
     });

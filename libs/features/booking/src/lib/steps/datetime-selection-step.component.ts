@@ -15,10 +15,10 @@ import { BookingService } from '@org/shared-data-access';
 import { BookingSlot } from '@org/models';
 
 /**
- * Step 3: Date & Time Selection
+ * Step 2: Date & Time Selection
  * - Custom month calendar (no FullCalendar)
  * - Disable past dates
- * - Fetch available time slots from API on date selection
+ * - Fetch available time slots from API on date selection (any stylist)
  * - Time slots displayed as pill buttons in 3-column mobile grid
  * - Material Design UI
  */
@@ -43,7 +43,6 @@ export class DateTimeSelectionStepComponent implements OnInit {
   readonly selectedDate = this.bookingState.selectedDate;
   readonly selectedTime = this.bookingState.selectedTime;
   readonly totalDuration = this.bookingState.totalDuration;
-  readonly selectedStylistId = this.bookingState.selectedStylistId;
 
   readonly currentMonth = signal<Date>(new Date());
   readonly availableSlots = signal<BookingSlot[]>([]);
@@ -145,7 +144,6 @@ export class DateTimeSelectionStepComponent implements OnInit {
     }
 
     const duration = this.totalDuration();
-    const stylistId = this.selectedStylistId();
 
     this.loadingSlots.set(true);
     this.slotsError.set(null);
@@ -154,7 +152,7 @@ export class DateTimeSelectionStepComponent implements OnInit {
     const dateStr = this._fmtLocalDate(date);
 
     this.bookingService
-      .getAvailableSlots(salonId, dateStr, duration, stylistId || undefined)
+      .getAvailableSlots(salonId, dateStr, duration)
       .subscribe({
         next: (response) => {
           const filtered = this.filterSlots(response.slots, date);

@@ -197,7 +197,7 @@ $transition: all 0.2s ease-in-out;
 }
 
 // ─── Dark Mode Support ──────────────────────────────────────────────────────
-@media (prefers-color-scheme: dark) {
+:host-context(.app-dark), :host-context(.dark) {
   .wizard-state {
     &__message {
       color: #9ca3af;
