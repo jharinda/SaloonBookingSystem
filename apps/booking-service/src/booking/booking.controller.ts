@@ -16,6 +16,7 @@ import {
 import { BookingService } from './booking.service';
 import { StylistBreakService } from './stylist-break.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateManualBookingDto } from './dto/create-manual-booking.dto';
 import { AvailableSlotsQueryDto, BookingListQueryDto } from './dto/booking-query.dto';
 import { CreateStylistBreakDto } from './dto/stylist-break.dto';
 import {
@@ -67,6 +68,18 @@ export class BookingController {
       time,
       durationMinutes ? parseInt(durationMinutes, 10) : undefined,
     );
+  }
+
+  // ── Manual booking (salon-owner) ────────────────────────────────────────
+
+  @Post('manual')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SALON_OWNER)
+  async createManual(
+    @Body() dto: CreateManualBookingDto,
+  ): Promise<BookingResponseDto> {
+    return this.bookingService.createManualBooking(dto);
   }
 
   // ── Client routes ─────────────────────────────────────────────────────────
@@ -199,7 +212,7 @@ export class BookingController {
 
   @Patch(':id/confirm')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SALON_OWNER)
+  @Roles(UserRole.SALON_OWNER, UserRole.STYLIST)
   async confirm(
     @Param('id') id: string,
   ): Promise<BookingResponseDto> {

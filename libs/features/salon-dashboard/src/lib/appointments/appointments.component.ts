@@ -1,6 +1,17 @@
-import { Component, DestroyRef, OnInit, signal, computed, inject, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  DestroyRef,
+  OnInit,
+  signal,
+  computed,
+  inject,
+  viewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 
@@ -16,12 +27,19 @@ import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
 
-import { Booking, BookingStatus } from '@org/models';
-import { SalonAdminService, Station, SalonStaffMember, AppCurrencyPipe, RealtimeNotificationService } from '@org/shared-data-access';
-import type { StylistBreakDto, BreakType } from '@org/shared-data-access';
-import { CalendarGridComponent, CalendarColumn } from '@org/shared-ui';
+import { FullCalendarModule, FullCalendarComponent } from '@fullcalendar/angular';
+import { CalendarOptions } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
-type ViewMode = 'calendar' | 'list';
+import { Booking, BookingStatus, Salon } from '@org/models';
+import { SalonAdminService, Station, SalonStaffMember, AppCurrencyPipe, RealtimeNotificationService } from '@org/shared-data-access';
+import type { StylistBreakDto } from '@org/shared-data-access';
+import { CalendarGridComponent, CalendarColumn } from '@org/shared-ui';
+import { CreateAppointmentDialogComponent, CreateAppointmentContext } from './create-appointment-dialog.component';
+
+type ViewMode = 'day' | 'week' | 'month' | 'list';
 type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
 @Component({
@@ -43,19 +61,29 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contr
     TooltipModule,
     AppCurrencyPipe,
     CalendarGridComponent,
+    CreateAppointmentDialogComponent,
+    FullCalendarModule,
   ],
   providers: [MessageService],
   templateUrl: './appointments.component.html',
   styleUrl: './appointments.component.scss',
 })
 export class AppointmentsComponent implements OnInit {
+  private readonly fullCalendarRef = viewChild(FullCalendarComponent);
+
   private readonly salonService = inject(SalonAdminService);
   private readonly messageService = inject(MessageService);
   private readonly realtimeSvc = inject(RealtimeNotificationService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+
+  /** Consumed when opening the drawer from `?bookingId=` (e.g. notification deep link). */
+  private pendingBookingId: string | null = null;
 
   // ── State ────────────────────────────────────────────────────────────────
-  viewMode = signal<ViewMode>('calendar');
+  viewMode = signal<ViewMode>('day');
   bookings = signal<Booking[]>([]);
   breaks = signal<StylistBreakDto[]>([]);
   staffMembers = signal<SalonStaffMember[]>([]);
@@ -65,15 +93,18 @@ export class AppointmentsComponent implements OnInit {
   loading = signal(false);
   selectedDate = signal(new Date());
   selectedStationId = signal<string | null>(null);
+  salon = signal<Salon | null>(null);
   private salonId = '';
 
-  // Slot click state
-  selectedSlot = signal<{ time: string; stationId: string; stationName: string } | null>(null);
-  showSlotDialog = signal(false);
+  // Create appointment dialog state
+  showCreateDialog = signal(false);
+  createAppointmentContext = signal<CreateAppointmentContext | null>(null);
 
-  // View options
+  // View options (matching stylist view)
   viewOptions = [
-    { label: 'Calendar', value: 'calendar', icon: 'pi pi-calendar' },
+    { label: 'Day', value: 'day', icon: 'pi pi-calendar' },
+    { label: 'Week', value: 'week', icon: 'pi pi-calendar-clock' },
+    { label: 'Month', value: 'month', icon: 'pi pi-th-large' },
     { label: 'List', value: 'list', icon: 'pi pi-list' },
   ];
 
@@ -94,6 +125,7 @@ export class AppointmentsComponent implements OnInit {
 
   // ── Active stations for grid + dropdowns ─────────────────────────────────
   activeStations = computed(() => this.stations().filter((s) => s.isActive));
+
   // ── Grid columns for shared calendar component ───────────────────────
   gridColumns = computed<CalendarColumn[]>(() => {
     const stationId = this.selectedStationId();
@@ -102,6 +134,7 @@ export class AppointmentsComponent implements OnInit {
       : this.activeStations();
     return stations.map((s) => ({ id: s._id, name: s.name }));
   });
+
   // ── Filtered bookings (by date + optional station) ───────────────────────
   filteredBookings = computed(() => {
     const bookings = this.bookings();
@@ -121,14 +154,13 @@ export class AppointmentsComponent implements OnInit {
     const bookings = this.filteredBookings();
     const stationId = this.selectedStationId();
 
-    // Show only selected station, or all active stations
     const stations = stationId
       ? this.activeStations().filter((s) => s._id === stationId)
       : this.activeStations();
 
-    // Time slots from 9 AM to 6 PM in 30-min intervals
+    // Time slots from 8 AM to 8 PM in 30-min intervals (matching stylist)
     const timeSlots: string[] = [];
-    for (let hour = 9; hour < 18; hour++) {
+    for (let hour = 8; hour < 20; hour++) {
       timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
       timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
     }
@@ -159,15 +191,117 @@ export class AppointmentsComponent implements OnInit {
     return map;
   });
 
+  /**
+   * Single FullCalendar for week + month. Switching views must use `calendar.changeView()` —
+   * updating `initialView` in options alone often does nothing after first render.
+   */
+  fullCalendarOptions = computed<CalendarOptions>(() => {
+    const mode = this.viewMode();
+    const initialView = mode === 'month' ? 'dayGridMonth' : 'timeGridWeek';
+    const allBookings = this.bookings();
+    const allBreaks = this.breaks();
+    const d = this.selectedDate();
+    const initialDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+    return {
+      plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
+      initialView,
+      initialDate,
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: '',
+      },
+      nowIndicator: true,
+      scrollToTime: {
+        hours: new Date().getHours(),
+        minutes: Math.max(0, new Date().getMinutes() - 15),
+      },
+      events: [
+        ...allBookings.map((b) => ({
+          id: b._id,
+          title:
+            (b.clientName || 'Client') +
+            ' — ' +
+            (b.serviceName || b.services?.[0]?.name || 'Appointment') +
+            (b.stationName ? ` · ${b.stationName}` : ''),
+          start: `${b.appointmentDate}T${b.startTime}:00`,
+          end: `${b.appointmentDate}T${b.endTime}:00`,
+          backgroundColor: this._statusColor(b.status),
+          borderColor: this._statusColor(b.status),
+          textColor: '#ffffff',
+          extendedProps: { booking: b },
+        })),
+        ...allBreaks.map((brk) => ({
+          id: `break-${brk._id}`,
+          title: `${this.breakTypeLabel(brk.type)} — ${this.getStylistName(brk.stylistId)}`,
+          start: `${brk.date}T${brk.startTime}:00`,
+          end: `${brk.date}T${brk.endTime}:00`,
+          backgroundColor: '#f59e0b',
+          borderColor: '#d97706',
+          textColor: '#ffffff',
+          display: 'block' as const,
+          extendedProps: { isBreak: true, break: brk },
+        })),
+      ],
+      height: 'auto',
+      editable: false,
+      selectable: false,
+      eventDisplay: 'block',
+      eventMinHeight: 22,
+      displayEventTime: true,
+      eventTimeFormat: { hour: '2-digit' as const, minute: '2-digit' as const, hour12: false },
+      eventClick: (info) => {
+        if (info.event.extendedProps['isBreak']) {
+          const brk = info.event.extendedProps['break'] as StylistBreakDto;
+          this.messageService.add({
+            severity: 'info',
+            summary: `${this.breakTypeLabel(brk.type)} — ${this.getStylistName(brk.stylistId)}`,
+            detail: `${brk.startTime} – ${brk.endTime}${brk.note ? '\n' + brk.note : ''}`,
+            life: 5000,
+          });
+        } else {
+          this.openBookingDetails(info.event.extendedProps['booking']);
+        }
+      },
+    };
+  });
+
+  private _statusColor(status: BookingStatus | string): string {
+    switch (status) {
+      case 'CONFIRMED':   return '#10b981';
+      case 'PENDING':     return '#f59e0b';
+      case 'CANCELLED':   return '#ef4444';
+      case 'COMPLETED':   return '#6b7280';
+      case 'IN_PROGRESS': return '#3b82f6';
+      case 'NO_SHOW':     return '#374151';
+      default:            return '#6b7280';
+    }
+  }
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
   ngOnInit(): void {
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const id = params['bookingId'] ?? null;
+      if (!id || !this.salonId) return;
+      this.pendingBookingId = id;
+      this.openBookingFromQueryParam();
+    });
+
     this.loading.set(true);
     this.salonService.getOwnSalon().subscribe({
       next: (salon) => {
         this.salonId = salon._id;
-        this.loadBookings();
+        this.salon.set(salon);
         this.loadStations();
         this.loadStaff();
+        const bookingId = this.route.snapshot.queryParamMap.get('bookingId');
+        if (bookingId) {
+          this.pendingBookingId = bookingId;
+          this.openBookingFromQueryParam();
+        } else {
+          this.loadData();
+        }
       },
       error: () => {
         this.messageService.add({
@@ -179,7 +313,7 @@ export class AppointmentsComponent implements OnInit {
       },
     });
 
-    // ── Real-time: reload bookings and breaks on new incoming events ──────
+    // ── Real-time: reload on new incoming booking events ──────
     this.realtimeSvc.notifications$
       .pipe(
         filter(({ event }) => event === 'booking.new' || event === 'booking.created'),
@@ -187,23 +321,97 @@ export class AppointmentsComponent implements OnInit {
       )
       .subscribe(() => {
         if (this.salonId) {
-          this.loadBookings();
+          this.loadData();
         }
       });
   }
 
+  /** Resolve `?bookingId=` after salon is known (notification deep link). */
+  private openBookingFromQueryParam(): void {
+    const id = this.pendingBookingId ?? this.route.snapshot.queryParamMap.get('bookingId');
+    if (!id || !this.salonId) return;
+    this.pendingBookingId = null;
+    this.loading.set(true);
+    const start = new Date();
+    start.setDate(start.getDate() - 90);
+    const end = new Date();
+    end.setDate(end.getDate() + 90);
+    this.salonService.getBookingsByRange(this.salonId, this._fmtDate(start), this._fmtDate(end)).subscribe({
+      next: (list) => {
+        const b = list.find((x) => x._id === id);
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { bookingId: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+        if (b) {
+          this.selectedDate.set(AppointmentsComponent._parseYmdToLocalNoon(b.appointmentDate));
+          this.viewMode.set('day');
+          this.bookings.set(list.filter((x) => x.appointmentDate === b.appointmentDate));
+          this.loadBreaks(b.appointmentDate);
+          this.openBookingDetails(b);
+        } else {
+          this.messageService.add({
+            severity: 'warn',
+            summary: 'Booking',
+            detail: 'Could not find that appointment.',
+          });
+          this.loadData();
+        }
+        this.loading.set(false);
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.loading.set(false);
+        this.loadData();
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  private static _parseYmdToLocalNoon(ymd: string): Date {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(y, m - 1, d, 12, 0, 0, 0);
+  }
+
   // ── Data Loading ─────────────────────────────────────────────────────────
-  loadBookings(): void {
+  loadData(): void {
     if (!this.salonId) return;
     this.loading.set(true);
 
-    const date = this.selectedDate();
-    const dateStr = this._fmtDate(date);
+    const mode = this.viewMode();
+    const selected = this.selectedDate();
 
-    this.salonService.getBookingsByRange(this.salonId, dateStr, dateStr).subscribe({
+    let startDate: string;
+    let endDate: string;
+
+    if (mode === 'week') {
+      const start = new Date(selected);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      startDate = this._fmtDate(start);
+      endDate = this._fmtDate(end);
+    } else if (mode === 'month') {
+      const start = new Date(selected.getFullYear(), selected.getMonth(), 1);
+      const end = new Date(selected.getFullYear(), selected.getMonth() + 1, 0);
+      startDate = this._fmtDate(start);
+      endDate = this._fmtDate(end);
+    } else {
+      const dateStr = this._fmtDate(selected);
+      startDate = dateStr;
+      endDate = dateStr;
+    }
+
+    this.salonService.getBookingsByRange(this.salonId, startDate, endDate).subscribe({
       next: (data) => {
         this.bookings.set(data);
         this.loading.set(false);
+        this.cdr.markForCheck();
+        if (mode === 'week' || mode === 'month') {
+          setTimeout(() => this.syncFullCalendarView(), 0);
+        }
       },
       error: () => {
         this.messageService.add({
@@ -215,14 +423,17 @@ export class AppointmentsComponent implements OnInit {
       },
     });
 
-    this.loadBreaks(dateStr);
+    this.loadBreaks(this._fmtDate(selected));
   }
 
   loadBreaks(dateStr?: string): void {
     if (!this.salonId) return;
     const date = dateStr ?? this._fmtDate(this.selectedDate());
     this.salonService.getSalonStylistBreaks(this.salonId, date).subscribe({
-      next: (data) => this.breaks.set(data),
+      next: (data) => {
+        this.breaks.set(data);
+        this.cdr.markForCheck();
+      },
       error: () => this.breaks.set([]),
     });
   }
@@ -249,6 +460,32 @@ export class AppointmentsComponent implements OnInit {
         });
       },
     });
+  }
+
+  // ── View Mode Change ──────────────────────────────────────────────────────
+  onViewModeChange(mode: ViewMode): void {
+    const prev = this.viewMode();
+    this.viewMode.set(mode);
+    this.loadData();
+    const wasRange = prev === 'week' || prev === 'month';
+    const isRange = mode === 'week' || mode === 'month';
+    if (wasRange && isRange && prev !== mode) {
+      setTimeout(() => this.syncFullCalendarView(), 0);
+    }
+  }
+
+  /** Apply week vs month and anchor date via Calendar API (options.initialView is sticky). */
+  private syncFullCalendarView(): void {
+    const mode = this.viewMode();
+    if (mode !== 'week' && mode !== 'month') return;
+    const api = this.fullCalendarRef()?.getApi();
+    if (!api) return;
+    const viewName = mode === 'month' ? 'dayGridMonth' : 'timeGridWeek';
+    if (api.view.type !== viewName) {
+      api.changeView(viewName);
+    }
+    api.gotoDate(this.selectedDate());
+    queueMicrotask(() => api.updateSize());
   }
 
   // ── Station Filter ───────────────────────────────────────────────────────
@@ -384,16 +621,24 @@ export class AppointmentsComponent implements OnInit {
     return Math.max(1, Math.ceil(duration / 30));
   }
 
-  // ── Slot Click (empty calendar cell) ─────────────────────────────────────
+  // ── Slot Click (empty calendar cell) → open Create Appointment dialog ────
   onEmptySlotClick(time: string, station: { _id: string; name: string }): void {
-    this.selectedSlot.set({ time, stationId: station._id, stationName: station.name });
-    this.showSlotDialog.set(true);
+    this.createAppointmentContext.set({
+      time,
+      stationId: station._id,
+      stationName: station.name,
+      date: this.selectedDate(),
+    });
+    this.showCreateDialog.set(true);
   }
 
-  getSlotEndTime(startTime: string): string {
-    const [h, m] = startTime.split(':').map(Number);
-    const endMin = h * 60 + m + 30;
-    return `${Math.floor(endMin / 60).toString().padStart(2, '0')}:${(endMin % 60).toString().padStart(2, '0')}`;
+  onAppointmentCreated(): void {
+    this.loadData();
+    this.messageService.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Appointment created successfully',
+    });
   }
 
   getStatusSeverity(status: BookingStatus): TagSeverity {
@@ -412,19 +657,19 @@ export class AppointmentsComponent implements OnInit {
     const date = new Date(this.selectedDate());
     date.setDate(date.getDate() - 1);
     this.selectedDate.set(date);
-    this.loadBookings();
+    this.loadData();
   }
 
   nextDay(): void {
     const date = new Date(this.selectedDate());
     date.setDate(date.getDate() + 1);
     this.selectedDate.set(date);
-    this.loadBookings();
+    this.loadData();
   }
 
   today(): void {
     this.selectedDate.set(new Date());
-    this.loadBookings();
+    this.loadData();
   }
 
   formatDate(date: Date): string {

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -114,6 +115,16 @@ export class UserController {
     @Body() workingHours: WorkingHoursDto[],
   ): Promise<UserProfileResponseDto> {
     return this.userService.updateWorkingHours(user.sub, workingHours);
+  }
+
+  // ── Client Search (salon-owner) ──────────────────────────────────────────
+
+  /** GET /api/users/search/clients?q=<query> */
+  @Get('search/clients')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.SALON_OWNER, UserRole.ADMIN)
+  async searchClients(@Query('q') q: string) {
+    return this.userService.searchClients(q);
   }
 
   // ── Public / Inter-Service Endpoints ──────────────────────────────────────

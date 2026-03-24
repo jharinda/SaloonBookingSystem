@@ -28,12 +28,11 @@ export const DASHBOARD_ROUTES: Routes = [
             (m) => m.AppointmentsComponent,
           ),
       },
+      // Legacy URL: "Appointments" in the UI lives on /appointments (day grid + manual booking).
       {
         path: 'bookings',
-        loadComponent: () =>
-          import('./bookings-today/bookings-today.component').then(
-            (m) => m.BookingsTodayComponent,
-          ),
+        redirectTo: 'appointments',
+        pathMatch: 'full',
       },
       {
         path: 'services',

@@ -17,6 +17,7 @@ import {
   AddPortfolioImageDto,
   AddPortfolioReviewDto,
   WorkingHoursDto,
+  NotificationPreferencesResponseDto,
 } from './dto/user-profile.dto';
 
 @Injectable()
@@ -114,11 +115,20 @@ export class UserService {
   async updateNotificationPreferences(
     userId: string,
     dto: UpdateNotificationPreferencesDto,
-  ): Promise<UpdateNotificationPreferencesDto> {
+  ): Promise<NotificationPreferencesResponseDto> {
+    // Build dot-notation $set so only the provided fields are updated,
+    // leaving the other preferences intact.
+    const updateFields: Record<string, boolean> = {};
+    for (const [key, val] of Object.entries(dto) as [string, boolean][]) {
+      if (val !== undefined) {
+        updateFields[`notificationPreferences.${key}`] = val;
+      }
+    }
+
     const profile = await this.userProfileModel
       .findOneAndUpdate(
         { userId },
-        { $set: { notificationPreferences: dto } },
+        { $set: updateFields },
         { new: true },
       )
       .lean()
@@ -272,6 +282,45 @@ export class UserService {
     }
 
     return this.toResponseDto(profile);
+  }
+
+  /**
+   * Search client profiles by name, email, or phone (for salon-owner manual booking).
+   * Returns up to 10 matching clients.
+   */
+  async searchClients(
+    query: string,
+  ): Promise<Array<{ userId: string; firstName: string; lastName: string; email: string; phone: string | null; avatarUrl: string | null }>> {
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'i');
+
+    const profiles = await this.userProfileModel
+      .find({
+        role: 'client',
+        $or: [
+          { firstName: regex },
+          { lastName: regex },
+          { email: regex },
+          { phone: regex },
+        ],
+      })
+      .select('userId firstName lastName email phone avatarUrl')
+      .limit(10)
+      .lean()
+      .exec();
+
+    return profiles.map((p) => ({
+      userId: p.userId,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      email: p.email,
+      phone: p.phone || null,
+      avatarUrl: p.avatarUrl || null,
+    }));
   }
 
   /**

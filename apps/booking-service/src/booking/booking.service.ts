@@ -17,10 +17,12 @@ import { Model, Types } from 'mongoose';
 import { Queue } from 'bull';
 import Redis from 'ioredis';
 import { fromZonedTime } from 'date-fns-tz';
+import { REDIS_CLIENT } from '@org/shared-auth';
 
 import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
 import { StylistBreak, StylistBreakDocument } from './schemas/stylist-break.schema';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateManualBookingDto } from './dto/create-manual-booking.dto';
 import { BookingListQueryDto } from './dto/booking-query.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
 import {
@@ -102,7 +104,7 @@ export class BookingService {
     private readonly bookingQueue: Queue,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
-    @Inject('REDIS_CLIENT')
+    @Inject(REDIS_CLIENT)
     private readonly redis: Redis,
   ) {}
 
@@ -676,6 +678,209 @@ export class BookingService {
             (err as Error).message
           } — booking left as PENDING`,
         );
+      }
+
+      return response;
+    } finally {
+      await this.releaseLock(lockKey, lockValue);
+    }
+  }
+
+  /**
+   * Create a booking on behalf of a client (salon-owner manual booking).
+   * Re-uses the same slot-validation, station-assignment and stylist-assignment
+   * logic but takes clientId from the request body instead of the JWT.
+   */
+  async createManualBooking(
+    dto: CreateManualBookingDto,
+  ): Promise<BookingResponseDto> {
+    const totalDuration = dto.services.reduce(
+      (acc, s) => acc + s.durationMinutes,
+      0,
+    );
+    const endTime = addMinutes(dto.startTime, totalDuration);
+    const totalPrice = dto.services.reduce((acc, s) => acc + s.price, 0);
+
+    const lockKey = `booking-lock:${dto.salonId}:${dto.appointmentDate}:${dto.startTime}:${dto.stylistId ?? 'any'}`;
+    const lockValue = await this.acquireLock(lockKey, 5, 3, 100);
+    if (!lockValue) {
+      throw new BadRequestException(
+        'Slot is currently being reserved, please try again',
+      );
+    }
+
+    try {
+      const appointmentDate = new Date(`${dto.appointmentDate}T00:00:00.000Z`);
+
+      // Clash check for specific stylist
+      if (dto.stylistId) {
+        const clash = await this.bookingModel.findOne({
+          salonId: new Types.ObjectId(dto.salonId),
+          appointmentDate,
+          status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+          $and: [
+            { stylistId: new Types.ObjectId(dto.stylistId) },
+            { startTime: { $lt: endTime }, endTime: { $gt: dto.startTime } },
+          ],
+        });
+        if (clash) {
+          throw new BadRequestException(
+            `The time slot ${dto.startTime}–${endTime} is no longer available`,
+          );
+        }
+
+        // Break conflict
+        const breakConflict = await this.breakModel.findOne({
+          stylistId: new Types.ObjectId(dto.stylistId),
+          date: appointmentDate,
+          startTime: { $lt: endTime },
+          endTime: { $gt: dto.startTime },
+        });
+        if (breakConflict) {
+          throw new BadRequestException(
+            `The selected stylist is on a break from ${breakConflict.startTime} to ${breakConflict.endTime}.`,
+          );
+        }
+      }
+
+      // Auto-assign station
+      let assignedStationId: Types.ObjectId | null = null;
+      let assignedStationName = '';
+      const salonServiceUrl = this.configService.get<string>(
+        'services.salonUrl',
+        'http://salon-service:3001',
+      );
+
+      try {
+        const { data: stationsData } = await firstValueFrom(
+          this.httpService.get<StationsResponse>(
+            `${salonServiceUrl}/api/salons/${dto.salonId}/stations`,
+          ),
+        );
+        if (stationsData.stations.length > 0) {
+          const overlappingBookings = await this.bookingModel
+            .find({
+              salonId: new Types.ObjectId(dto.salonId),
+              appointmentDate,
+              status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+              stationId: { $ne: null },
+              startTime: { $lt: endTime },
+              endTime: { $gt: dto.startTime },
+            })
+            .lean()
+            .exec();
+          const occupied = new Set(
+            overlappingBookings.map((b) => b.stationId?.toString()).filter(Boolean),
+          );
+          const available = stationsData.stations.find((s) => !occupied.has(s._id));
+          if (available) {
+            assignedStationId = new Types.ObjectId(available._id);
+            assignedStationName = available.name;
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`Station auto-assignment failed for manual booking: ${(err as Error).message}`);
+      }
+
+      // Stylist assignment
+      let assignedStylistId: Types.ObjectId | null = dto.stylistId
+        ? new Types.ObjectId(dto.stylistId)
+        : null;
+      let assignedStylistName = '';
+      let wasAssignedAutomatically = false;
+
+      if (dto.stylistId) {
+        try {
+          assignedStylistName = await this.fetchStylistName(dto.stylistId);
+        } catch {
+          /* non-fatal */
+        }
+      } else {
+        // Auto-assign stylist
+        try {
+          const authServiceUrl = this.configService.get<string>(
+            'services.authUrl',
+            'http://localhost:3003',
+          );
+          const { data: staffMembers } = await firstValueFrom(
+            this.httpService.get<StaffMember[]>(
+              `${authServiceUrl}/api/auth/salons/${dto.salonId}/staff`,
+            ),
+          );
+          if (staffMembers.length > 0) {
+            const dateStart = new Date(`${dto.appointmentDate}T00:00:00.000Z`);
+            const allBreaks = await this.breakModel
+              .find({ salonId: new Types.ObjectId(dto.salonId), date: dateStart })
+              .lean()
+              .exec();
+
+            const freeStylists: Array<{ stylistId: string; name: string }> = [];
+            for (const staff of staffMembers) {
+              const hasBreak = allBreaks.some((br) => {
+                if (br.stylistId.toString() !== staff._id) return false;
+                return toMinutes(br.startTime) < toMinutes(endTime) && toMinutes(br.endTime) > toMinutes(dto.startTime);
+              });
+              if (hasBreak) continue;
+
+              const hasOverlap = await this.bookingModel.findOne({
+                salonId: new Types.ObjectId(dto.salonId),
+                appointmentDate,
+                stylistId: new Types.ObjectId(staff._id),
+                status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+                startTime: { $lt: endTime },
+                endTime: { $gt: dto.startTime },
+              }).lean().exec();
+              if (hasOverlap) continue;
+
+              freeStylists.push({
+                stylistId: staff._id,
+                name: `${staff.firstName} ${staff.lastName}`.trim(),
+              });
+            }
+
+            if (freeStylists.length > 0) {
+              const picked = freeStylists[Math.floor(Math.random() * freeStylists.length)];
+              assignedStylistId = new Types.ObjectId(picked.stylistId);
+              assignedStylistName = picked.name;
+              wasAssignedAutomatically = true;
+            }
+          }
+        } catch (err) {
+          if (err instanceof BadRequestException) throw err;
+          this.logger.warn(`Stylist auto-assign failed for manual booking: ${(err as Error).message}`);
+        }
+      }
+
+      const booking = await this.bookingModel.create({
+        clientId: new Types.ObjectId(dto.clientId),
+        salonId: new Types.ObjectId(dto.salonId),
+        salonName: dto.salonName ?? '',
+        clientName: dto.clientName,
+        stylistId: assignedStylistId,
+        stylistName: assignedStylistName,
+        assignedAutomatically: wasAssignedAutomatically,
+        stationId: assignedStationId,
+        stationName: assignedStationName,
+        services: dto.services.map((s) => ({
+          ...s,
+          serviceId: new Types.ObjectId(s.serviceId),
+        })),
+        appointmentDate,
+        startTime: dto.startTime,
+        endTime,
+        totalPrice,
+        notes: dto.notes ?? null,
+        status: BookingStatus.CONFIRMED,
+        isManualBooking: true,
+      });
+
+      const response = this.toResponse(booking);
+      await this.bookingQueue.add(BookingEvent.CREATED, response);
+
+      try {
+        await this.invalidateSlotCache(dto.salonId, dto.appointmentDate);
+      } catch {
+        /* non-fatal */
       }
 
       return response;
@@ -1326,6 +1531,7 @@ export class BookingService {
       notes: booking.notes ?? undefined,
       googleEventId: booking.googleEventId ?? undefined,
       calendarSyncStatus: booking.calendarSyncStatus ?? 'pending',
+      isManualBooking: booking.isManualBooking ?? false,
       cancelledBy: booking.cancelledBy ?? undefined,
       cancellationReason: booking.cancellationReason ?? undefined,
       createdAt: booking.createdAt,

@@ -20,7 +20,7 @@
       <p-selectButton
         [options]="viewOptions"
         [ngModel]="viewMode()"
-        (ngModelChange)="viewMode.set($event)"
+        (ngModelChange)="onViewModeChange($event)"
         optionLabel="label"
         optionValue="value"
       >
@@ -32,8 +32,8 @@
     </ng-template>
   </p-toolbar>
 
-  <!-- Calendar View -->
-  @if (viewMode() === 'calendar') {
+  <!-- Day View (custom grid) -->
+  @if (viewMode() === 'day') {
     <div class="calendar-view">
       @let gridData = calendarGrid();
       <lib-calendar-grid
@@ -42,12 +42,10 @@
         [loading]="loading()"
         emptyMessage="No schedule to display"
       >
-        <!-- Cell template for each time slot -->
         <ng-template #cellTemplate let-ctx>
           @let entry = calendarGrid().grid[ctx.time]?.schedule;
           @if (entry) {
             @if (isBreakEntry(entry)) {
-              <!-- Break block -->
               <div
                 [class]="'break-cell ' + getBreakBgClass(entry.type)"
                 [style.grid-row-end]="'span ' + getBreakRowSpan(entry)"
@@ -73,7 +71,6 @@
                 />
               </div>
             } @else {
-              <!-- Booking block — clickable to see details -->
               <div
                 class="booking-cell"
                 [class.status-pending]="entry.status === 'PENDING'"
@@ -96,7 +93,6 @@
               </div>
             }
           } @else {
-            <!-- Empty slot — clickable to add break -->
             <div class="empty-cell" (click)="onEmptySlotClick(ctx.time)">
               <span class="empty-cell-hint">
                 <i class="pi pi-plus-circle"></i> Add break
@@ -105,6 +101,12 @@
           }
         </ng-template>
       </lib-calendar-grid>
+    </div>
+  }
+
+  @if (viewMode() === 'week' || viewMode() === 'month') {
+    <div class="fullcalendar-view">
+      <full-calendar [options]="fullCalendarOptions()" [deepChangeDetection]="true" />
     </div>
   }
 
@@ -140,13 +142,27 @@
               <p-tag [value]="booking.status" [severity]="getStatusSeverity(booking.status)" />
             </td>
             <td>
-              <p-button
-                icon="pi pi-eye"
-                [text]="true"
-                [rounded]="true"
-                severity="info"
-                (onClick)="openBookingDetails(booking)"
-              />
+              <div class="flex items-center gap-1">
+                @if (booking.status === 'PENDING') {
+                  <p-button
+                    icon="pi pi-check"
+                    [text]="true"
+                    [rounded]="true"
+                    severity="success"
+                    pTooltip="Approve"
+                    [loading]="confirmInFlight() === booking._id"
+                    (onClick)="confirmBooking(booking)"
+                  />
+                }
+                <p-button
+                  icon="pi pi-eye"
+                  [text]="true"
+                  [rounded]="true"
+                  severity="info"
+                  pTooltip="Details"
+                  (onClick)="openBookingDetails(booking)"
+                />
+              </div>
             </td>
           </tr>
         </ng-template>
@@ -255,6 +271,20 @@
           <div class="detail-section">
             <label>Notes</label>
             <p class="detail-value notes">{{ booking.notes }}</p>
+          </div>
+        }
+
+        <!-- Actions -->
+        @if (booking.status === 'PENDING') {
+          <div class="detail-section mt-4">
+            <p-button
+              label="Approve Appointment"
+              icon="pi pi-check"
+              severity="success"
+              styleClass="w-full"
+              [loading]="confirmInFlight() === booking._id"
+              (onClick)="confirmBooking(booking)"
+            />
           </div>
         }
       </div>

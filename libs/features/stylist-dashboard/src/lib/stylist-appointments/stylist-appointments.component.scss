@@ -250,6 +250,23 @@
   }
 }
 
+/* FullCalendar container */
+.fullcalendar-view {
+  background: var(--p-surface-0);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+::ng-deep .fc .fc-timegrid-now-indicator-line {
+  border-color: #ef4444;
+  border-width: 2px;
+}
+
+::ng-deep .fc .fc-timegrid-now-indicator-arrow {
+  border-color: #ef4444;
+}
+
 /* Dark Mode */
 :host-context(.app-dark) {
   .calendar-view {
@@ -289,4 +306,28 @@
   .service-item {
     border-bottom-color: var(--p-surface-700);
   }
+
+  .fullcalendar-view {
+    background: var(--p-surface-900);
+  }
+
+  ::ng-deep .fc {
+    --fc-border-color: #3f3f46;
+    --fc-button-bg-color: #27272a;
+    --fc-button-border-color: #3f3f46;
+    --fc-button-hover-bg-color: #3f3f46;
+    --fc-button-hover-border-color: #52525b;
+    --fc-button-active-bg-color: #52525b;
+    --fc-today-bg-color: rgba(139,92,246,.08);
+    --fc-neutral-bg-color: #18181b;
+    --fc-page-bg-color: #18181b;
+    color: #d4d4d8;
+  }
+
+  ::ng-deep .fc .fc-toolbar-title { color: #f4f4f5; }
+  ::ng-deep .fc .fc-col-header-cell { background: #27272a; color: #a1a1aa; }
+  ::ng-deep .fc .fc-timegrid-slot-label { color: #71717a; }
+  ::ng-deep .fc .fc-daygrid-day-number { color: #a1a1aa; }
+  ::ng-deep .fc .fc-timegrid-now-indicator-line { border-color: #f87171; }
+  ::ng-deep .fc .fc-timegrid-now-indicator-arrow { border-color: #f87171; }
 }

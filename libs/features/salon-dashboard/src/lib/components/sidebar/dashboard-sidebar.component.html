@@ -41,7 +41,7 @@
             [class.max-w-xs]="isExpanded()"
             [class.max-w-0]="!isExpanded()">Overview</span>
     </a>
-    <a [routerLink]="'/salon-dashboard/bookings'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Appointments" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
+    <a [routerLink]="'/salon-dashboard/appointments'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Appointments" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
       <span class="flex-shrink-0 w-5 flex items-center justify-center relative">
         <i class="pi pi-calendar"></i>
         @if (newBookingsCount() > 0) {

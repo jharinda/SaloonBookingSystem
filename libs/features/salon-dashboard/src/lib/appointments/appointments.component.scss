@@ -1,5 +1,3 @@
-@use "sass:color";
-
 .appointments-container {
   padding: 1rem;
   max-width: 100%;
@@ -46,43 +44,100 @@
   justify-content: center;
 }
 
+/* Empty cell — clickable for adding appointments (same style as stylist's "Add break") */
 .empty-cell {
   background: var(--p-surface-0);
-  min-height: 40px;
-  cursor: default;
-  border-bottom: 1px solid var(--p-surface-200);
+  min-height: 44px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--p-surface-100);
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.empty-cell-clickable {
+.empty-cell:hover {
+  background: var(--p-primary-50);
+}
+
+.empty-cell-hint {
+  display: none;
+  font-size: 0.75rem;
+  color: var(--p-primary-400);
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.empty-cell:hover .empty-cell-hint {
+  display: flex;
+}
+
+/* ── Booking cell ───────────────────────────────────────────────────────── */
+.booking-cell {
+  background: var(--p-surface-0);
+  padding: 0.75rem;
   cursor: pointer;
-  transition: background-color 0.15s, box-shadow 0.15s;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-left: 4px solid var(--p-primary-500);
   position: relative;
+}
 
-  &:hover {
-    background-color: var(--p-primary-50);
-    box-shadow: inset 0 0 0 2px var(--p-primary-200);
-  }
+.booking-cell:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  z-index: 5;
+}
 
-  .empty-cell-hint {
-    display: none;
-    position: absolute;
-    inset: 0;
-    align-items: center;
-    justify-content: center;
-    color: var(--p-primary-400);
-    font-size: 0.8rem;
-  }
+.booking-cell.status-pending {
+  border-left-color: #ff9800;
+  background: #fff3e0;
+}
 
-  &:hover .empty-cell-hint {
-    display: flex;
-  }
+.booking-cell.status-confirmed {
+  border-left-color: var(--p-primary-500);
+  background: var(--p-primary-50);
+}
+
+.booking-cell.status-completed {
+  border-left-color: #4caf50;
+  background: #e8f5e9;
+}
+
+.booking-cell.status-no-show {
+  border-left-color: #f44336;
+  background: #ffebee;
+  opacity: 0.7;
+}
+
+.booking-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.booking-content strong {
+  font-size: 0.9rem;
+  color: var(--p-surface-900);
+}
+
+.booking-service {
+  font-size: 0.8rem;
+  color: var(--p-surface-500);
+}
+
+.booking-stylist {
+  font-size: 0.75rem;
+  color: var(--p-surface-500);
+  font-style: italic;
+}
+
+.booking-time {
+  font-size: 0.75rem;
+  color: var(--p-primary-500);
+  font-weight: 500;
 }
 
 /* ── Break overlay row inside calendar ──────────────────────────────────── */
-.break-overlay-row {
-  // The break row still uses display: contents from .calendar-row
-}
-
 .break-time-cell {
   background: #fff8e1 !important;
   color: #e65100 !important;
@@ -154,140 +209,16 @@
   font-size: 0.75rem;
 }
 
-/* ── Slot dialog ────────────────────────────────────────────────────────── */
-.slot-dialog-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.slot-info-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.slot-info-icon {
-  font-size: 1.25rem;
-  color: var(--p-primary-500);
-  width: 32px;
-  text-align: center;
-}
-
-.slot-info-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--p-surface-500);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.slot-info-value {
-  font-size: 1rem;
-  color: var(--p-surface-900);
-  font-weight: 500;
-}
-
-.slot-breaks-section {
-  margin-top: 0.5rem;
-  padding: 0.75rem;
-  background: #fff8e1;
-  border-radius: 8px;
-  border: 1px solid #ffe0b2;
-}
-
-.slot-break-item {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.375rem 0;
-
-  & + & {
-    border-top: 1px solid #ffe0b2;
-    padding-top: 0.5rem;
-    margin-top: 0.25rem;
-  }
-}
-
-.slot-status {
-  text-align: center;
-  margin-top: 0.5rem;
-}
-
-.booking-cell {
-  background: var(--p-surface-0);
-  padding: 0.5rem;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  border-left: 4px solid var(--p-primary-500);
-  position: relative;
-}
-
-.booking-cell:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-  z-index: 5;
-}
-
-.booking-cell.status-pending {
-  border-left-color: #ff9800;
-  background: #fff3e0;
-}
-
-.booking-cell.status-confirmed {
-  border-left-color: var(--p-primary-500);
-  background: var(--p-primary-100);
-}
-
-.booking-cell.status-completed {
-  border-left-color: #4caf50;
-  background: #e8f5e9;
-}
-
-.booking-cell.status-no-show {
-  border-left-color: #f44336;
-  background: #ffebee;
-  opacity: 0.7;
-}
-
-.booking-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.booking-content strong {
-  font-size: 0.9rem;
-  color: var(--p-surface-900);
-}
-
-.booking-service {
-  font-size: 0.8rem;
-  color: var(--p-surface-500);
-}
-
-.booking-stylist {
-  font-size: 0.75rem;
-  color: var(--p-surface-500);
-  font-style: italic;
-}
-
-.booking-time {
-  font-size: 0.75rem;
-  color: var(--p-primary-500);
-  font-weight: 500;
-  margin-top: 0.25rem;
-}
-
-/* List View */
+/* ── List View ──────────────────────────────────────────────────────────── */
 .list-view {
   background: var(--p-surface-0);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
 }
 
-/* Booking Details Sidebar */
+/* ── Booking Details Sidebar ────────────────────────────────────────────── */
 .booking-details {
   padding: 1rem;
 }
@@ -319,7 +250,7 @@
 }
 
 .detail-value.notes {
-  background: var(--p-surface-0);
+  background: var(--p-surface-50);
   padding: 1rem;
   border-radius: 4px;
   font-style: italic;
@@ -328,7 +259,7 @@
 
 .service-details {
   margin-top: 0.5rem;
-  background: var(--p-surface-0);
+  background: var(--p-surface-50);
   border-radius: 4px;
   padding: 0.75rem;
 }
@@ -355,7 +286,7 @@
   border-top: 1px solid var(--p-surface-200);
 }
 
-/* Empty State */
+/* Empty & Loading States */
 .empty-state {
   text-align: center;
   padding: 3rem 1rem;
@@ -385,190 +316,21 @@
   color: var(--p-primary-500);
 }
 
-/* Mobile Responsive */
-@media (max-width: 768px) {
-  .appointments-container {
-    padding: 0.5rem;
-  }
-
-  .hidden-on-mobile {
-    display: none;
-  }
-
-  .date-display {
-    font-size: 0.9rem;
-    min-width: auto;
-  }
-
-  .booking-cell {
-    padding: 0.25rem;
-  }
-
-  .booking-content strong {
-    font-size: 0.75rem;
-  }
-
-  .booking-service,
-  .booking-stylist {
-    font-size: 0.7rem;
-  }
-
-  .booking-time {
-    font-size: 0.65rem;
-  }
-
-  /* Stack table on mobile */
-  ::ng-deep .p-datatable-responsive-scroll .p-datatable-tbody > tr > td {
-    text-align: left;
-  }
+/* ── FullCalendar container ─────────────────────────────────────────────── */
+.fullcalendar-view {
+  background: var(--p-surface-0);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-@media (max-width: 576px) {
-  .calendar-view {
-    overflow-x: auto;
-  }
+::ng-deep .fc .fc-timegrid-now-indicator-line {
+  border-color: #ef4444;
+  border-width: 2px;
 }
 
-/* Print styles */
-@media print {
-  .action-buttons,
-  p-toolbar,
-  p-button {
-    display: none !important;
-  }
-}
-
-/* Dark Mode */
-:host-context(.app-dark) {
-  .calendar-view {
-    background: var(--p-surface-900);
-  }
-
-  .time-cell {
-    background: var(--p-surface-800);
-    color: var(--p-surface-400);
-  }
-
-  .empty-cell {
-    background: var(--p-surface-900);
-    border-bottom: 1px solid var(--p-surface-700);
-  }
-
-  .empty-cell-clickable:hover {
-    background-color: var(--p-surface-800);
-    box-shadow: inset 0 0 0 2px var(--p-primary-700);
-
-    .empty-cell-hint {
-      color: var(--p-primary-300);
-    }
-  }
-
-  .break-time-cell {
-    background: #3e2723 !important;
-    color: #ffcc80 !important;
-  }
-
-  .break-overlay-cell {
-    background: linear-gradient(135deg, #3e2723 0%, #4e342e 100%);
-    border-bottom: 2px solid #5d4037;
-  }
-
-  .break-overlay-badge {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid #5d4037;
-  }
-
-  .break-overlay-stylist {
-    color: var(--p-surface-100);
-  }
-
-  .break-overlay-time {
-    color: var(--p-surface-400);
-  }
-
-  .slot-breaks-section {
-    background: #3e2723;
-    border-color: #5d4037;
-  }
-
-  .slot-break-item + .slot-break-item {
-    border-top-color: #5d4037;
-  }
-
-  .slot-info-value {
-    color: var(--p-surface-100);
-  }
-
-  .booking-cell {
-    background: var(--p-surface-800);
-  }
-
-  .booking-content strong {
-    color: var(--p-surface-0);
-  }
-
-  .booking-service,
-  .booking-stylist {
-    color: var(--p-surface-400);
-  }
-
-  .list-view {
-    background: var(--p-surface-900);
-  }
-
-  .detail-section .detail-label {
-    color: var(--p-surface-400);
-  }
-
-  .detail-value {
-    color: var(--p-surface-0);
-  }
-
-  .detail-value.notes {
-    background: var(--p-surface-800);
-    color: var(--p-surface-400);
-  }
-
-  .service-details {
-    background: var(--p-surface-800);
-  }
-
-  .service-item {
-    border-bottom: 1px solid var(--p-surface-700);
-  }
-
-  .action-buttons {
-    border-top: 1px solid var(--p-surface-700);
-  }
-
-  .breaks-panel {
-    background: var(--p-surface-900);
-  }
-
-  .breaks-header {
-    color: var(--p-surface-100);
-  }
-
-  .break-card {
-    background: var(--p-surface-800);
-    border: 1px solid var(--p-surface-700);
-  }
-
-  .break-stylist-name {
-    color: var(--p-surface-100);
-  }
-
-  .break-time {
-    color: var(--p-surface-400);
-  }
-
-  .break-note {
-    color: var(--p-surface-500);
-  }
-
-  .breaks-list-title {
-    color: var(--p-surface-100);
-  }
+::ng-deep .fc .fc-timegrid-now-indicator-arrow {
+  border-color: #ef4444;
 }
 
 /* ── Breaks Panel ───────────────────────────────────────────────────────── */
@@ -688,4 +450,199 @@
   padding: 1rem;
   margin: 0;
   border-bottom: 1px solid var(--p-surface-200);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .appointments-container {
+    padding: 0.5rem;
+  }
+
+  .hidden-on-mobile {
+    display: none;
+  }
+
+  .date-display {
+    font-size: 0.9rem;
+    min-width: auto;
+  }
+
+  .booking-cell {
+    padding: 0.25rem;
+  }
+
+  .booking-content strong {
+    font-size: 0.75rem;
+  }
+
+  .booking-service,
+  .booking-stylist {
+    font-size: 0.7rem;
+  }
+
+  .booking-time {
+    font-size: 0.65rem;
+  }
+
+  ::ng-deep .p-datatable-responsive-scroll .p-datatable-tbody > tr > td {
+    text-align: left;
+  }
+}
+
+@media (max-width: 576px) {
+  .calendar-view {
+    overflow-x: auto;
+  }
+}
+
+/* Print styles */
+@media print {
+  .action-buttons,
+  p-toolbar,
+  p-button {
+    display: none !important;
+  }
+}
+
+/* ── Dark Mode ──────────────────────────────────────────────────────────── */
+:host-context(.app-dark) {
+  .calendar-view {
+    background: var(--p-surface-900);
+  }
+
+  .time-cell {
+    background: var(--p-surface-800);
+    color: var(--p-surface-400);
+  }
+
+  .empty-cell {
+    background: var(--p-surface-900);
+    border-bottom: 1px solid var(--p-surface-700);
+  }
+
+  .empty-cell:hover {
+    background: var(--p-surface-800);
+  }
+
+  .empty-cell-hint {
+    color: var(--p-primary-300);
+  }
+
+  .break-time-cell {
+    background: #3e2723 !important;
+    color: #ffcc80 !important;
+  }
+
+  .break-overlay-cell {
+    background: linear-gradient(135deg, #3e2723 0%, #4e342e 100%);
+    border-bottom: 2px solid #5d4037;
+  }
+
+  .break-overlay-badge {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #5d4037;
+  }
+
+  .break-overlay-stylist {
+    color: var(--p-surface-100);
+  }
+
+  .break-overlay-time {
+    color: var(--p-surface-400);
+  }
+
+  .booking-cell {
+    background: var(--p-surface-800);
+  }
+
+  .booking-content strong {
+    color: var(--p-surface-0);
+  }
+
+  .booking-service,
+  .booking-stylist {
+    color: var(--p-surface-400);
+  }
+
+  .list-view {
+    background: var(--p-surface-900);
+  }
+
+  .detail-section .detail-label {
+    color: var(--p-surface-400);
+  }
+
+  .detail-value {
+    color: var(--p-surface-0);
+  }
+
+  .detail-value.notes {
+    background: var(--p-surface-800);
+    color: var(--p-surface-400);
+  }
+
+  .service-details {
+    background: var(--p-surface-800);
+  }
+
+  .service-item {
+    border-bottom: 1px solid var(--p-surface-700);
+  }
+
+  .action-buttons {
+    border-top: 1px solid var(--p-surface-700);
+  }
+
+  .breaks-panel {
+    background: var(--p-surface-900);
+  }
+
+  .breaks-header {
+    color: var(--p-surface-100);
+  }
+
+  .break-card {
+    background: var(--p-surface-800);
+    border: 1px solid var(--p-surface-700);
+  }
+
+  .break-stylist-name {
+    color: var(--p-surface-100);
+  }
+
+  .break-time {
+    color: var(--p-surface-400);
+  }
+
+  .break-note {
+    color: var(--p-surface-500);
+  }
+
+  .breaks-list-title {
+    color: var(--p-surface-100);
+  }
+
+  .fullcalendar-view {
+    background: var(--p-surface-900);
+  }
+
+  ::ng-deep .fc {
+    --fc-border-color: #3f3f46;
+    --fc-button-bg-color: #27272a;
+    --fc-button-border-color: #3f3f46;
+    --fc-button-hover-bg-color: #3f3f46;
+    --fc-button-hover-border-color: #52525b;
+    --fc-button-active-bg-color: #52525b;
+    --fc-today-bg-color: rgba(139, 92, 246, 0.08);
+    --fc-neutral-bg-color: #18181b;
+    --fc-page-bg-color: #18181b;
+    color: #d4d4d8;
+  }
+
+  ::ng-deep .fc .fc-toolbar-title { color: #f4f4f5; }
+  ::ng-deep .fc .fc-col-header-cell { background: #27272a; color: #a1a1aa; }
+  ::ng-deep .fc .fc-timegrid-slot-label { color: #71717a; }
+  ::ng-deep .fc .fc-daygrid-day-number { color: #a1a1aa; }
+  ::ng-deep .fc .fc-timegrid-now-indicator-line { border-color: #f87171; }
+  ::ng-deep .fc .fc-timegrid-now-indicator-arrow { border-color: #f87171; }
 }

@@ -346,6 +346,22 @@ export class SalonAdminService {
     );
   }
 
+  // ── Manual Booking (salon owner) ─────────────────────────────────────────
+
+  /** GET /api/users/search/clients?q=<query> — search clients by name, email, or phone */
+  searchClients(query: string): Observable<ClientSearchResult[]> {
+    return this.http.get<ClientSearchResult[]>('/api/users/search/clients', {
+      params: { q: query },
+    });
+  }
+
+  /** POST /api/bookings/manual — create a booking on behalf of a client */
+  createManualBooking(dto: CreateManualBookingDto): Observable<Booking> {
+    return this.http
+      .post<Booking>('/api/bookings/manual', dto)
+      .pipe(map(normAdminBooking));
+  }
+
   // ── Stylist Breaks (salon owner view) ─────────────────────────────────────
 
   /** GET /api/bookings/salon/:salonId/breaks?date=YYYY-MM-DD */
@@ -394,6 +410,33 @@ export interface StylistSearchResult {
     currentSalonId?: string;
     joinRequestStatus: string;
   };
+}
+
+/** Shape returned by GET /api/users/search/clients */
+export interface ClientSearchResult {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  avatarUrl: string | null;
+}
+
+export interface CreateManualBookingDto {
+  clientId: string;
+  clientName: string;
+  salonId: string;
+  salonName?: string;
+  stylistId?: string;
+  services: Array<{
+    serviceId: string;
+    name: string;
+    price: number;
+    durationMinutes: number;
+  }>;
+  appointmentDate: string;
+  startTime: string;
+  notes?: string;
 }
 
 /** Shape returned by GET /api/auth/stylist/join-requests */

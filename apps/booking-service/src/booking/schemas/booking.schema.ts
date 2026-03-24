@@ -102,6 +102,9 @@ export class Booking extends Document {
   @Prop({ default: null })
   cancellationReason: string | null;
 
+  @Prop({ default: false })
+  isManualBooking: boolean;
+
   /** If this booking was rescheduled, stores the original appointment date for audit trail */
   @Prop({ default: null })
   rescheduledFrom: Date | null;

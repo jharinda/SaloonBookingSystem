@@ -188,7 +188,7 @@ export class NotificationBellComponent {
 
     // Route clients to their appointments; owners/admins go to the dashboard.
     const role = this.authService.currentUser()?.role;
-    const path = role === 'client' ? '/my-appointments' : '/salon-dashboard/bookings';
+    const path = role === 'client' ? '/my-appointments' : '/salon-dashboard/appointments';
     void this.router.navigate([path], {
       queryParams: bookingId ? { bookingId } : {},
     });

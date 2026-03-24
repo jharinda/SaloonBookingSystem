@@ -1,11 +1,13 @@
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   DestroyRef,
   OnInit,
   computed,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -23,11 +25,19 @@ import { SelectButton } from 'primeng/selectbutton';
 import { DialogModule } from 'primeng/dialog';
 import { FloatLabelModule } from 'primeng/floatlabel';
 import { InputTextModule } from 'primeng/inputtext';
+import { Tooltip } from 'primeng/tooltip';
 import { MessageService } from 'primeng/api';
+
+import { FullCalendarModule, FullCalendarComponent } from '@fullcalendar/angular';
+import { CalendarOptions } from '@fullcalendar/core';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
 import { Booking, BookingStatus } from '@org/models';
 import {
   UserService,
+  SalonAdminService,
   StylistBreakDto,
   CreateStylistBreakPayload,
   BreakType,
@@ -35,7 +45,7 @@ import {
 } from '@org/shared-data-access';
 import { CalendarGridComponent, CalendarColumn } from '@org/shared-ui';
 
-type ViewMode = 'calendar' | 'list';
+type ViewMode = 'day' | 'week' | 'month' | 'list';
 type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
 /** Virtual "booking" entry representing a break in the calendar grid */
@@ -68,7 +78,9 @@ type CalendarEntry = (Booking & { isBreak?: false }) | BreakEntry;
     DialogModule,
     FloatLabelModule,
     InputTextModule,
+    Tooltip,
     CalendarGridComponent,
+    FullCalendarModule,
   ],
   providers: [MessageService],
   templateUrl: './stylist-appointments.component.html',
@@ -76,12 +88,14 @@ type CalendarEntry = (Booking & { isBreak?: false }) | BreakEntry;
 })
 export class StylistAppointmentsComponent implements OnInit {
   private readonly userService = inject(UserService);
+  private readonly adminService = inject(SalonAdminService);
   private readonly messageService = inject(MessageService);
   private readonly realtimeSvc = inject(RealtimeNotificationService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   // ── State ────────────────────────────────────────────────────────────────
-  viewMode = signal<ViewMode>('calendar');
+  viewMode = signal<ViewMode>('day');
   bookings = signal<Booking[]>([]);
   breaks = signal<StylistBreakDto[]>([]);
   selectedBooking = signal<Booking | null>(null);
@@ -91,6 +105,7 @@ export class StylistAppointmentsComponent implements OnInit {
 
   // Break dialog
   showBreakDialog = signal(false);
+  confirmInFlight = signal<string | null>(null);
   breakForm = {
     startTime: '',
     endTime: '',
@@ -104,7 +119,9 @@ export class StylistAppointmentsComponent implements OnInit {
 
   // View options
   viewOptions = [
-    { label: 'Calendar', value: 'calendar', icon: 'pi pi-calendar' },
+    { label: 'Day', value: 'day', icon: 'pi pi-calendar' },
+    { label: 'Week', value: 'week', icon: 'pi pi-calendar-clock' },
+    { label: 'Month', value: 'month', icon: 'pi pi-th-large' },
     { label: 'List', value: 'list', icon: 'pi pi-list' },
   ];
 
@@ -168,6 +185,90 @@ export class StylistAppointmentsComponent implements OnInit {
     return { grid, timeSlots };
   });
 
+  fullCalendarOptions = computed<CalendarOptions>(() => {
+    const mode = this.viewMode();
+    const initialView = mode === 'month' ? 'dayGridMonth' : 'timeGridWeek';
+    const allBookings = this.bookings();
+    const allBreaks = this.breaks();
+    const d = this.selectedDate();
+    const initialDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+    return {
+      plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
+      initialView,
+      initialDate,
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: '',
+      },
+      nowIndicator: true,
+      scrollToTime: {
+        hours: new Date().getHours(),
+        minutes: Math.max(0, new Date().getMinutes() - 15),
+      },
+      events: [
+        ...allBookings.map((b) => ({
+          id: b._id,
+          title:
+            (b.clientName || 'Client') +
+            ' — ' +
+            (b.serviceName || b.services?.[0]?.name || 'Appointment') +
+            (b.stationName ? ` · ${b.stationName}` : ''),
+          start: `${b.appointmentDate}T${b.startTime}:00`,
+          end: `${b.appointmentDate}T${b.endTime}:00`,
+          backgroundColor: this._statusColor(b.status),
+          borderColor: this._statusColor(b.status),
+          textColor: '#ffffff',
+          extendedProps: { booking: b },
+        })),
+        ...allBreaks.map((brk) => ({
+          id: `break-${brk._id}`,
+          title: `${this.breakTypeLabel(brk.type)}`,
+          start: `${brk.date}T${brk.startTime}:00`,
+          end: `${brk.date}T${brk.endTime}:00`,
+          backgroundColor: '#f59e0b',
+          borderColor: '#d97706',
+          textColor: '#ffffff',
+          display: 'block' as const,
+          extendedProps: { isBreak: true, break: brk },
+        })),
+      ],
+      height: 'auto',
+      editable: false,
+      selectable: false,
+      eventDisplay: 'block',
+      eventMinHeight: 22,
+      displayEventTime: true,
+      eventTimeFormat: { hour: '2-digit' as const, minute: '2-digit' as const, hour12: false },
+      eventClick: (info) => {
+        if (info.event.extendedProps['isBreak']) {
+          const brk = info.event.extendedProps['break'] as StylistBreakDto;
+          this.messageService.add({
+            severity: 'info',
+            summary: `${this.breakTypeLabel(brk.type)}`,
+            detail: `${brk.startTime} – ${brk.endTime}${brk.note ? '\n' + brk.note : ''}`,
+            life: 5000,
+          });
+        } else {
+          this.openBookingDetails(info.event.extendedProps['booking']);
+        }
+      },
+    };
+  });
+
+  private _statusColor(status: BookingStatus | string): string {
+    switch (status) {
+      case 'CONFIRMED':   return '#10b981';
+      case 'PENDING':     return '#f59e0b';
+      case 'CANCELLED':   return '#ef4444';
+      case 'COMPLETED':   return '#6b7280';
+      case 'IN_PROGRESS': return '#3b82f6';
+      case 'NO_SHOW':     return '#374151';
+      default:            return '#6b7280';
+    }
+  }
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
   ngOnInit(): void {
     // Get accepted salons to determine salonId for breaks
@@ -202,12 +303,38 @@ export class StylistAppointmentsComponent implements OnInit {
   // ── Data Loading ─────────────────────────────────────────────────────────
   loadData(): void {
     this.loading.set(true);
-    const dateStr = this._fmtDate(this.selectedDate());
+    const mode = this.viewMode();
+    const selected = this.selectedDate();
 
-    this.userService.getStylistBookings(dateStr, dateStr).subscribe({
+    let startDate: string;
+    let endDate: string;
+
+    if (mode === 'week') {
+      const start = new Date(selected);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      startDate = this._fmtDate(start);
+      endDate = this._fmtDate(end);
+    } else if (mode === 'month') {
+      const start = new Date(selected.getFullYear(), selected.getMonth(), 1);
+      const end = new Date(selected.getFullYear(), selected.getMonth() + 1, 0);
+      startDate = this._fmtDate(start);
+      endDate = this._fmtDate(end);
+    } else {
+      const dateStr = this._fmtDate(selected);
+      startDate = dateStr;
+      endDate = dateStr;
+    }
+
+    this.userService.getStylistBookings(startDate, endDate).subscribe({
       next: (data) => {
         this.bookings.set(data);
         this.loading.set(false);
+        this.cdr.markForCheck();
+        if (mode === 'week' || mode === 'month') {
+          setTimeout(() => this.syncFullCalendarView(), 0);
+        }
       },
       error: () => {
         this.messageService.add({
@@ -219,10 +346,37 @@ export class StylistAppointmentsComponent implements OnInit {
       },
     });
 
-    this.userService.getStylistBreaks(dateStr).subscribe({
-      next: (data) => this.breaks.set(data),
+    this.userService.getStylistBreaks(this._fmtDate(selected)).subscribe({
+      next: (data) => {
+        this.breaks.set(data);
+        this.cdr.markForCheck();
+      },
       error: () => { /* silently handle */ },
     });
+  }
+
+  onViewModeChange(mode: ViewMode): void {
+    const prev = this.viewMode();
+    this.viewMode.set(mode);
+    this.loadData();
+    const wasRange = prev === 'week' || prev === 'month';
+    const isRange = mode === 'week' || mode === 'month';
+    if (wasRange && isRange && prev !== mode) {
+      setTimeout(() => this.syncFullCalendarView(), 0);
+    }
+  }
+
+  private syncFullCalendarView(): void {
+    const mode = this.viewMode();
+    if (mode !== 'week' && mode !== 'month') return;
+    const api = this.fullCalendarRef()?.getApi();
+    if (!api) return;
+    const viewName = mode === 'month' ? 'dayGridMonth' : 'timeGridWeek';
+    if (api.view.type !== viewName) {
+      api.changeView(viewName);
+    }
+    api.gotoDate(this.selectedDate());
+    queueMicrotask(() => api.updateSize());
   }
 
   // ── Booking Details Drawer ───────────────────────────────────────────────
@@ -320,6 +474,34 @@ export class StylistAppointmentsComponent implements OnInit {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
+
+  confirmBooking(booking: Booking): void {
+    this.confirmInFlight.set(booking._id);
+    this.adminService.confirmBooking(booking._id).subscribe({
+      next: (updated) => {
+        this.bookings.update((prev) =>
+          prev.map((b) => (b._id === booking._id ? updated : b)),
+        );
+        this.confirmInFlight.set(null);
+        this.messageService.add({
+          severity: 'success',
+          summary:  'Approved',
+          detail:   'Appointment has been confirmed.',
+          life:     3500,
+        });
+      },
+      error: () => {
+        this.confirmInFlight.set(null);
+        this.messageService.add({
+          severity: 'error',
+          summary:  'Error',
+          detail:   'Could not confirm the appointment. Please try again.',
+          life:     4000,
+        });
+      },
+    });
+  }
+
   isBreakEntry(entry: CalendarEntry): entry is BreakEntry {
     return (entry as BreakEntry).isBreak === true;
   }

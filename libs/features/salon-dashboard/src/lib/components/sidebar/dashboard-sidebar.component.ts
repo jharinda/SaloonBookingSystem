@@ -121,7 +121,9 @@ export class DashboardSidebarComponent {
     this.router.events
       .pipe(
         filter((e) => e instanceof NavigationEnd),
-        filter((e) => (e as NavigationEnd).urlAfterRedirects.startsWith('/salon-dashboard/bookings')),
+        filter((e) =>
+          (e as NavigationEnd).urlAfterRedirects.startsWith('/salon-dashboard/appointments'),
+        ),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(() => this.newBookingsCount.set(0));

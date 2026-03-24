@@ -36,6 +36,7 @@ export class BookingResponseDto {
   notes?: string;
   googleEventId?: string;
   calendarSyncStatus: 'pending' | 'synced' | 'failed';
+  isManualBooking?: boolean;
   cancelledBy?: string;
   cancellationReason?: string;
   createdAt: Date;
