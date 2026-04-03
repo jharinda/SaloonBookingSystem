@@ -224,7 +224,7 @@ export class ManageHoursComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.adminService.getOwnSalon().subscribe({
+    this.adminService.getDashboardSalon().subscribe({
       next: (salon) => {
         this.salonId = salon._id;
         if (salon.workingHours) {

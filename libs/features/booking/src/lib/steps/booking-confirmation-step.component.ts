@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 
 import { BookingStateService } from '../services/booking-state.service';
 import { BookingService, CreateBookingDto, AppCurrencyPipe } from '@org/shared-data-access';
+import { TranslateModule } from '@ngx-translate/core';
 import { SalonServiceItem } from '@org/models';
 
 /**
@@ -38,6 +39,7 @@ import { SalonServiceItem } from '@org/models';
     ButtonModule,
     ProgressSpinnerModule,
     AppCurrencyPipe,
+    TranslateModule,
   ],
   templateUrl: './booking-confirmation-step.component.html',
   styleUrl: './booking-confirmation-step.component.scss',

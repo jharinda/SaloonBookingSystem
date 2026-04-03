@@ -8,6 +8,8 @@ export { SalonReviewsComponent } from './lib/salon-reviews/salon-reviews.compone
 export { RegisterSalonComponent } from './lib/register-salon/register-salon.component';
 export { SalonSettingsComponent } from './lib/salon-settings/salon-settings.component';
 export { DASHBOARD_ROUTES } from './lib/dashboard.routes';
+export { FranchiseOverviewComponent } from './lib/franchise/franchise-overview.component';
 export { LocationPickerComponent } from './lib/location-picker/location-picker.component';
 export type { SelectedLocation } from './lib/location-picker/location-picker.component';
 export { SalonImageUploaderComponent } from './lib/salon-images/salon-image-uploader.component';
+export { SubscriptionComponent } from './lib/subscription/subscription.component';

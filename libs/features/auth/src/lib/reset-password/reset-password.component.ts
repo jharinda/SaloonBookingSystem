@@ -45,6 +45,7 @@ const passwordsMatchValidator: ValidatorFn = (
     PasswordModule,
   ],
   templateUrl: './reset-password.component.html',
+  styles: [`:host { display: block; height: 100%; }`],
 })
 export class ResetPasswordComponent {
   private readonly fb          = inject(FormBuilder);

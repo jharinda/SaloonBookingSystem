@@ -1,5 +1,5 @@
 <div class="page-wrap">
-  <h1 class="page-title">My Appointments</h1>
+  <h1 class="page-title">{{ 'appointments.myAppointments' | translate }}</h1>
 
   <!-- ── Loading ── -->
   @if (loading()) {
@@ -15,7 +15,7 @@
     <div class="error-card" role="alert">
       <i class="pi pi-exclamation-circle error-icon"></i>
       <p>{{ error() }}</p>
-      <p-button label="Retry" (onClick)="loadBookings()" />
+      <p-button [label]="'common.retry' | translate" (onClick)="loadBookings()" />
     </div>
   }
 
@@ -30,7 +30,7 @@
         </div>
         <div class="next-banner__body">
           <p class="next-banner__headline">
-            Your next appointment is in
+            {{ 'appointments.nextIn' | translate }}
             <strong>{{ countdown() || '…' }}</strong>
           </p>
           <p class="next-banner__detail">
@@ -47,19 +47,19 @@
     <p-tabs class="appt-tabs">
       <p-tablist>
         <p-tab [value]="0">
-          Upcoming
+          {{ 'appointments.upcoming' | translate }}
           @if (upcoming().length) {
             <span class="tab-count">{{ upcoming().length }}</span>
           }
         </p-tab>
         <p-tab [value]="1">
-          Completed
+          {{ 'appointments.completed' | translate }}
           @if (past().length) {
             <span class="tab-count">{{ past().length }}</span>
           }
         </p-tab>
         <p-tab [value]="2">
-          Cancelled
+          {{ 'appointments.cancelledTab' | translate }}
           @if (cancelled().length) {
             <span class="tab-count tab-count--warn">{{ cancelled().length }}</span>
           }
@@ -73,10 +73,10 @@
             @if (upcoming().length === 0) {
               <div class="empty-state" role="status">
                 <i class="pi pi-calendar-plus empty-icon"></i>
-                <h3>No upcoming appointments</h3>
-                <p>Book your next session at one of our partner salons.</p>
+                <h3>{{ 'appointments.noUpcoming' | translate }}</h3>
+                <p>{{ 'appointments.noUpcomingDesc' | translate }}</p>
                 <a routerLink="/discover" class="find-btn">
-                  Find a Salon
+                  {{ 'appointments.findSalon' | translate }}
                 </a>
               </div>
             } @else {
@@ -86,6 +86,7 @@
                     [booking]="booking"
                     tab="upcoming"
                     (cancelRequested)="openCancelDialog(booking)"
+                    (modifyRequested)="openModifyDialog(booking)"
                   />
                 }
               </div>
@@ -99,8 +100,8 @@
             @if (past().length === 0) {
               <div class="empty-state" role="status">
                 <i class="pi pi-history empty-icon"></i>
-                <h3>No past appointments yet</h3>
-                <p>Completed appointments will appear here.</p>
+                <h3>{{ 'appointments.noPast' | translate }}</h3>
+                <p>{{ 'appointments.noPastDesc' | translate }}</p>
               </div>
             } @else {
               <div class="appt-list">
@@ -122,8 +123,8 @@
             @if (cancelled().length === 0) {
               <div class="empty-state" role="status">
                 <i class="pi pi-ban empty-icon"></i>
-                <h3>No cancelled appointments</h3>
-                <p>Cancelled or no-show bookings will appear here.</p>
+                <h3>{{ 'appointments.noCancelled' | translate }}</h3>
+                <p>{{ 'appointments.noCancelledDesc' | translate }}</p>
               </div>
             } @else {
               <div class="appt-list">

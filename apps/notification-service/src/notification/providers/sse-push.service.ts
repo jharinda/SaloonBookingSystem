@@ -90,6 +90,15 @@ export class SsePushService {
         return NotificationType.STAFF_JOINED;
       case 'salon.invitation':
         return NotificationType.SYSTEM;
+      case 'booking.reminder.15min':
+      case 'booking.reminder.now':
+      case 'booking.reminder.24hr':
+      case 'booking.reminder.2hr':
+        return NotificationType.BOOKING_REMINDER;
+      case 'review.posted':
+      case 'booking.review.request':
+      case 'review.nudge':
+        return NotificationType.REVIEW_REQUEST;
       case 'message.new':
         return NotificationType.NEW_MESSAGE;
       default:
@@ -116,6 +125,19 @@ export class SsePushService {
         return 'New Staff Member';
       case 'salon.invitation':
         return 'Salon Invitation';
+      case 'booking.reminder.15min':
+        return 'Appointment in 15 Minutes';
+      case 'booking.reminder.now':
+        return 'Appointment Starting Now';
+      case 'booking.reminder.24hr':
+        return 'Appointment Reminder (24 Hours)';
+      case 'booking.reminder.2hr':
+        return 'Appointment Reminder (2 Hours)';
+      case 'review.posted':
+        return 'New Review Received';
+      case 'booking.review.request':
+      case 'review.nudge':
+        return 'Review Request';
       case 'message.new':
         return 'New Message';
       default:
@@ -144,10 +166,23 @@ export class SsePushService {
         return `${d['staffName'] ?? 'A new staff member'} has joined your salon.`;
       case 'salon.invitation':
         return `You have been invited to join ${d['salonName'] ?? 'a salon'}.`;
+      case 'booking.reminder.15min':
+        return `Your ${d['serviceName'] ?? 'appointment'} at ${d['salonName'] ?? 'the salon'} starts in 15 minutes at ${d['startTime'] ?? 'scheduled time'}.`;
+      case 'booking.reminder.now':
+        return `Your ${d['serviceName'] ?? 'appointment'} at ${d['salonName'] ?? 'the salon'} is starting now!`;
+      case 'booking.reminder.24hr':
+        return `Reminder: Your appointment at ${d['salonName'] ?? 'the salon'} is tomorrow at ${d['startTime'] ?? 'scheduled time'}.`;
+      case 'booking.reminder.2hr':
+        return `Reminder: Your appointment at ${d['salonName'] ?? 'the salon'} is in 2 hours at ${d['startTime'] ?? 'scheduled time'}.`;
+      case 'review.posted':
+        return `${d['clientName'] ?? 'A client'} gave you ${d['rating'] ?? ''} stars${d['serviceName'] ? ' for ' + d['serviceName'] : ''}.`;
+      case 'booking.review.request':
+      case 'review.nudge':
+        return `How was your experience? Please leave a review for your recent appointment.`;
       case 'message.new':
         return `You have a new message from ${d['senderName'] ?? 'someone'}.`;
       default:
-        return JSON.stringify(data);
+        return 'You have a new notification.';
     }
   }
 }

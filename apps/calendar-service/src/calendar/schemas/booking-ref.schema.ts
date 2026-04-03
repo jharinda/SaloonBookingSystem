@@ -1,7 +1,6 @@
 /**
- * Read-only Booking reference schema used only for iCal generation.
- * The calendar-service reads from the same bookings collection written
- * by the booking-service but never writes to it.
+ * Read-only Booking reference for iCal download. Uses the booking-service
+ * database via the `booking` Mongoose connection (see app.module).
  */
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';

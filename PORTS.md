@@ -10,7 +10,7 @@ npm run kill-ports
 ```
 
 ### Method 2: Batch File (Double-click)
-Simply double-click `kill-ports.bat` in the project root.
+Double-click `tools/scripts/kill-ports.bat` (it runs `npm run kill-ports` from the workspace root).
 
 ### Method 3: Manual PowerShell Command
 ```powershell

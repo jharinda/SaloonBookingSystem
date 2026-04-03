@@ -25,6 +25,7 @@ import { AuthService } from '@org/shared-data-access';
     InputTextModule,
   ],
   templateUrl: './forgot-password.component.html',
+  styles: [`:host { display: block; height: 100%; }`],
 })
 export class ForgotPasswordComponent {
   private readonly fb          = inject(FormBuilder);

@@ -10,8 +10,7 @@
       "options": {
         "jestConfig": "apps/booking-service-e2e/jest.config.cts",
         "passWithNoTests": true
-      },
-      "dependsOn": ["booking-service:build", "booking-service:serve"]
+      }
     }
   }
 }

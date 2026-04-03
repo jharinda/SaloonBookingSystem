@@ -1,12 +1,14 @@
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-export type BookingStatus =
-  | 'PENDING'
-  | 'CONFIRMED'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'NO_SHOW';
+/** Canonical booking lifecycle — shared by booking-service schema and frontend. */
+export enum BookingStatus {
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  NO_SHOW = 'NO_SHOW',
+}
 
 // ─── API payloads ─────────────────────────────────────────────────────────────
 
@@ -54,6 +56,8 @@ export interface Booking {
   salonName: string;
   /** Name of the primary service (services[0].name) */
   serviceName: string;
+  /** Assigned stylist user ID */
+  stylistId?: string;
   /** Denormalised stylist name (if assigned) */
   stylistName?: string;
   /** Auto-assigned station ID */

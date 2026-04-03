@@ -1,16 +1,22 @@
 import {
   APP_INITIALIZER,
   ApplicationConfig,
+  ErrorHandler,
+  importProvidersFrom,
   provideBrowserGlobalErrorListeners,
   isDevMode,
 } from '@angular/core';
+import * as Sentry from '@sentry/angular';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { IMAGE_LOADER, ImageLoaderConfig } from '@angular/common';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { appRoutes } from './app.routes';
 import { provideServiceWorker } from '@angular/service-worker';
-import { AuthService, authInterceptor, CurrencyService, FCM_CONFIG } from '@org/shared-data-access';
+import { HttpClient } from '@angular/common/http';
+import { TranslateModule } from '@ngx-translate/core';
+import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
+import { AuthService, UserService, authInterceptor, CurrencyService, FCM_CONFIG, LanguageService, FavoritesService } from '@org/shared-data-access';
 import { environment } from '../environments/environment';
 
 // Images are already stored as full Cloudinary URLs — this pass-through loader
@@ -95,6 +101,20 @@ function provideAuthInit() {
 }
 
 /**
+ * After the session is restored, load the full user profile into
+ * the shared UserService signal so navbar, etc. have access to
+ * avatarUrl and other profile fields.
+ */
+function provideProfileInit() {
+  return {
+    provide: APP_INITIALIZER,
+    useFactory: (userService: UserService) => () => userService.loadProfile(),
+    deps: [UserService],
+    multi: true,
+  };
+}
+
+/**
  * After the session is restored, load the user's preferred currency
  * from the backend profile so every component/pipe sees the correct symbol.
  */
@@ -107,8 +127,27 @@ function provideCurrencyInit() {
   };
 }
 
+function provideLanguageInit() {
+  return {
+    provide: APP_INITIALIZER,
+    useFactory: (lang: LanguageService) => () => lang.init(),
+    deps: [LanguageService],
+    multi: true,
+  };
+}
+
+function provideFavoritesInit() {
+  return {
+    provide: APP_INITIALIZER,
+    useFactory: (favs: FavoritesService) => () => favs.loadFavorites(),
+    deps: [FavoritesService],
+    multi: true,
+  };
+}
+
 export const appConfig: ApplicationConfig = {
   providers: [
+    { provide: ErrorHandler, useValue: Sentry.createErrorHandler({ showDialog: false }) },
     provideBrowserGlobalErrorListeners(),
     { provide: IMAGE_LOADER, useValue: cloudinaryPassthroughLoader },
     provideAnimationsAsync(),
@@ -129,8 +168,18 @@ export const appConfig: ApplicationConfig = {
     }),
     MessageService,
     DialogService,
+    importProvidersFrom(
+      TranslateModule.forRoot({
+        useDefaultLang: true,
+        defaultLanguage: 'en',
+      }),
+    ),
+    provideTranslateHttpLoader({ prefix: '/i18n/', suffix: '.json' }),
     provideAuthInit(),
+    provideProfileInit(),
     provideCurrencyInit(),
+    provideLanguageInit(),
+    provideFavoritesInit(),
     // Provide FCM configuration for push notifications
     {
       provide: FCM_CONFIG,

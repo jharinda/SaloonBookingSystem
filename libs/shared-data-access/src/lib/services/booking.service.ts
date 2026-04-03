@@ -3,7 +3,25 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-import { Booking, CreateBookingPayload, SlotsResponse } from '@org/models';
+import { Booking, BookedServicePayload, CreateBookingPayload, SlotsResponse } from '@org/models';
+
+// ── Client Analytics ─────────────────────────────────────────────────────────
+
+export interface ClientAnalytics {
+  totalBookings: number;
+  totalSpent: number;
+  averageBookingValue: number;
+  visitFrequency: number;
+  favoriteServices: Array<{ serviceName: string; count: number }>;
+  favoriteSalons: Array<{
+    salonId: string;
+    salonName: string;
+    visitCount: number;
+    lastServiceIds: string[];
+  }>;
+  monthlySpending: Array<{ month: string; total: number }>;
+  lastVisit: string | null;
+}
 
 // ── Normalisation ────────────────────────────────────────────────────────────
 
@@ -26,6 +44,12 @@ export type CreateBookingDto = CreateBookingPayload;
 
 export interface CancelBookingDto {
   reason?: string;
+}
+
+export interface ModifyBookingDto {
+  services?: BookedServicePayload[];
+  stylistId?: string;
+  notes?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -130,5 +154,23 @@ export class BookingService {
     return this.http
       .get<{ stylistIds: string[] }>('/api/bookings/breaks/stylists-on-break', { params })
       .pipe(map((res) => res.stylistIds));
+  }
+
+  /**
+   * PATCH /api/bookings/:id/modify
+   * Modifies services, stylist, or notes on an existing PENDING / CONFIRMED booking.
+   */
+  modifyBooking(id: string, dto: ModifyBookingDto): Observable<Booking> {
+    return this.http
+      .patch<Booking>(`/api/bookings/${id}/modify`, dto)
+      .pipe(map(normBooking));
+  }
+
+  /**
+   * GET /api/bookings/analytics/me
+   * Returns personal booking analytics for the authenticated client.
+   */
+  getMyAnalytics(): Observable<ClientAnalytics> {
+    return this.http.get<ClientAnalytics>('/api/bookings/analytics/me');
   }
 }

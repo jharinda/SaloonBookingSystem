@@ -4,7 +4,7 @@
 
 ### 1. **Created User Service** (Port 3008)
 - Generated new NestJS microservice at `apps/user-service`
-- Separate MongoDB database: `user-db` (not auth-db)
+- Separate MongoDB database: `snapsalon-users` (not auth-db)
 - Connected to Redis for Bull queue processing
 
 ### 2. **Migrated Profile Management from Auth Service**
@@ -36,7 +36,7 @@ Profile endpoints moved to user-service:
 
 #### Docker Compose
 - Added user-service container on port **3008**
-  - `USER_MONGODB_URI`: mongodb://mongodb:27017/user-db
+  - `USER_MONGODB_URI`: mongodb://mongodb:27017/snapsalon-users
   - Connected to Redis for queues
 
 #### Inter-Service Communication
@@ -135,7 +135,7 @@ Add to `.env`:
 ```bash
 # User Service
 USER_PORT=3008
-USER_MONGODB_URI=mongodb://localhost:27017/user-db
+USER_MONGODB_URI=mongodb://localhost:27017/snapsalon-users
 USER_SERVICE_URL=http://localhost:3008
 
 # Shared

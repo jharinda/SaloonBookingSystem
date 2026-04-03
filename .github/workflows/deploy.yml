@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/snapsalon
+
+permissions:
+  contents: read
+  packages: write
+
+# GitHub Environments: create "staging" (and optionally "production") under
+# Settings > Environments. Add repository or environment secret RENDER_DEPLOY_HOOKS:
+# newline-separated Render deploy hook URLs. Production can use required reviewers.
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - run: npm ci
+      - run: npx nx run-many -t lint test build --parallel=3
+
+  docker-build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - api
+          - auth-service
+          - user-service
+          - salon-service
+          - booking-service
+          - notification-service
+          - calendar-service
+          - review-service
+          - subscription-service
+          - chat-service
+          - web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/${{ matrix.service }}/Dockerfile
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
+
+  deploy-staging:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Deploy to Render (staging)
+        env:
+          RENDER_DEPLOY_HOOKS: ${{ secrets.RENDER_DEPLOY_HOOKS }}
+        run: |
+          # Single secret: newline-separated deploy hook URLs (GitHub cannot loop dynamic secret names).
+          if [ -z "${RENDER_DEPLOY_HOOKS:-}" ]; then
+            echo "RENDER_DEPLOY_HOOKS not set — add staging secret with hook URLs (or skip this step)."
+            exit 0
+          fi
+          printf '%s\n' "$RENDER_DEPLOY_HOOKS" | while IFS= read -r url || [ -n "$url" ]; do
+            case "$url" in ''|\#*) continue ;; esac
+            echo "Triggering deploy hook…"
+            curl -fsS "$url" || true
+          done

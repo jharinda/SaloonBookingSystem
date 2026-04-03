@@ -12,7 +12,8 @@ export const fcmProvider = {
   provide: FCM_PROVIDER,
   useFactory: (config: ConfigService): admin.app.App | null => {
     const logger = new Logger('FCMProvider');
-    const serviceAccountKey = config.get<string>('FIREBASE_SERVICE_ACCOUNT_KEY', '');
+    const raw = config.get<string>('FIREBASE_SERVICE_ACCOUNT_KEY', '');
+    const serviceAccountKey = typeof raw === 'string' ? raw.trim() : '';
 
     if (!serviceAccountKey) {
       logger.warn('FIREBASE_SERVICE_ACCOUNT_KEY not configured — FCM push disabled');
@@ -20,7 +21,7 @@ export const fcmProvider = {
     }
 
     try {
-      const serviceAccount = JSON.parse(serviceAccountKey);
+      const serviceAccount = JSON.parse(serviceAccountKey) as admin.ServiceAccount;
       const app = admin.apps.length
         ? admin.app()
         : admin.initializeApp({
@@ -30,7 +31,10 @@ export const fcmProvider = {
       return app;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error(`Failed to initialize Firebase Admin: ${message}`);
+      logger.warn(
+        `FIREBASE_SERVICE_ACCOUNT_KEY is set but not valid JSON — FCM push disabled (${message}). ` +
+          'Use a single-line JSON object with double-quoted keys, or leave the variable empty.',
+      );
       return null;
     }
   },

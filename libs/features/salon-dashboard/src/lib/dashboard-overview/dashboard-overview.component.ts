@@ -1,18 +1,24 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
+  HostListener,
   inject,
   OnInit,
   signal,
 } from '@angular/core';
 import { DecimalPipe, NgClass } from '@angular/common';
+import { Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
-import { catchError, switchMap } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { toSignal } from '@angular/core/rxjs-interop';
 
 import { Card } from 'primeng/card';
 import { Skeleton } from 'primeng/skeleton';
 import { ChartModule } from 'primeng/chart';
 import { Message } from 'primeng/message';
+import { ProgressSpinner } from 'primeng/progressspinner';
 
 import { SalonAdminService, CurrencyService } from '@org/shared-data-access';
 import { Booking } from '@org/models';
@@ -34,16 +40,123 @@ interface KpiCard {
   selector: 'lib-dashboard-overview',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Card, Skeleton, ChartModule, Message, DecimalPipe, NgClass],
+  imports: [Card, Skeleton, ChartModule, Message, DecimalPipe, NgClass, ProgressSpinner],
   templateUrl: './dashboard-overview.component.html',
+  styles: [`
+    :host { display: block; }
+
+    /* ── Mobile Quick Actions ─────────────────────────────────────────── */
+    .quick-actions-row {
+      display: flex;
+      gap: 0.625rem;
+    }
+
+    .quick-action-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 0.75rem 0.5rem;
+      background: #fff;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: #52525b;
+      transition: box-shadow 0.15s, transform 0.15s;
+      position: relative;
+      min-height: 72px;
+
+      &:active { transform: scale(0.96); box-shadow: none; }
+    }
+
+    :host-context(.app-dark) .quick-action-btn {
+      background: #18181b;
+      border-color: #3f3f46;
+      color: #a1a1aa;
+    }
+
+    .qa-count {
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: #18181b;
+    }
+
+    :host-context(.app-dark) .qa-count { color: #f4f4f5; }
+
+    .qa-label {
+      font-size: 0.65rem;
+      color: #71717a;
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    .qa-arrow {
+      position: absolute;
+      bottom: 6px;
+      right: 8px;
+      font-size: 0.65rem;
+      color: #a1a1aa;
+    }
+
+    .quick-action-btn.qa-pending .qa-count { color: #f59e0b; }
+    .quick-action-btn.qa-walkin  .qa-count { color: #10b981; }
+    :host-context(.app-dark) .quick-action-btn.qa-pending .qa-count { color: #fbbf24; }
+    :host-context(.app-dark) .quick-action-btn.qa-walkin  .qa-count { color: #34d399; }
+  `],
 })
 export class DashboardOverviewComponent implements OnInit {
-  private readonly adminService = inject(SalonAdminService);
-  private readonly currency     = inject(CurrencyService);
+  private readonly adminService        = inject(SalonAdminService);
+  private readonly currency            = inject(CurrencyService);
+  private readonly _router             = inject(Router);
+  private readonly el                  = inject(ElementRef);
+  private readonly breakpointObserver  = inject(BreakpointObserver);
+
+  navigateTo(path: string, queryParams: Record<string, string> = {}): void {
+    void this._router.navigate([path], { queryParams });
+  }
+
+  readonly isMobile = toSignal(
+    this.breakpointObserver.observe('(max-width: 767px)').pipe(map((r) => r.matches)),
+    { initialValue: false },
+  );
 
   // ── Async state ──────────────────────────────────────────────────────
-  readonly isLoading = signal(true);
-  readonly loadError = signal<string | null>(null);
+  readonly isLoading    = signal(true);
+  readonly loadError    = signal<string | null>(null);
+  readonly isRefreshing = signal(false);
+
+  // ── Quick-action counts ───────────────────────────────────────────────
+  readonly todayTotalCount = signal(0);
+  readonly pendingCount    = signal(0);
+
+  /** Pull-to-refresh touch tracking */
+  private _touchStartY = 0;
+
+  @HostListener('touchstart', ['$event'])
+  onTouchStart(e: TouchEvent): void {
+    this._touchStartY = e.touches[0].clientY;
+  }
+
+  @HostListener('touchend', ['$event'])
+  onTouchEnd(e: TouchEvent): void {
+    if (!this.isMobile()) return;
+    const container = this.el.nativeElement as HTMLElement;
+    if (container.scrollTop > 0) return;
+    const dy = e.changedTouches[0].clientY - this._touchStartY;
+    if (dy > 70) this._triggerRefresh();
+  }
+
+  private _triggerRefresh(): void {
+    if (this.isRefreshing()) return;
+    this.isRefreshing.set(true);
+    this._loadData();
+    setTimeout(() => this.isRefreshing.set(false), 1200);
+  }
 
   // ── Template-bound data ───────────────────────────────────────────────
   readonly kpiCards    = signal<KpiCard[]>([]);
@@ -60,7 +173,7 @@ export class DashboardOverviewComponent implements OnInit {
 
   private _loadData(): void {
     this.adminService
-      .getOwnSalon()
+      .getDashboardSalon()
       .pipe(
         switchMap((salon) => {
           const today = new Date();
@@ -105,10 +218,15 @@ export class DashboardOverviewComponent implements OnInit {
     // ── Today's Bookings ──────────────────────────────────────────────────
     const todayCount       = todayBookings.length;
     const confirmedCount   = todayBookings.filter((b) => b.status === 'CONFIRMED').length;
+    const pendingCount     = todayBookings.filter((b) => b.status === 'PENDING').length;
     const lastMonthDayAvg  = lastMonthBookings.length / 30;
     const bookingTrend     = lastMonthDayAvg > 0
       ? ((todayCount - lastMonthDayAvg) / lastMonthDayAvg) * 100
       : null;
+
+    // Expose for quick-action buttons
+    this.todayTotalCount.set(todayCount);
+    this.pendingCount.set(pendingCount);
 
     // ── Monthly Revenue ───────────────────────────────────────────────────
     const thisRevenue  = this._sumRevenue(thisMonthBookings);
@@ -197,6 +315,9 @@ export class DashboardOverviewComponent implements OnInit {
     const isDark    = document.documentElement.classList.contains('app-dark');
     const textColor = isDark ? '#A1A1AA' : '#71717A';
     const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+    const isMobile  = window.innerWidth < 768;
+    const fontSize  = isMobile ? 9 : 11;
+    const tickMaxRotation = isMobile ? 45 : 0;
 
     return {
       responsive:           true,
@@ -212,14 +333,14 @@ export class DashboardOverviewComponent implements OnInit {
       },
       scales: {
         x: {
-          ticks:  { color: textColor, font: { size: 11 } },
+          ticks:  { color: textColor, font: { size: fontSize }, maxRotation: tickMaxRotation },
           grid:   { color: gridColor },
           border: { color: 'transparent' },
         },
         y: {
           ticks: {
             color:    textColor,
-            font:     { size: 11 },
+            font:     { size: fontSize },
             callback: (v: number) => this.currency.format(v),
           },
           grid:   { color: gridColor },

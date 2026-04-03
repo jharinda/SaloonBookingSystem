@@ -1,39 +1,76 @@
 <div class="appointments-container">
   <p-toast />
 
-  <!-- Toolbar -->
-  <p-toolbar styleClass="mb-4">
+  <!-- ── Row 1: Title | Date nav | Section toggle ──────────────────────── -->
+  <p-toolbar styleClass="appt-toolbar-row1 mb-1">
     <ng-template pTemplate="start">
       <h2 class="m-0 text-xl font-semibold">My Appointments</h2>
     </ng-template>
 
     <ng-template pTemplate="center">
-      <div class="date-navigation">
-        <p-button icon="pi pi-chevron-left" [text]="true" (onClick)="previousDay()" />
-        <span class="date-display">{{ formatDate(selectedDate()) }}</span>
-        <p-button icon="pi pi-chevron-right" [text]="true" (onClick)="nextDay()" />
-        <p-button label="Today" [outlined]="true" size="small" (onClick)="today()" styleClass="ml-2" />
-      </div>
+      @if (pageSection() === 'calendar') {
+        <div class="date-navigation">
+          <p-button icon="pi pi-chevron-left" [text]="true" (onClick)="previousDay()" />
+          <span class="date-display">{{ formatDate(selectedDate()) }}</span>
+          <p-button icon="pi pi-chevron-right" [text]="true" (onClick)="nextDay()" />
+          <p-button label="Today" [outlined]="true" size="small" (onClick)="today()" styleClass="ml-2" />
+        </div>
+      }
     </ng-template>
 
     <ng-template pTemplate="end">
       <p-selectButton
-        [options]="viewOptions"
-        [ngModel]="viewMode()"
-        (ngModelChange)="onViewModeChange($event)"
+        [options]="pageSectionOptions"
+        [ngModel]="pageSection()"
+        (ngModelChange)="onPageSectionChange($event)"
         optionLabel="label"
         optionValue="value"
       >
         <ng-template let-item>
-          <i [class]="item.icon"></i>
+          <i [class]="item.icon" aria-hidden="true"></i>
           <span class="ml-2 hidden-on-mobile">{{ item.label }}</span>
         </ng-template>
       </p-selectButton>
     </ng-template>
   </p-toolbar>
 
+  <!-- ── Row 2: View mode (calendar only) ──────────────────────────────── -->
+  @if (pageSection() === 'calendar') {
+    <div class="appt-toolbar-row2 mb-4">
+      <div class="row2-left"></div>
+      <div class="row2-right">
+        <p-selectButton
+          [options]="viewOptions"
+          [ngModel]="viewMode()"
+          (ngModelChange)="onViewModeChange($event)"
+          optionLabel="label"
+          optionValue="value"
+        >
+          <ng-template let-item>
+            <i [class]="item.icon"></i>
+            <span class="ml-2 hidden-on-mobile">{{ item.label }}</span>
+          </ng-template>
+        </p-selectButton>
+      </div>
+    </div>
+  }
+
+  @if (pageSection() === 'appointments') {
+    @defer (on idle) {
+      <lib-stylist-appointments-all
+        [salonId]="acceptedSalonId()"
+        [refreshNonce]="appointmentsListRefresh()"
+        (bookingOpen)="openBookingDetails($event)"
+      />
+    } @placeholder {
+      <div class="appointments-defer-placeholder text-center py-8 text-surface-500 dark:text-surface-400">
+        Loading appointments…
+      </div>
+    }
+  }
+
   <!-- Day View (custom grid) -->
-  @if (viewMode() === 'day') {
+  @if (pageSection() === 'calendar' && viewMode() === 'day') {
     <div class="calendar-view">
       @let gridData = calendarGrid();
       <lib-calendar-grid
@@ -44,20 +81,22 @@
       >
         <ng-template #cellTemplate let-ctx>
           @let entry = calendarGrid().grid[ctx.time]?.schedule;
-          @if (entry) {
-            @if (isBreakEntry(entry)) {
+          @if (entry && entry !== 'occupied') {
+            @if (isBreakEntry($any(entry))) {
+              @let brk = $any(entry);
               <div
-                [class]="'break-cell ' + getBreakBgClass(entry.type)"
-                [style.grid-row-end]="'span ' + getBreakRowSpan(entry)"
+                [class]="'break-cell ' + getBreakBgClass(brk.type)"
+                [style.grid-row-end]="'span ' + getBreakRowSpan(brk)"
+                [style.--booking-slots]="getBreakSlots(brk)"
               >
                 <div class="break-content">
                   <div class="flex items-center gap-2">
-                    <i [class]="breakTypeIcon(entry.type) + ' text-current'"></i>
-                    <strong class="text-current font-semibold">{{ breakTypeLabel(entry.type) }}</strong>
+                    <i [class]="breakTypeIcon(brk.type) + ' text-current'"></i>
+                    <strong class="text-current font-semibold">{{ breakTypeLabel(brk.type) }}</strong>
                   </div>
-                  <span class="break-time text-current opacity-70 text-xs">{{ entry.startTime }} - {{ entry.endTime }}</span>
-                  @if (entry.note) {
-                    <span class="break-note text-current opacity-50 text-xs italic">{{ entry.note }}</span>
+                  <span class="break-time text-current opacity-70 text-xs">{{ brk.startTime }} - {{ brk.endTime }}</span>
+                  @if (brk.note) {
+                    <span class="break-note text-current opacity-50 text-xs italic">{{ brk.note }}</span>
                   }
                 </div>
                 <p-button
@@ -67,51 +106,82 @@
                   severity="danger"
                   size="small"
                   styleClass="break-delete-btn"
-                  (onClick)="deleteBreak(entry._id)"
+                  (onClick)="deleteBreak(brk._id)"
                 />
               </div>
             } @else {
-              <div
-                class="booking-cell"
-                [class.status-pending]="entry.status === 'PENDING'"
-                [class.status-confirmed]="entry.status === 'CONFIRMED'"
-                [class.status-completed]="entry.status === 'COMPLETED'"
-                [class.status-no-show]="entry.status === 'NO_SHOW'"
-                [style.grid-row-end]="'span ' + getBookingRowSpan(entry)"
-                (click)="openBookingDetails(entry)"
-              >
-                <div class="booking-content">
-                  <strong>{{ entry.clientName }}</strong>
-                  <div class="booking-service">{{ entry.serviceName }}</div>
-                  <div class="booking-time">{{ entry.startTime }} - {{ entry.endTime }}</div>
-                  <p-tag
-                    [value]="entry.status"
-                    [severity]="getStatusSeverity(entry.status)"
-                    styleClass="mt-1 text-xs"
-                  />
+              @let booking = $any(entry);
+              @if (isCompactBooking(booking)) {
+                <div class="slot-split" [style.--booking-fraction]="getBookingSlots(booking)">
+                  <div
+                    class="booking-cell--compact"
+                    role="button"
+                    tabindex="0"
+                    [class.status-pending]="booking.status === 'PENDING'"
+                    [class.status-confirmed]="booking.status === 'CONFIRMED'"
+                    [class.status-completed]="booking.status === 'COMPLETED'"
+                    [class.status-no-show]="booking.status === 'NO_SHOW'"
+                    [pTooltip]="getBookingTooltip(booking)"
+                    tooltipPosition="top"
+                    (click)="openBookingDetails(booking)"
+                    (keydown.enter)="openBookingDetails(booking)"
+                  >
+                    <div class="booking-content-compact">
+                      <strong>{{ booking.clientName }}</strong>
+                      <span class="booking-service">{{ booking.serviceName }}</span>
+                      <span class="booking-time">{{ booking.startTime }}-{{ booking.endTime }}</span>
+                    </div>
+                  </div>
+                  <div class="empty-cell slot-remainder" (click)="onEmptySlotClick(ctx.time)">
+                    <span class="empty-cell-hint">
+                      <i class="pi pi-plus-circle"></i>
+                    </span>
+                  </div>
                 </div>
-              </div>
+              } @else {
+                <div
+                  class="booking-cell"
+                  [class.status-pending]="booking.status === 'PENDING'"
+                  [class.status-confirmed]="booking.status === 'CONFIRMED'"
+                  [class.status-completed]="booking.status === 'COMPLETED'"
+                  [class.status-no-show]="booking.status === 'NO_SHOW'"
+                  [style.grid-row-end]="'span ' + getBookingRowSpan(booking)"
+                  (click)="openBookingDetails(booking)"
+                >
+                  <div class="booking-content">
+                    <strong>{{ booking.clientName }}</strong>
+                    <div class="booking-service">{{ booking.serviceName }}</div>
+                    <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
+                    <p-tag
+                      [value]="booking.status"
+                      [severity]="getStatusSeverity(booking.status)"
+                      styleClass="mt-1 text-xs"
+                    />
+                  </div>
+                </div>
+              }
             }
-          } @else {
+          } @else if (!entry) {
             <div class="empty-cell" (click)="onEmptySlotClick(ctx.time)">
               <span class="empty-cell-hint">
                 <i class="pi pi-plus-circle"></i> Add break
               </span>
             </div>
           }
+          <!-- 'occupied' slots render nothing — covered by the booking/break span above -->
         </ng-template>
       </lib-calendar-grid>
     </div>
   }
 
-  @if (viewMode() === 'week' || viewMode() === 'month') {
+  @if (pageSection() === 'calendar' && (viewMode() === 'week' || viewMode() === 'month')) {
     <div class="fullcalendar-view">
       <full-calendar [options]="fullCalendarOptions()" [deepChangeDetection]="true" />
     </div>
   }
 
   <!-- List View -->
-  @if (viewMode() === 'list') {
+  @if (pageSection() === 'calendar' && viewMode() === 'list') {
     <div class="list-view">
       <p-table
         [value]="filteredBookings()"

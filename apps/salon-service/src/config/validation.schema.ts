@@ -5,11 +5,12 @@ import * as Joi from 'joi';
  */
 export const validationSchema = Joi.object({
   SALON_PORT: Joi.number().integer().default(3001),
-  NODE_ENV:   Joi.string().valid('development', 'production', 'test').default('development'),
+  NODE_ENV:   Joi.string().valid('development', 'staging', 'production', 'test').default('development'),
+  SENTRY_DSN: Joi.string().uri().optional(),
 
   // MongoDB
   SALON_MONGODB_URI: Joi.string().required().messages({
-    'any.required': 'SALON_MONGODB_URI is required (e.g. mongodb://localhost:27017/snapsalon-salons)',
+    'any.required': 'SALON_MONGODB_URI is required (e.g. mongodb://localhost:27017/snapsalon-salon)',
   }),
 
   // JWT (access secret shared across services for token verification)
@@ -18,8 +19,17 @@ export const validationSchema = Joi.object({
     'string.min':   'JWT_ACCESS_SECRET must be at least 32 characters',
   }),
 
-  // Cloudinary image uploads (optional for local dev)
+  // Cloudinary image uploads — API secret required; service cannot sign uploads without it
   CLOUDINARY_CLOUD_NAME: Joi.string().default(''),
   CLOUDINARY_API_KEY:    Joi.string().default(''),
-  CLOUDINARY_API_SECRET: Joi.string().default(''),
+  CLOUDINARY_API_SECRET: Joi.string().required().messages({
+    'any.required': 'CLOUDINARY_API_SECRET must be set in environment variables',
+    'string.empty': 'CLOUDINARY_API_SECRET must not be empty',
+  }),
+
+  // Redis (slot / cache)
+  REDIS_HOST:     Joi.string().default('localhost'),
+  REDIS_PORT:     Joi.number().integer().default(6379),
+  REDIS_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_TLS:      Joi.string().optional().valid('true', 'false').default('false'),
 });

@@ -10,6 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
@@ -58,13 +59,15 @@ export interface SpecialtyResponseDto {
   isActive: boolean;
 }
 
+@ApiTags('salons')
 @Controller('salons/specialties')
 export class SpecialtiesController {
   constructor(
     @InjectModel(Specialty.name) private readonly specialtyModel: Model<Specialty>,
   ) {}
 
-  /** GET /api/salons/specialties — public, returns all active specialties */
+  @ApiOperation({ summary: 'List active specialties (public)' })
+  @ApiResponse({ status: 200, description: 'Specialties' })
   @Get()
   @HttpCode(HttpStatus.OK)
   async getAll(): Promise<SpecialtyResponseDto[]> {
@@ -81,7 +84,9 @@ export class SpecialtiesController {
     }));
   }
 
-  /** POST /api/salons/specialties — admin only */
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Create specialty (admin)' })
+  @ApiResponse({ status: 201, description: 'Created' })
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -101,7 +106,31 @@ export class SpecialtiesController {
     };
   }
 
-  /** PATCH /api/salons/specialties/:id — admin only */
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'List all specialties including inactive (admin)' })
+  @ApiResponse({ status: 200, description: 'Specialties' })
+  @Get('all')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAllIncludingInactive(): Promise<SpecialtyResponseDto[]> {
+    const items = await this.specialtyModel
+      .find()
+      .sort({ category: 1, name: 1 })
+      .lean();
+    return items.map((s) => ({
+      _id: s._id.toString(),
+      name: s.name,
+      description: s.description ?? null,
+      category: s.category ?? null,
+      isActive: s.isActive,
+    }));
+  }
+
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Update specialty (admin)' })
+  @ApiParam({ name: 'id' })
+  @ApiResponse({ status: 200, description: 'Updated' })
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -125,7 +154,9 @@ export class SpecialtiesController {
     };
   }
 
-  /** DELETE /api/salons/specialties/:id — admin only (soft delete) */
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Deactivate specialty (admin)' })
+  @ApiResponse({ status: 200, description: 'Deactivated' })
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -133,24 +164,5 @@ export class SpecialtiesController {
   async remove(@Param('id') id: string): Promise<{ message: string }> {
     await this.specialtyModel.findByIdAndUpdate(id, { isActive: false });
     return { message: 'Specialty deactivated' };
-  }
-
-  /** GET /api/salons/specialties/all — admin only, includes inactive */
-  @Get('all')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async getAllIncludingInactive(): Promise<SpecialtyResponseDto[]> {
-    const items = await this.specialtyModel
-      .find()
-      .sort({ category: 1, name: 1 })
-      .lean();
-    return items.map((s) => ({
-      _id: s._id.toString(),
-      name: s.name,
-      description: s.description ?? null,
-      category: s.category ?? null,
-      isActive: s.isActive,
-    }));
   }
 }

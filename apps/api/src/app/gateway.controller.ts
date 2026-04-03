@@ -1,6 +1,7 @@
 import {
   All,
   Controller,
+  Get,
   HttpException,
   HttpStatus,
   Logger,
@@ -16,6 +17,16 @@ export class GatewayController {
   private readonly logger = new Logger(GatewayController.name);
 
   constructor(private readonly proxyRegistry: ProxyRegistryService) {}
+
+  /**
+   * Health check — responds before the catch-all proxy route so it is always
+   * reachable without hitting an upstream service.  Used by load balancers,
+   * orchestrators (k8s liveness probe), and uptime monitors.
+   */
+  @Get('health')
+  health(): { status: string; timestamp: string } {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  }
 
   @All('{*path}')
   async proxy(@Req() req: Request, @Res() res: Response): Promise<void> {

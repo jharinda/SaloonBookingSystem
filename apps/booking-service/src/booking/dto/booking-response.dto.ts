@@ -1,4 +1,4 @@
-import { BookingStatus } from '../schemas/booking.schema';
+import { BookingStatus } from '@org/models';
 
 export class BookedServiceResponseDto {
   serviceId: string;

@@ -1,32 +1,13 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, HydratedDocument, Schema as MongooseSchema } from 'mongoose';
+import type {
+  JoinRequestStatus,
+  WorkingHours,
+  PortfolioImage,
+  PortfolioReview,
+} from '@org/models';
 
 export type UserProfileDocument = HydratedDocument<UserProfile>;
-
-export type JoinRequestStatus = 'none' | 'pending' | 'approved' | 'rejected';
-
-export interface WorkingHours {
-  day: number; // 0-6 (Sunday to Saturday)
-  start: string;
-  end: string;
-  isOff: boolean;
-}
-
-export interface PortfolioImage {
-  cloudinaryId: string;
-  url: string;
-  caption?: string;
-}
-
-export interface PortfolioReview {
-  reviewId: string;
-  salonId: string;
-  rating: number;
-  comment: string;
-  serviceName: string;
-  clientName: string;
-  date: Date;
-}
 
 export interface StylistProfile {
   bio?: string;
@@ -100,6 +81,9 @@ export class UserProfile extends Document {
     default: null,
   })
   stylistProfile?: StylistProfile | null;
+
+  @Prop({ type: [String], default: [] })
+  favoriteSalonIds: string[];
 
   createdAt: Date;
   updatedAt: Date;

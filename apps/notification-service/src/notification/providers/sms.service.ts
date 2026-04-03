@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
+import { ISmsService } from '../interfaces/notification-channel.interface';
+
 export interface SendSmsOptions {
   to: string;   // E.164 format, e.g. +94771234567
   message: string;
@@ -12,7 +14,7 @@ export interface SendSmsOptions {
  * Docs: https://www.dialog.lk/business/enterprise/dialog-sms-gateway
  */
 @Injectable()
-export class SmsService {
+export class SmsService implements ISmsService {
   private readonly logger = new Logger(SmsService.name);
   private readonly apiKey: string;
   private readonly senderId: string;

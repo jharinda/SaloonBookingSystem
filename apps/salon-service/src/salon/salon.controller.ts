@@ -13,6 +13,14 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiExcludeEndpoint,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 
 import { SalonService } from './salon.service';
@@ -26,9 +34,12 @@ import {
   SalonResponseDto,
   SalonSearchResultDto,
 } from './dto/salon-response.dto';
+import { FranchiseOverviewDto, TransferBranchDto } from './dto/franchise.dto';
 import { StaffAnalyticsResponseDto } from './dto/staff-analytics.dto';
 import { JwtAuthGuard, RolesGuard, Roles, CurrentUser, JwtUser, UserRole } from '@org/shared-auth';
 
+@ApiTags('salons')
+@ApiBearerAuth('JWT')
 @Controller('salons')
 export class SalonController {
   constructor(
@@ -38,6 +49,8 @@ export class SalonController {
 
   // ── Public routes ─────────────────────────────────────────────────────────
 
+  @ApiOperation({ summary: 'List salons (paginated)' })
+  @ApiResponse({ status: 200, description: 'Paginated salons' })
   @Get()
   async findAll(
     @Query() query: PaginationQueryDto,
@@ -45,6 +58,8 @@ export class SalonController {
     return this.salonService.findAll(query);
   }
 
+  @ApiOperation({ summary: 'Search salons' })
+  @ApiResponse({ status: 200, description: 'Search results' })
   @Get('search')
   async search(
     @Query() query: SearchSalonsDto,
@@ -52,11 +67,63 @@ export class SalonController {
     return this.salonService.searchSalons(query);
   }
 
+  @ApiOperation({ summary: 'Featured salons' })
+  @ApiResponse({ status: 200, description: 'Featured list' })
   @Get('featured')
   async featured(): Promise<SalonResponseDto[]> {
     return this.salonService.getFeaturedSalons();
   }
 
+  @ApiOperation({ summary: 'List franchise branches and solo salons for the current owner' })
+  @ApiResponse({ status: 200, description: 'Branches', type: [Object] })
+  @Get('franchise/branches')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.FRANCHISE_OWNER, UserRole.ADMIN)
+  async franchiseBranches(@CurrentUser() user: JwtUser): Promise<SalonResponseDto[]> {
+    return this.salonService.getFranchiseBranches(user.sub);
+  }
+
+  @ApiOperation({ summary: 'Aggregated franchise metrics across branches' })
+  @ApiResponse({ status: 200, description: 'Overview' })
+  @Get('franchise/overview')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.FRANCHISE_OWNER, UserRole.ADMIN)
+  async franchiseOverview(@CurrentUser() user: JwtUser): Promise<FranchiseOverviewDto> {
+    return this.salonService.getFranchiseOverview(user.sub);
+  }
+
+  @ApiOperation({ summary: 'Add a branch (inherits franchise id; enforces plan location limits)' })
+  @ApiResponse({ status: 201, description: 'Branch created' })
+  @Post('franchise/branches')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.FRANCHISE_OWNER, UserRole.ADMIN)
+  async addFranchiseBranch(
+    @Body() dto: CreateSalonDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SalonResponseDto> {
+    return this.salonService.addBranch(user.sub, dto, user.email);
+  }
+
+  @ApiOperation({ summary: 'Transfer branch ownership to another franchise owner' })
+  @ApiParam({ name: 'salonId', description: 'Branch salon id' })
+  @ApiResponse({ status: 200, description: 'Transferred' })
+  @Patch('franchise/branches/:salonId/transfer')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.FRANCHISE_OWNER, UserRole.ADMIN)
+  async transferFranchiseBranch(
+    @Param('salonId') salonId: string,
+    @Body() dto: TransferBranchDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<void> {
+    return this.salonService.transferBranch(user.sub, salonId, dto.newOwnerId, {
+      isAdmin: user.role === UserRole.ADMIN,
+    });
+  }
+
+  @ApiOperation({ summary: 'Salons owned by current user' })
+  @ApiResponse({ status: 200, description: 'Owner salons' })
   @Get('owner/me')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SALON_OWNER, UserRole.ADMIN)
@@ -65,6 +132,7 @@ export class SalonController {
   }
 
   /** Internal route — find salons that contain a given stylist in their staff */
+  @ApiExcludeEndpoint()
   @Get('internal/by-stylist/:stylistId')
   @HttpCode(HttpStatus.OK)
   async findSalonsByStylist(
@@ -78,6 +146,9 @@ export class SalonController {
     return this.salonService.findSalonsByStylist(stylistId);
   }
 
+  @ApiOperation({ summary: 'Get salon by id' })
+  @ApiParam({ name: 'id', description: 'Salon ID' })
+  @ApiResponse({ status: 200, description: 'Salon' })
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<SalonResponseDto> {
     return this.salonService.findById(id);
@@ -85,6 +156,8 @@ export class SalonController {
 
   // ── Protected routes ──────────────────────────────────────────────────────
 
+  @ApiOperation({ summary: 'Create salon' })
+  @ApiResponse({ status: 201, description: 'Salon created' })
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -107,6 +180,9 @@ export class SalonController {
     return this.salonService.updateSalon(id, dto, user.sub);
   }
 
+  @ApiOperation({ summary: 'Approve salon (admin)' })
+  @ApiParam({ name: 'id', description: 'Salon ID' })
+  @ApiResponse({ status: 200, description: 'Salon approved' })
   @Post(':id/approve')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -115,6 +191,9 @@ export class SalonController {
     return this.salonService.approveSalon(id);
   }
 
+  @ApiOperation({ summary: 'Reject salon (admin)' })
+  @ApiParam({ name: 'id', description: 'Salon ID' })
+  @ApiResponse({ status: 200, description: 'Salon rejected' })
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -126,6 +205,9 @@ export class SalonController {
     return this.salonService.rejectSalon(id, reason);
   }
 
+  @ApiOperation({ summary: 'Add service to salon' })
+  @ApiParam({ name: 'id', description: 'Salon ID' })
+  @ApiResponse({ status: 201, description: 'Service added' })
   @Post(':id/services')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -138,6 +220,8 @@ export class SalonController {
     return this.salonService.addService(id, dto, user.sub);
   }
 
+  @ApiOperation({ summary: 'Update salon service' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Patch(':id/services/:serviceId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -151,6 +235,8 @@ export class SalonController {
     return this.salonService.updateService(id, serviceId, dto, user.sub);
   }
 
+  @ApiOperation({ summary: 'Remove service from salon' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Delete(':id/services/:serviceId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -163,6 +249,8 @@ export class SalonController {
     return this.salonService.removeService(id, serviceId, user.sub);
   }
 
+  @ApiOperation({ summary: 'Update operating hours' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Patch(':id/operating-hours')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -188,6 +276,7 @@ export class SalonController {
   }
 
   /** Internal route — called by review-service to keep rating in sync */
+  @ApiExcludeEndpoint()
   @Patch(':id/rating')
   @HttpCode(HttpStatus.OK)
   async updateRating(
@@ -199,6 +288,8 @@ export class SalonController {
 
   // ── Image management routes ───────────────────────────────────────────────
 
+  @ApiOperation({ summary: 'Attach image metadata to salon (cloudinary id + url)' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Patch(':id/images')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -211,6 +302,8 @@ export class SalonController {
     return this.salonService.pushImage(id, body, user.sub);
   }
 
+  @ApiOperation({ summary: 'Remove image from salon' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Delete(':id/images/:cloudinaryId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -223,6 +316,8 @@ export class SalonController {
     return this.salonService.removeImage(id, cloudinaryId, user.sub);
   }
 
+  @ApiOperation({ summary: 'Set primary salon image' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Patch(':id/images/:imageId/primary')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -237,6 +332,8 @@ export class SalonController {
 
   // ── Staff Management ────────────────────────────────────────────────────
 
+  @ApiOperation({ summary: 'Add stylist to salon staff' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Post(':id/staff/:stylistId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -249,6 +346,8 @@ export class SalonController {
     return this.salonService.addStaffByOwner(id, stylistId, user.sub);
   }
 
+  @ApiOperation({ summary: 'Remove stylist from salon' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Delete(':id/staff/:stylistId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -262,6 +361,7 @@ export class SalonController {
   }
 
   /** Internal route — called by auth-service when approving a join request */
+  @ApiExcludeEndpoint()
   @Post(':id/staff-internal/:stylistId')
   @HttpCode(HttpStatus.OK)
   async addStaffInternal(
@@ -276,6 +376,8 @@ export class SalonController {
     return this.salonService.addStaff(id, stylistId);
   }
 
+  @ApiOperation({ summary: 'Staff analytics for salon' })
+  @ApiResponse({ status: 200, description: 'Analytics' })
   @Get(':salonId/staff-analytics')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -289,12 +391,16 @@ export class SalonController {
 
   // ── Station Management ──────────────────────────────────────
 
+  @ApiOperation({ summary: 'List stations for salon' })
+  @ApiResponse({ status: 200, description: 'Stations' })
   @Get(':id/stations')
   @HttpCode(HttpStatus.OK)
   async getStations(@Param('id') id: string): Promise<StationsResponseDto> {
     return this.salonService.getStations(id);
   }
 
+  @ApiOperation({ summary: 'Add station' })
+  @ApiResponse({ status: 201, description: 'Updated salon' })
   @Post(':id/stations')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -307,6 +413,8 @@ export class SalonController {
     return this.salonService.addStation(id, dto.name, user.sub);
   }
 
+  @ApiOperation({ summary: 'Update station' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Patch(':id/stations/:stationId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -320,6 +428,8 @@ export class SalonController {
     return this.salonService.updateStation(id, stationId, dto, user.sub);
   }
 
+  @ApiOperation({ summary: 'Delete station' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Delete(':id/stations/:stationId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)

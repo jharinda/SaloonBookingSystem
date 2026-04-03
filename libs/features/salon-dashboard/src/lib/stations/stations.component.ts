@@ -46,7 +46,7 @@ export class StationsComponent implements OnInit {
 
   ngOnInit(): void {
     // Load salon first, then load its stations
-    this.salonAdmin.getOwnSalon().subscribe({
+    this.salonAdmin.getDashboardSalon().subscribe({
       next: (salon) => {
         this.salonId.set(salon._id);
         this.loadStations();

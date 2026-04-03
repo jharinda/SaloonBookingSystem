@@ -5,6 +5,8 @@
 # Run the container with `nx docker:run api -p 3000:3000`.
 #
 FROM node:20-alpine
+ARG GIT_SHA=unknown
+ENV GIT_SHA=$GIT_SHA
 ENV HOST=0.0.0.0
 ENV PORT=3000
 WORKDIR /app

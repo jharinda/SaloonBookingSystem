@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   inject,
+  input,
+  output,
   signal,
 } from '@angular/core';
 import {
@@ -19,6 +21,7 @@ import { Stepper, StepList, Step, StepPanels, StepPanel } from 'primeng/stepper'
 import { Textarea } from 'primeng/textarea';
 
 import { SalonAdminService } from '@org/shared-data-access';
+import type { Salon } from '@org/models';
 import {
   LocationPickerComponent,
   SelectedLocation,
@@ -61,9 +64,13 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
         <div class="register-header">
           <i class="pi pi-shop header-icon"></i>
           <div>
-            <h1 class="register-title">Register Your Salon</h1>
+            <h1 class="register-title">{{ branchMode() ? 'Add a branch' : 'Register Your Salon' }}</h1>
             <p class="register-subtitle">
-              Fill in your salon details. Your listing will go live after admin approval.
+              @if (branchMode()) {
+                Add a new location to your franchise. It will appear after admin approval.
+              } @else {
+                Fill in your salon details. Your listing will go live after admin approval.
+              }
             </p>
           </div>
         </div>
@@ -509,6 +516,11 @@ export class RegisterSalonComponent {
   private readonly fb           = inject(FormBuilder);
   private readonly adminService = inject(SalonAdminService);
   private readonly router       = inject(Router);
+
+  /** When true, POST /franchise/branches and emit {@link branchCreated} instead of full-page success. */
+  readonly branchMode = input(false, { alias: 'branchMode' });
+  readonly branchCreated = output<Salon>();
+
   readonly activeStep    = signal(0);  readonly isSubmitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly submitted    = signal(false);
@@ -574,7 +586,7 @@ export class RegisterSalonComponent {
     const info    = this.infoGroup.getRawValue();
     const address = this.addressGroup.getRawValue();
 
-    this.adminService.createSalon({
+    const dto = {
       name:        info.name,
       description: info.description || undefined,
       phone:       info.phone,
@@ -586,9 +598,19 @@ export class RegisterSalonComponent {
         lat:      Number(address.lat),
         lng:      Number(address.lng),
       },
-    }).subscribe({
+    };
+
+    const request$ = this.branchMode()
+      ? this.adminService.addFranchiseBranch(dto)
+      : this.adminService.createSalon(dto);
+
+    request$.subscribe({
       next: (salon) => {
         this.isSubmitting.set(false);
+        if (this.branchMode()) {
+          this.branchCreated.emit(salon);
+          return;
+        }
         this.submittedName.set(salon.name);
         this.submitted.set(true);
       },

@@ -19,7 +19,7 @@ import { StylistSidebarComponent } from '../components/sidebar/stylist-sidebar.c
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterOutlet, ProgressSpinner, Button, StylistSidebarComponent],
   templateUrl: './stylist-dashboard-home.component.html',
-  styles: [`:host { display: block; }`],
+  styles: [`:host { display: block; height: 100%; }`],
 })
 export class StylistDashboardHomeComponent implements OnInit {
   private readonly authService  = inject(AuthService);

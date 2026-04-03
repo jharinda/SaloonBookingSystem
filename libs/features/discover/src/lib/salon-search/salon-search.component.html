@@ -2,8 +2,8 @@
   <!-- ── Hero Section with Sticky Search ─────────────────────────────────────── -->
   <header class="hero-section">
     <div class="hero-content">
-      <h1 class="hero-title">Find Your Perfect Salon</h1>
-      <p class="hero-subtitle">Discover top-rated salons and book appointments instantly</p>
+      <h1 class="hero-title">{{ 'discover.heroTitle' | translate }}</h1>
+      <p class="hero-subtitle">{{ 'discover.heroSubtitle' | translate }}</p>
 
       <!-- Sticky Search Bar -->
       <div class="search-bar-wrapper" [class.sticky]="hasSearched()">
@@ -12,7 +12,7 @@
           <input
             pInputText
             type="search"
-            placeholder="Search salons, services, or location…"
+            [placeholder]="'discover.searchPlaceholder' | translate"
             [ngModel]="searchTerm()"
             (ngModelChange)="onSearchInput($event)"
             (keydown.enter)="triggerSearchImmediate()"
@@ -32,7 +32,7 @@
           [disabled]="isLoading()"
         >
           <i class="pi pi-search"></i>
-          Search
+          {{ 'common.search' | translate }}
         </button>
 
         <button
@@ -43,7 +43,7 @@
           [disabled]="geoLoading()"
         >
           <i class="pi pi-crosshairs"></i>
-          Near Me
+          {{ 'discover.nearMe' | translate }}
         </button>
       </div>
     </div>
@@ -57,7 +57,7 @@
           [options]="serviceTypeOptions"
           [(ngModel)]="filters().serviceType"
           (onChange)="onServiceTypeChange($event.value)"
-          placeholder="Service Type"
+          [placeholder]="'discover.serviceType' | translate"
           class="filter-select"
         />
 
@@ -65,7 +65,7 @@
           [options]="cityOptions"
           [(ngModel)]="filters().city"
           (onChange)="onCityChange($event.value)"
-          placeholder="City"
+          [placeholder]="'discover.city' | translate"
           class="filter-select"
         />
 
@@ -73,7 +73,7 @@
           [options]="priceRangeOptions"
           [(ngModel)]="filters().priceRange"
           (onChange)="onPriceRangeChange($event.value)"
-          placeholder="Price Range"
+          [placeholder]="'discover.priceRange' | translate"
           class="filter-select"
         />
 
@@ -81,7 +81,7 @@
           [options]="ratingOptions"
           [(ngModel)]="filters().rating"
           (onChange)="onRatingChange($event.value)"
-          placeholder="Rating"
+          [placeholder]="'discover.rating' | translate"
           class="filter-select"
         />
       </div>
@@ -134,7 +134,7 @@
 
           <button pButton (click)="clearFilters()" severity="danger" outlined class="clear-all-btn">
             <i class="pi pi-times-circle"></i>
-            Clear All
+            {{ 'discover.clearAll' | translate }}
           </button>
         </div>
       }
@@ -144,7 +144,7 @@
     @if (hasSearched() && results().length > 0) {
       <div class="view-controls">
         <div class="results-count">
-          <strong>{{ results().length }}</strong> {{ results().length === 1 ? 'salon' : 'salons' }} found
+          <strong>{{ results().length }}</strong> {{ results().length === 1 ? ('discover.salonFound' | translate) : ('discover.salonsFound' | translate) }}
         </div>
 
         <p-selectbutton
@@ -167,7 +167,7 @@
       <section class="featured-section" aria-label="All salons">
         <h2 class="section-heading">
           <i class="pi pi-building section-icon"></i>
-          All Salons
+          {{ 'discover.allSalons' | translate }}
         </h2>
         <div class="salon-grid">
           @for (salon of featuredSalons(); track salon._id) {
@@ -216,14 +216,13 @@
     @if (!isLoading() && hasSearched() && results().length === 0 && !error()) {
       <div class="empty-state" role="status">
         <i class="pi pi-search-minus empty-icon"></i>
-        <h2 class="empty-title">No salons found</h2>
+        <h2 class="empty-title">{{ 'discover.noSalonsFound' | translate }}</h2>
         <p class="empty-message">
-          We couldn't find any salons matching <strong>{{ activeQuery() }}</strong>.
-          Try different search terms or adjust your filters.
+          {{ 'discover.noResultsDesc' | translate: { query: activeQuery() } }}
         </p>
         <button pButton outlined (click)="clearFilters()">
           <i class="pi pi-refresh"></i>
-          Clear Filters
+          {{ 'discover.clearAll' | translate }}
         </button>
       </div>
     }
@@ -232,11 +231,11 @@
     @if (!isLoading() && error()) {
       <div class="error-state" role="alert">
         <i class="pi pi-exclamation-triangle error-icon"></i>
-        <h2 class="error-title">Something went wrong</h2>
+        <h2 class="error-title">{{ 'common.error' | translate }}</h2>
         <p class="error-message">{{ error() }}</p>
         <button pButton (click)="retrySearch()">
           <i class="pi pi-refresh"></i>
-          Try Again
+          {{ 'common.retry' | translate }}
         </button>
       </div>
     }

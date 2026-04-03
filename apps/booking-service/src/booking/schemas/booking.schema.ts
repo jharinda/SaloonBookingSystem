@@ -1,16 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, HydratedDocument, Types } from 'mongoose';
+import { BookingStatus } from '@org/models';
 
 export type BookingDocument = HydratedDocument<Booking>;
 
-export enum BookingStatus {
-  PENDING = 'PENDING',
-  CONFIRMED = 'CONFIRMED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED',
-  NO_SHOW = 'NO_SHOW',
-}
+export { BookingStatus };
 
 @Schema({ _id: true })
 class BookedService {
@@ -63,6 +57,7 @@ export class Booking extends Document {
   endTime: string;
 
   @Prop({
+    type: String,
     required: true,
     enum: BookingStatus,
     default: BookingStatus.PENDING,

@@ -18,10 +18,14 @@ import { SharedAuthModule } from '@org/shared-auth';
   imports: [
     SharedAuthModule.forRoot(),
     SubscriptionCheckModule.forRoot(),
-    MongooseModule.forFeature([
-      { name: GoogleToken.name, schema: GoogleTokenSchema },
-      { name: Booking.name, schema: BookingRefSchema },
-    ]),
+    MongooseModule.forFeature(
+      [{ name: GoogleToken.name, schema: GoogleTokenSchema }],
+      'calendar',
+    ),
+    MongooseModule.forFeature(
+      [{ name: Booking.name, schema: BookingRefSchema }],
+      'booking',
+    ),
     BullModule.registerQueue({ name: CALENDAR_QUEUE }),
     HttpModule.register({
       timeout: 5000,

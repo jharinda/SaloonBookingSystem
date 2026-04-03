@@ -25,6 +25,7 @@ export interface TemplateVariables {
   totalPrice?: string;
   reason?: string;
   reviewLink?: string;
+  reviewUrl?: string;
   [key: string]: string | undefined;
 }
 

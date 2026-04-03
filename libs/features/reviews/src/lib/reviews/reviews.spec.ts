@@ -1,16 +1,25 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Reviews } from './reviews';
+import { provideRouter } from '@angular/router';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 
-describe('Reviews', () => {
-  let component: Reviews;
-  let fixture: ComponentFixture<Reviews>;
+import { SubmitReviewComponent } from './reviews';
+
+describe('SubmitReviewComponent', () => {
+  let component: SubmitReviewComponent;
+  let fixture: ComponentFixture<SubmitReviewComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [Reviews],
+      imports: [SubmitReviewComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(Reviews);
+    fixture = TestBed.createComponent(SubmitReviewComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

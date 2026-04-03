@@ -1,18 +1,30 @@
 import { TestBed } from '@angular/core/testing';
+import { RouterOutlet, provideRouter } from '@angular/router';
+import { vi } from 'vitest';
+
 import { App } from './app';
-import { NxWelcome } from './nx-welcome';
+import { NotificationInboxService } from './core/services/notification-inbox.service';
+import { PwaInstallService } from './shared/services/pwa-install.service';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [App, NxWelcome],
-    }).compileComponents();
+      imports: [App],
+      providers: [
+        provideRouter([]),
+        { provide: NotificationInboxService, useValue: {} },
+        { provide: PwaInstallService, useValue: { listen: vi.fn() } },
+      ],
+    })
+      // Swap out heavy child components (NavbarComponent, PwaInstallBannerComponent,
+      // ToastModule) so this stays a unit test of the App class itself.
+      .overrideComponent(App, { set: { imports: [RouterOutlet] } })
+      .compileComponents();
   });
 
-  it('should render title', async () => {
+  it('should create the app', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Welcome web');
+    expect(fixture.componentInstance).toBeTruthy();
   });
 });

@@ -6,8 +6,6 @@ import { PassportModule } from '@nestjs/passport';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bull';
 import { HttpModule } from '@nestjs/axios';
-import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -24,6 +22,7 @@ import { RolesGuard } from './guards/roles.guard';
     JwtModule.register({}), // Secrets are injected per-call via ConfigService
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     BullModule.registerQueue({ name: 'notifications' }),
+    BullModule.registerQueue({ name: 'user-events' }),
     HttpModule.register({ timeout: 5000 }),
   ],
   controllers: [AuthController],
@@ -34,16 +33,6 @@ import { RolesGuard } from './guards/roles.guard';
     GoogleStrategy,
     JwtAuthGuard,
     RolesGuard,
-    {
-      provide: 'REDIS_CLIENT',
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
-        new Redis({
-          host: config.get<string>('redis.host', 'localhost'),
-          port: config.get<number>('redis.port', 6379),
-          lazyConnect: true,
-        }),
-    },
   ],
   exports: [AuthService, JwtAuthGuard],
 })

@@ -1,0 +1,49 @@
+:host {
+  display: block;
+}
+
+.appointments-all {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.appointments-all__intro {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.appointments-all__filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  overflow: visible;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.appointments-all__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.appointments-all__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.appointments-all__table {
+  min-width: 0;
+}
+
+::ng-deep .appointments-all-datatable {
+  .p-datatable-tbody > tr > td {
+    vertical-align: middle;
+  }
+}

@@ -1,7 +1,8 @@
-﻿import {
+import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  computed,
   inject,
   OnInit,
   signal,
@@ -29,6 +30,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { ToastModule } from 'primeng/toast';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { FluidModule } from 'primeng/fluid';
+import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
 
 import {
@@ -36,8 +38,10 @@ import {
   UpdateSalonInfoDto,
   UpdateOperatingHoursDto,
   SalonImage,
+  PlanFeatureService,
 } from '@org/shared-data-access';
 import { Salon, SalonAddress } from '@org/models';
+import { RouterLink } from '@angular/router';
 import { SalonImageUploaderComponent } from '../salon-images/salon-image-uploader.component';
 
 //  Constants
@@ -74,6 +78,7 @@ interface NotifSettings {
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [MessageService, ConfirmationService],
   imports: [
+    RouterLink,
     ReactiveFormsModule,
     FormsModule,
     ButtonModule,
@@ -90,6 +95,7 @@ interface NotifSettings {
     TabsModule,
     TextareaModule,
     ToastModule,
+    TooltipModule,
     ToggleSwitchModule,
     SalonImageUploaderComponent,
   ],
@@ -101,6 +107,18 @@ export class SalonSettingsComponent implements OnInit {
   private readonly confirmSvc      = inject(ConfirmationService);
   private readonly fb              = inject(FormBuilder);
   private readonly cdr             = inject(ChangeDetectorRef);
+  readonly planFeature             = inject(PlanFeatureService);
+
+  // ── Feature gates ────────────────────────────────────────────────────────
+  readonly hasSms        = computed(() => this.planFeature.hasFeature('sms_notifications'));
+  readonly hasGoogleCal  = computed(() => this.planFeature.hasFeature('google_calendar'));
+  readonly hasWhatsApp   = computed(() => this.planFeature.hasFeature('whatsapp'));
+  readonly hasInstagram = computed(() => this.planFeature.hasFeature('instagram'));
+
+  readonly smsUpgradeMsg       = computed(() => `Upgrade to ${this.planFeature.requiredPlanFor('sms_notifications')} plan to use SMS`);
+  readonly googleCalUpgradeMsg = computed(() => `Upgrade to ${this.planFeature.requiredPlanFor('google_calendar')} plan to sync Google Calendar`);
+  readonly whatsAppUpgradeMsg  = computed(() => `Upgrade to ${this.planFeature.requiredPlanFor('whatsapp')} plan for WhatsApp integration`);
+  readonly instagramUpgradeMsg = computed(() => `Upgrade to ${this.planFeature.requiredPlanFor('instagram')} plan for Instagram integration`);
 
   //  State
   readonly loading     = signal(true);
@@ -164,7 +182,7 @@ export class SalonSettingsComponent implements OnInit {
 
   //  Lifecycle
   ngOnInit(): void {
-    this.adminService.getOwnSalon().subscribe({
+    this.adminService.getDashboardSalon().subscribe({
       next: (salon) => {
         this.salonId = salon._id;
         this.patchInfoForm(salon);

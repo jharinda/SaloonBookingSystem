@@ -6,7 +6,8 @@ import * as Joi from 'joi';
  */
 export const validationSchema = Joi.object({
   AUTH_PORT:    Joi.number().integer().default(3003),
-  NODE_ENV:     Joi.string().valid('development', 'production', 'test').default('development'),
+  NODE_ENV:     Joi.string().valid('development', 'staging', 'production', 'test').default('development'),
+  SENTRY_DSN:   Joi.string().uri().optional(),
   FRONTEND_URL: Joi.string().uri().default('http://localhost:4200'),
 
   // MongoDB
@@ -43,6 +44,8 @@ export const validationSchema = Joi.object({
     .default('http://localhost:3003/api/auth/google/callback'),
 
   // Redis — required for OTP storage and Bull queue
-  REDIS_HOST: Joi.string().default('localhost'),
-  REDIS_PORT: Joi.number().integer().default(6379),
+  REDIS_HOST:     Joi.string().default('localhost'),
+  REDIS_PORT:     Joi.number().integer().default(6379),
+  REDIS_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_TLS:      Joi.string().optional().valid('true', 'false').default('false'),
 });

@@ -22,8 +22,8 @@
           type="text"
           class="search-input"
           placeholder="Search conversations..."
-          [(ngModel)]="searchQuery"
-          (input)="filterConversations()"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
         />
         @if (searchQuery()) {
           <button class="clear-search" (click)="clearSearch()">
@@ -35,12 +35,44 @@
       </div>
     </div>
 
+    <!-- Platform filter: SnapSalon (internal), WhatsApp, Instagram -->
+    <div class="platform-filter-bar" role="group" aria-label="Filter by platform">
+      @for (opt of platformFilterOptions; track opt.id) {
+        <button
+          type="button"
+          class="platform-filter-chip"
+          [class.active]="platformFilter() === opt.id"
+          [attr.aria-pressed]="platformFilter() === opt.id"
+          [attr.title]="opt.label"
+          (click)="setPlatformFilter(opt.id)"
+        >
+          {{ opt.shortLabel }}
+        </button>
+      }
+    </div>
+
     <!-- Conversations List -->
     <div class="conversations-scroll">
       @if (isLoadingConversations()) {
         <div class="loading-state">
           <div class="spinner"></div>
           <p>Loading conversations...</p>
+        </div>
+      } @else if (conversations().length === 0) {
+        <div class="empty-conversations">
+          <svg class="empty-icon" width="64" height="64" viewBox="0 0 64 64" fill="none">
+            <path d="M32 8C18.7 8 8 18.7 8 32c0 4.9 1.5 9.5 4 13.3L8 56l10.7-4c3.8 2.5 8.4 4 13.3 4 13.3 0 24-10.7 24-24S45.3 8 32 8z" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <h3>No conversations</h3>
+          <p>Start a conversation to see it here</p>
+        </div>
+      } @else if (filteredConversations().length === 0) {
+        <div class="empty-conversations filter-empty">
+          <p class="filter-empty-title">No matches</p>
+          <p class="filter-empty-hint">Try another platform filter or clear your search.</p>
+          <button type="button" class="filter-clear-btn" (click)="clearPlatformAndSearch()">
+            Clear filters &amp; search
+          </button>
         </div>
       } @else {
         @for (conversation of filteredConversations(); track conversation._id) {
@@ -72,20 +104,14 @@
                 }
               </div>
               <div class="conversation-bottom">
-                <p class="last-message">{{ conversation.lastMessage || 'No messages yet' }}</p>
+                <p class="last-message">
+                  <span class="platform-inline" [attr.data-channel]="conversation.channel">{{ formatChannelName(conversation.channel) }} · </span>{{ conversation.lastMessage || 'No messages yet' }}
+                </p>
                 @if (conversation.unreadCount > 0) {
                   <span class="unread-count">{{ conversation.unreadCount > 99 ? '99+' : conversation.unreadCount }}</span>
                 }
               </div>
             </div>
-          </div>
-        } @empty {
-          <div class="empty-conversations">
-            <svg class="empty-icon" width="64" height="64" viewBox="0 0 64 64" fill="none">
-              <path d="M32 8C18.7 8 8 18.7 8 32c0 4.9 1.5 9.5 4 13.3L8 56l10.7-4c3.8 2.5 8.4 4 13.3 4 13.3 0 24-10.7 24-24S45.3 8 32 8z" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            <h3>No conversations</h3>
-            <p>Start a conversation to see it here</p>
           </div>
         }
       }
@@ -111,6 +137,10 @@
           }
           <div class="participant-info">
             <h2 class="participant-title">{{ selectedConversation()!.participantName }}</h2>
+            <span
+              class="header-channel-badge"
+              [attr.data-channel]="selectedConversation()!.channel"
+            >{{ formatChannelName(selectedConversation()!.channel) }}</span>
           </div>
         </div>
 
@@ -165,6 +195,7 @@
                   }
                   <div class="message-body">{{ message.content }}</div>
                   <div class="message-footer">
+                    <span class="msg-channel-label" [attr.data-channel]="message.channel">{{ formatChannelName(message.channel) }}</span>
                     <time class="msg-time">{{ formatMessageTime(message.timestamp) }}</time>
                     @if (message.isFromUser) {
                       <span class="msg-status" [class.status-read]="message.status === 'read'">

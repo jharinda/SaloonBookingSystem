@@ -1,22 +1,22 @@
-<div class="min-h-screen flex">
+<div class="min-h-full flex">
 
   <!-- ── LEFT PANEL ───────────────────────────────────────────────── -->
   <div class="hidden lg:flex w-1/2 bg-gradient-to-br from-emerald-600 to-emerald-900 flex-col items-center justify-center p-12 text-white">
     <span class="text-4xl font-bold tracking-tight">SnapSalon</span>
-    <p class="text-emerald-100 text-xl mt-4">Your beauty, your schedule.</p>
+    <p class="text-emerald-100 text-xl mt-4">{{ 'auth.tagline' | translate }}</p>
 
     <ul class="mt-10 flex flex-col gap-5 text-base list-none p-0 m-0">
       <li class="flex items-center gap-3">
         <i class="pi pi-check-circle text-emerald-300 text-xl"></i>
-        <span>500+ verified salons</span>
+        <span>{{ 'auth.verified' | translate }}</span>
       </li>
       <li class="flex items-center gap-3">
         <i class="pi pi-check-circle text-emerald-300 text-xl"></i>
-        <span>Instant booking</span>
+        <span>{{ 'auth.instantBooking' | translate }}</span>
       </li>
       <li class="flex items-center gap-3">
         <i class="pi pi-check-circle text-emerald-300 text-xl"></i>
-        <span>Free cancellation</span>
+        <span>{{ 'auth.freeCancellation' | translate }}</span>
       </li>
     </ul>
   </div>
@@ -25,8 +25,8 @@
   <div class="flex-1 flex items-center justify-center p-8 bg-zinc-50 dark:bg-zinc-950">
     <div class="w-full max-w-md">
 
-      <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 m-0">Create your account</h2>
-      <p class="text-zinc-500 mt-1 mb-8">Join SnapSalon — it's free.</p>
+      <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 m-0">{{ 'auth.registerTitle' | translate }}</h2>
+      <p class="text-zinc-500 mt-1 mb-8">{{ 'auth.joinSubtitle' | translate }}</p>
 
       <!-- Error banner -->
       @if (errorMessage()) {
@@ -49,7 +49,7 @@
             [class.ng-invalid]="fullName.invalid && fullName.touched"
             [class.ng-dirty]="fullName.touched"
           />
-          <label for="reg-fullname">Full Name</label>
+          <label for="reg-fullname">{{ 'auth.fullName' | translate }}</label>
         </p-floatlabel>
 
         <!-- Email -->
@@ -64,7 +64,7 @@
             [class.ng-invalid]="email.invalid && email.touched"
             [class.ng-dirty]="email.touched"
           />
-          <label for="reg-email">Email</label>
+          <label for="reg-email">{{ 'auth.email' | translate }}</label>
         </p-floatlabel>
 
         <!-- Password -->
@@ -80,7 +80,7 @@
             [class.ng-invalid]="password.invalid && password.touched"
             [class.ng-dirty]="password.touched"
           />
-          <label for="reg-password">Password</label>
+          <label for="reg-password">{{ 'auth.password' | translate }}</label>
         </p-floatlabel>
 
         <!-- Account type -->
@@ -102,7 +102,7 @@
               formControlName="salonName"
               class="w-full"
             />
-            <label for="reg-salon">Salon Name</label>
+            <label for="reg-salon">{{ 'auth.salonName' | translate }}</label>
           </p-floatlabel>
         }
 
@@ -115,17 +115,17 @@
             inputId="reg-terms"
           />
           <label for="reg-terms" class="text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer leading-snug">
-            I agree to the
-            <a routerLink="/terms" class="text-emerald-600 hover:underline font-medium">Terms of Service</a>
-            and
-            <a routerLink="/privacy" class="text-emerald-600 hover:underline font-medium">Privacy Policy</a>
+            {{ 'auth.iAgreeToThe' | translate }}
+            <a routerLink="/terms" class="text-emerald-600 hover:underline font-medium">{{ 'auth.termsOfService' | translate }}</a>
+            {{ 'common.and' | translate }}
+            <a routerLink="/privacy" class="text-emerald-600 hover:underline font-medium">{{ 'auth.privacyPolicy' | translate }}</a>
           </label>
         </div>
 
         <!-- Submit -->
         <p-button
           type="submit"
-          label="Create Account"
+          [label]="'auth.registerTitle' | translate"
           severity="success"
           styleClass="w-full justify-center"
           [loading]="isLoading()"
@@ -135,12 +135,12 @@
       </form>
 
       <p-divider align="center">
-        <span class="text-zinc-400 text-sm px-2">or</span>
+        <span class="text-zinc-400 text-sm px-2">{{ 'common.or' | translate }}</span>
       </p-divider>
 
       <!-- Google sign-up -->
       <p-button
-        label="Continue with Google"
+        [label]="'auth.signInWithGoogle' | translate"
         icon="pi pi-google"
         iconPos="left"
         [outlined]="true"
@@ -149,13 +149,13 @@
       />
 
       <p class="text-center text-xs text-zinc-400 mt-2 mb-0">
-        Signing up with Google creates a client account. Salon owners must register with email.
+        {{ 'auth.googleSignupNote' | translate }}
       </p>
 
       <!-- Login link -->
       <p class="text-center text-sm text-zinc-500 mt-8 mb-0">
-        Already have an account?
-        <a routerLink="/auth/login" class="text-emerald-600 font-semibold hover:underline ml-1">Sign in</a>
+        {{ 'auth.hasAccount' | translate }}
+        <a routerLink="/auth/login" class="text-emerald-600 font-semibold hover:underline ml-1">{{ 'auth.signIn' | translate }}</a>
       </p>
 
     </div>

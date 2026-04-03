@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject, ChangeDetectionStrategy, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, effect, ViewChild, ElementRef, inject, ChangeDetectionStrategy, ViewEncapsulation, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -48,7 +48,20 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   // New signals for modern UI
   searchQuery = signal<string>('');
+  /** Sidebar: All platforms, or one of internal (SnapSalon) / WhatsApp / Instagram */
+  platformFilter = signal<'all' | 'internal' | 'whatsapp' | 'instagram'>('all');
   filteredConversations = signal<Conversation[]>([]);
+
+  readonly platformFilterOptions: ReadonlyArray<{
+    id: 'all' | 'internal' | 'whatsapp' | 'instagram';
+    label: string;
+    shortLabel: string;
+  }> = [
+    { id: 'all', label: 'All platforms', shortLabel: 'All' },
+    { id: 'internal', label: 'SnapSalon (in-app)', shortLabel: 'SnapSalon' },
+    { id: 'whatsapp', label: 'WhatsApp', shortLabel: 'WhatsApp' },
+    { id: 'instagram', label: 'Instagram', shortLabel: 'Instagram' },
+  ];
   showEmojiPicker = signal<boolean>(false);
   showChatMenu = signal<boolean>(false);
   searchInChatActive = signal<boolean>(false);
@@ -70,12 +83,26 @@ export class ChatComponent implements OnInit, OnDestroy {
       }
     });
 
-    // Auto-update filteredConversations when conversations change
     effect(() => {
-      const convs = this.conversations();
-      const query = this.searchQuery();
-      if (!query) {
-        this.filteredConversations.set(convs);
+      this.conversations();
+      this.searchQuery();
+      this.platformFilter();
+      this.applyConversationFilters();
+    });
+
+    effect(() => {
+      const filtered = this.filteredConversations();
+      const sel = this.selectedConversation();
+      if (!sel) return;
+      const stillVisible = filtered.some((c) => c._id === sel._id);
+      if (!stillVisible) {
+        untracked(() => {
+          this.selectedConversation.set(null);
+          this.activeChatService.clearActiveConversation();
+          if (typeof window !== 'undefined' && window.innerWidth < 768) {
+            this.showConversationList.set(true);
+          }
+        });
       }
     });
   }
@@ -157,7 +184,8 @@ export class ChatComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (convs: ConversationResponse[]) => {
-          this.conversations.set(this.mapConversations(convs));
+          const mapped = this.mapConversations(convs);
+          this.conversations.set(mapped);
           this.isLoadingConversations.set(false);
         },
         error: () => {
@@ -184,9 +212,6 @@ export class ChatComponent implements OnInit, OnDestroy {
       lastMessageTime: conv.lastMessage ? new Date(conv.lastMessage.sentAt) : new Date(),
       unreadCount: conv.unreadCount
     }));
-
-    // Initialize filtered conversations
-    this.filteredConversations.set(mapped);
 
     return mapped;
   }
@@ -398,7 +423,7 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.conversations.update(convs =>
         convs.map(conv => conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv)
       );
-      this.filterConversations();
+      this.applyConversationFilters();
     }
   }
 
@@ -433,8 +458,7 @@ export class ChatComponent implements OnInit, OnDestroy {
       });
     });
 
-    // Update filtered conversations too
-    this.filterConversations();
+    this.applyConversationFilters();
   }
 
   private markConversationAsRead(conversationId: string): void {
@@ -446,8 +470,7 @@ export class ChatComponent implements OnInit, OnDestroy {
       convs.map(conv => conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv)
     );
 
-    // Update filtered conversations to reflect the change
-    this.filterConversations();
+    this.applyConversationFilters();
   }
 
   private scrollToBottom(smooth = true): void {
@@ -568,30 +591,53 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Filter conversations based on search query
+   * Apply platform filter + search to the conversation list.
    */
-  filterConversations(): void {
-    const query = this.searchQuery().toLowerCase().trim();
+  applyConversationFilters(): void {
+    let list = this.conversations();
+    const pf = this.platformFilter();
 
-    if (!query) {
-      this.filteredConversations.set(this.conversations());
-      return;
+    if (pf !== 'all') {
+      list = list.filter((conv) => {
+        if (pf === 'internal') return conv.channel === MessageChannel.SNAPSALON;
+        if (pf === 'whatsapp') return conv.channel === MessageChannel.WHATSAPP;
+        if (pf === 'instagram') return conv.channel === MessageChannel.INSTAGRAM;
+        return true;
+      });
     }
 
-    const filtered = this.conversations().filter(conv =>
-      conv.participantName.toLowerCase().includes(query) ||
-      (conv.lastMessage || '').toLowerCase().includes(query)
-    );
+    const query = this.searchQuery().toLowerCase().trim();
+    if (query) {
+      list = list.filter(
+        (conv) =>
+          conv.participantName.toLowerCase().includes(query) ||
+          (conv.lastMessage || '').toLowerCase().includes(query),
+      );
+    }
 
-    this.filteredConversations.set(filtered);
+    this.filteredConversations.set(list);
+  }
+
+  setPlatformFilter(id: 'all' | 'internal' | 'whatsapp' | 'instagram'): void {
+    this.platformFilter.set(id);
   }
 
   /**
-   * Clear search query
+   * Filter conversations when search text changes (also handled by effect).
    */
+  filterConversations(): void {
+    this.applyConversationFilters();
+  }
+
   clearSearch(): void {
     this.searchQuery.set('');
-    this.filteredConversations.set(this.conversations());
+    this.applyConversationFilters();
+  }
+
+  clearPlatformAndSearch(): void {
+    this.platformFilter.set('all');
+    this.searchQuery.set('');
+    this.applyConversationFilters();
   }
 
   /**

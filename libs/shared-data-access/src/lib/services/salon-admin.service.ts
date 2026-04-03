@@ -1,10 +1,13 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 
+import type { PaginatedBookingsPage } from '../types/paginated-bookings';
+
 import { Booking, Salon, SalonServiceItem, SalonWorkingHours } from '@org/models';
 import type { StylistBreakDto } from './user.service';
+import { SalonService } from './salon.service';
 
 // ── DTOs ─────────────────────────────────────────────────────────────────────
 
@@ -82,6 +85,37 @@ function normAdminBooking(
   } as Booking;
 }
 
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+
+/** Normalise one ApiSalon (owner/me, franchise list, POST responses) to Salon */
+function normalizeApiSalon(s: ApiSalon): Salon {
+  const workingHours: Record<string, SalonWorkingHours> = {};
+  for (const h of s.operatingHours ?? []) {
+    const name = DAY_NAMES[h.day];
+    if (name) workingHours[name] = { isOpen: !h.closed, open: h.open, close: h.close };
+  }
+  return {
+    ...s,
+    _id: s._id ?? s.id ?? '',
+    services: (s.services ?? []).map(normService),
+    workingHours: Object.keys(workingHours).length ? workingHours : undefined,
+    images: (s.images as unknown as import('@org/models').SalonImage[]) ?? [],
+  } as Salon;
+}
+
+/** sessionStorage key — selected branch for franchise owners */
+export const SALON_DASHBOARD_BRANCH_ID_KEY = 'salonDashboardSelectedSalonId';
+
+/** Aggregated franchise metrics from GET /api/salons/franchise/overview */
+export interface FranchiseOverview {
+  totalBranches: number;
+  totalStaff: number;
+  averageRating: number;
+  totalRevenue: number;
+  activeTodayCount: number;
+  branches: Salon[];
+}
+
 export interface CreateSalonAddressDto {
   street: string;
   city: string;
@@ -120,30 +154,70 @@ export interface UpdateSalonInfoDto {
 @Injectable({ providedIn: 'root' })
 export class SalonAdminService {
   private readonly http = inject(HttpClient);
+  private readonly salonService = inject(SalonService);
+
+  /** @deprecated use {@link SALON_DASHBOARD_BRANCH_ID_KEY} */
+  static readonly DASHBOARD_SALON_ID_KEY = SALON_DASHBOARD_BRANCH_ID_KEY;
+
+  /**
+   * Persists selected branch for franchise owners (session). Clears when null.
+   */
+  setDashboardSalonId(salonId: string | null): void {
+    if (typeof sessionStorage === 'undefined') return;
+    if (salonId) sessionStorage.setItem(SALON_DASHBOARD_BRANCH_ID_KEY, salonId);
+    else sessionStorage.removeItem(SALON_DASHBOARD_BRANCH_ID_KEY);
+  }
+
+  /**
+   * Active salon for dashboard UIs: branch from session when set, otherwise first from owner/me.
+   */
+  getDashboardSalon(): Observable<Salon> {
+    if (typeof sessionStorage !== 'undefined') {
+      const id = sessionStorage.getItem(SALON_DASHBOARD_BRANCH_ID_KEY);
+      if (id) {
+        return this.salonService.getSalonById(id);
+      }
+    }
+    return this.getOwnSalon();
+  }
 
   /** GET /api/salons/owner/me — returns the authenticated owner's first salon */
   getOwnSalon(): Observable<Salon> {
-    const DAY_NAMES = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as const;
     return this.http.get<ApiSalon[]>('/api/salons/owner/me').pipe(
       map((salons) => {
         if (!salons.length) {
           throw new HttpErrorResponse({ status: 404, statusText: 'Not Found' });
         }
-        const s = salons[0];
-        // Convert operatingHours array → workingHours record the form expects
-        const workingHours: Record<string, import('@org/models').SalonWorkingHours> = {};
-        for (const h of s.operatingHours ?? []) {
-          const name = DAY_NAMES[h.day];
-          if (name) workingHours[name] = { isOpen: !h.closed, open: h.open, close: h.close };
-        }
-        return {
-          ...s,
-          _id:          s._id ?? s.id,
-          services:     (s.services ?? []).map(normService),
-          workingHours: Object.keys(workingHours).length ? workingHours : undefined,
-          images:       (s.images as unknown as import('@org/models').SalonImage[]) ?? [],
-        } as Salon;
+        return normalizeApiSalon(salons[0]);
       }),
+    );
+  }
+
+  /** GET /api/salons/franchise/branches */
+  getFranchiseBranches(): Observable<Salon[]> {
+    return this.http.get<ApiSalon[]>('/api/salons/franchise/branches').pipe(
+      map((salons) => salons.map((s) => normalizeApiSalon(s))),
+    );
+  }
+
+  /** GET /api/salons/franchise/overview */
+  getFranchiseOverview(): Observable<FranchiseOverview> {
+    return this.http
+      .get<
+        Omit<FranchiseOverview, 'branches'> & { branches: ApiSalon[] }
+      >('/api/salons/franchise/overview')
+      .pipe(
+        map((o) => ({
+          ...o,
+          branches: (o.branches ?? []).map((s) => normalizeApiSalon(s)),
+        })),
+      );
+  }
+
+  /** POST /api/salons/franchise/branches — add a branch (franchise plan limits apply server-side) */
+  addFranchiseBranch(dto: CreateSalonDto): Observable<Salon> {
+    return this.http.post<ApiSalon>('/api/salons/franchise/branches', dto).pipe(
+      map((s) => normalizeApiSalon(s)),
     );
   }
 
@@ -175,6 +249,48 @@ export class SalonAdminService {
         params: { salonId, startDate, endDate, limit: '100' },
       })
       .pipe(map((res) => (res.data ?? []).map(normAdminBooking)));
+  }
+
+  /** GET /api/bookings — paginated salon bookings with optional stylist/service filters */
+  getPaginatedBookings(params: {
+    salonId: string;
+    startDate: string;
+    endDate: string;
+    stylistId?: string;
+    serviceId?: string;
+    page?: number;
+    limit?: number;
+    /** Default API sort is by appointment; pass `createdAt` + `desc` for newest records first */
+    sortBy?: 'appointment' | 'createdAt';
+    sortOrder?: 'asc' | 'desc';
+  }): Observable<PaginatedBookingsPage> {
+    let p = new HttpParams()
+      .set('salonId', params.salonId)
+      .set('startDate', params.startDate)
+      .set('endDate', params.endDate)
+      .set('limit', String(params.limit ?? 20))
+      .set('page', String(params.page ?? 1));
+    if (params.stylistId) p = p.set('stylistId', params.stylistId);
+    if (params.serviceId) p = p.set('serviceId', params.serviceId);
+    if (params.sortBy) p = p.set('sortBy', params.sortBy);
+    if (params.sortOrder) p = p.set('sortOrder', params.sortOrder);
+    return this.http
+      .get<{
+        data: Booking[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      }>('/api/bookings', { params: p })
+      .pipe(
+        map((res) => ({
+          data: (res.data ?? []).map(normAdminBooking),
+          total: res.total,
+          page: res.page,
+          limit: res.limit,
+          totalPages: res.totalPages,
+        })),
+      );
   }
 
   /** PATCH /api/bookings/:id/confirm */
@@ -370,6 +486,13 @@ export class SalonAdminService {
       params: { date },
     });
   }
+
+  /** GET /api/salons/:salonId/staff-analytics — stylist performance aggregates */
+  getStaffAnalytics(salonId: string): Observable<StaffAnalyticsResponse> {
+    return this.http.get<StaffAnalyticsResponse>(
+      `/api/salons/${salonId}/staff-analytics`,
+    );
+  }
 }
 
 export interface Station {
@@ -466,4 +589,26 @@ export interface SentInvitationDto {
   status: 'pending' | 'accepted' | 'rejected';
   invitedAt: string;
   respondedAt?: string;
+}
+
+/** salon-service `StaffAnalyticsItemDto` */
+export interface StaffAnalyticsItem {
+  stylistId: string;
+  name: string;
+  avatarUrl?: string;
+  totalAppointments: number;
+  completedAppointments: number;
+  cancellationRate: number;
+  averageRating: number;
+  totalReviews: number;
+  revenueGenerated: number;
+  topServices: Array<{ serviceName: string; count: number }>;
+  appointmentsByMonth: Array<{ month: string; count: number }>;
+}
+
+/** salon-service `StaffAnalyticsResponseDto` */
+export interface StaffAnalyticsResponse {
+  salonId: string;
+  staff: StaffAnalyticsItem[];
+  generatedAt: string;
 }

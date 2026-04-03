@@ -1,7 +1,9 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { CorrelationLoggingMiddleware } from '@org/shared-auth';
+import { LoggerModule } from 'nestjs-pino';
+
+import { CorrelationLoggingMiddleware, createLoggerConfig, HealthModule } from '@org/shared-auth';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ReviewModule } from '../review/review.module';
@@ -11,6 +13,7 @@ import { validationSchema } from '../config/validation.schema';
 
 @Module({
   imports: [
+    LoggerModule.forRoot(createLoggerConfig('review-service')),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -24,6 +27,7 @@ import { validationSchema } from '../config/validation.schema';
         uri: config.get<string>('db.uri'),
       }),
     }),
+    HealthModule.forRoot(),
     ReviewModule,
     UploadModule,
   ],

@@ -8,6 +8,9 @@ import { UserService } from './user.service';
 import { UserProfile, UserProfileSchema } from './schemas/user-profile.schema';
 import { UserEventsProcessor, USER_EVENTS_QUEUE } from './processors/user-events.processor';
 import { SharedAuthModule } from '@org/shared-auth';
+import { CloudinaryProvider } from './cloudinary.config';
+import { CloudinaryUploadService } from './avatar-upload.service';
+import { FILE_UPLOAD_SERVICE } from './interfaces/file-upload.interface';
 
 @Module({
   imports: [
@@ -19,7 +22,12 @@ import { SharedAuthModule } from '@org/shared-auth';
     BullModule.registerQueue({ name: USER_EVENTS_QUEUE }),
   ],
   controllers: [UserController],
-  providers: [UserService, UserEventsProcessor],
+  providers: [
+    CloudinaryProvider,
+    { provide: FILE_UPLOAD_SERVICE, useClass: CloudinaryUploadService },
+    UserService,
+    UserEventsProcessor,
+  ],
   exports: [UserService],
 })
 export class UserModule {}

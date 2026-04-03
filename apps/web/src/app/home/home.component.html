@@ -1,0 +1,287 @@
+<!-- Landing: full-width scroll; navbar stays in app shell -->
+<div class="landing text-zinc-800 dark:text-zinc-100">
+  <!-- ── HERO ───────────────────────────────────────────────────────── -->
+  <section
+    id="top"
+    class="relative min-h-[100dvh] flex flex-col items-center justify-center px-4 sm:px-6 py-16 overflow-hidden"
+  >
+    <!-- Background: gradient + subtle grid -->
+    <div
+      class="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-violet-100 dark:from-zinc-950 dark:via-zinc-900 dark:to-emerald-950/40"
+      aria-hidden="true"
+    ></div>
+    <div
+      class="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-20"
+      style="
+        background-image: radial-gradient(circle at 1px 1px, rgb(16 185 129 / 0.25) 1px, transparent 0);
+        background-size: 24px 24px;
+      "
+      aria-hidden="true"
+    ></div>
+    <div
+      class="pointer-events-none absolute -top-32 -right-32 h-96 w-96 rounded-full bg-emerald-400/20 blur-3xl dark:bg-emerald-500/10"
+      aria-hidden="true"
+    ></div>
+    <div
+      class="pointer-events-none absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-violet-400/15 blur-3xl dark:bg-violet-600/10"
+      aria-hidden="true"
+    ></div>
+
+    <div class="relative z-10 max-w-3xl mx-auto text-center">
+      <p
+        class="inline-block rounded-full bg-emerald-100/90 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-xs font-bold tracking-widest uppercase px-4 py-1.5 mb-6 border border-emerald-200/80 dark:border-emerald-700/60"
+      >
+        Made in Sri Lanka
+      </p>
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-zinc-900 dark:text-white leading-[1.1] mb-6">
+        Book Your Perfect Salon Experience
+      </h1>
+      <p class="text-lg sm:text-xl text-zinc-600 dark:text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
+        Sri Lanka's first online salon booking platform — discover salons, book in seconds, and walk in
+        confident.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <p-button
+          label="Find a Salon"
+          icon="pi pi-search"
+          styleClass="w-full sm:w-auto min-w-[200px] font-semibold"
+          routerLink="/discover"
+        />
+        <p-button
+          label="List Your Salon"
+          icon="pi pi-building"
+          [outlined]="true"
+          severity="secondary"
+          styleClass="w-full sm:w-auto min-w-[200px] font-semibold"
+          routerLink="/auth"
+          [queryParams]="{ role: 'salon_owner' }"
+        />
+      </div>
+      <p class="mt-10 text-sm text-zinc-500 dark:text-zinc-500">
+        Free to browse · Instant booking · Trusted by salons island-wide
+      </p>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ───────────────────────────────────────────────── -->
+  <section
+    id="how-it-works"
+    class="py-20 px-4 sm:px-6 bg-white dark:bg-zinc-950 border-y border-zinc-200/80 dark:border-zinc-800"
+  >
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-3xl sm:text-4xl font-bold text-center text-zinc-900 dark:text-white mb-4">
+        How it works
+      </h2>
+      <p class="text-center text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto mb-14">
+        For clients — three simple steps from search to your next great hair day.
+      </p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
+        @for (step of clientSteps; track step.title) {
+          <div
+            class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/50 p-8 text-center shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div
+              class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 text-2xl"
+            >
+              <i [class]="step.icon"></i>
+            </div>
+            <h3 class="text-lg font-bold text-zinc-900 dark:text-white mb-2">{{ step.title }}</h3>
+            <p class="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{{ step.body }}</p>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOR SALON OWNERS ───────────────────────────────────────────── -->
+  <section
+    id="for-owners"
+    class="py-20 px-4 sm:px-6 bg-gradient-to-b from-zinc-50 to-white dark:from-zinc-900 dark:to-zinc-950"
+  >
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-3xl sm:text-4xl font-bold text-center text-zinc-900 dark:text-white mb-4">
+        For salon owners
+      </h2>
+      <p class="text-center text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto mb-14">
+        Everything you need to run bookings online and grow your business.
+      </p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-12">
+        @for (b of ownerBenefits; track b.title) {
+          <div class="flex flex-col items-center text-center sm:items-start sm:text-left">
+            <span
+              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xl"
+            >
+              <i [class]="b.icon"></i>
+            </span>
+            <h3 class="font-semibold text-zinc-900 dark:text-white mb-2">{{ b.title }}</h3>
+            <p class="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">{{ b.body }}</p>
+          </div>
+        }
+      </div>
+      <div class="flex justify-center">
+        <p-button
+          label="Start Free 30-Day Trial"
+          icon="pi pi-bolt"
+          styleClass="font-semibold"
+          routerLink="/auth"
+          [queryParams]="{ role: 'salon_owner' }"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PRICING ───────────────────────────────────────────────────── -->
+  <section
+    id="pricing"
+    class="py-20 px-4 sm:px-6 bg-white dark:bg-zinc-950 border-t border-zinc-200/80 dark:border-zinc-800"
+  >
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-3xl sm:text-4xl font-bold text-center text-zinc-900 dark:text-white mb-4">
+        Simple, transparent pricing
+      </h2>
+      <p class="text-center text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto mb-12">
+        Choose a plan that fits your salon. All prices in LKR per month.
+      </p>
+
+      @if (plansLoading()) {
+        <div class="flex justify-center py-12">
+          <i class="pi pi-spin pi-spinner text-3xl text-emerald-500"></i>
+        </div>
+      } @else {
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          @for (plan of displayPlans(); track plan.key) {
+            <article
+              class="rounded-2xl border flex flex-col p-6 transition-all"
+              [class.border-emerald-500]="plan.key === 'pro'"
+              [class.ring-2]="plan.key === 'pro'"
+              [class.ring-emerald-500/40]="plan.key === 'pro'"
+              [class.shadow-lg]="plan.key === 'pro'"
+              [class.border-zinc-200]="plan.key !== 'pro'"
+              [class.dark:border-zinc-700]="plan.key !== 'pro'"
+              [class.bg-zinc-50/50]="plan.key !== 'pro'"
+              [class.dark:bg-zinc-900/30]="plan.key !== 'pro'"
+            >
+              @if (plan.key === 'pro') {
+                <span
+                  class="mb-3 inline-block self-start rounded-full bg-emerald-500 text-white text-xs font-bold px-3 py-1"
+                >
+                  Recommended
+                </span>
+              }
+              <h3 class="text-xl font-bold text-zinc-900 dark:text-white">{{ plan.name }}</h3>
+              <div class="mt-2 mb-6">
+                @if (plan.price === 0) {
+                  <span class="text-3xl font-black text-emerald-600 dark:text-emerald-400">Free</span>
+                  <span class="text-zinc-500 dark:text-zinc-400 text-sm ml-1">trial</span>
+                } @else {
+                  <span class="text-2xl font-black text-zinc-900 dark:text-white">
+                    LKR {{ plan.price | number: '1.0-0' }}
+                  </span>
+                  <span class="text-zinc-500 dark:text-zinc-400 text-sm">/mo</span>
+                }
+              </div>
+              <ul class="space-y-2 text-sm text-zinc-600 dark:text-zinc-400 flex-1 mb-6">
+                <li class="flex gap-2">
+                  <i class="pi pi-check text-emerald-500 mt-0.5 flex-shrink-0"></i>
+                  <span>{{ formatLimitLabel('Locations', plan.maxLocations) }}</span>
+                </li>
+                <li class="flex gap-2">
+                  <i class="pi pi-check text-emerald-500 mt-0.5 flex-shrink-0"></i>
+                  <span>{{ formatLimitLabel('Staff', plan.maxStaff) }}</span>
+                </li>
+                <li class="flex gap-2">
+                  <i class="pi pi-check text-emerald-500 mt-0.5 flex-shrink-0"></i>
+                  <span>{{ formatLimitLabel('Stations', plan.maxStations) }}</span>
+                </li>
+                @for (f of plan.featureLabels; track f) {
+                  <li class="flex gap-2">
+                    <i class="pi pi-check text-emerald-500 mt-0.5 flex-shrink-0"></i>
+                    <span>{{ f }}</span>
+                  </li>
+                }
+              </ul>
+              <p-button
+                [label]="plan.price === 0 ? 'Start with Starter' : 'Get ' + plan.name"
+                [outlined]="plan.key !== 'pro'"
+                [styleClass]="'w-full ' + (plan.key === 'pro' ? 'font-semibold' : '')"
+                routerLink="/auth"
+                [queryParams]="{ role: 'salon_owner' }"
+              />
+            </article>
+          }
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- ── LEGAL (anchor for footer links) ─────────────────────────────── -->
+  <section
+    id="legal"
+    class="py-12 px-4 sm:px-6 bg-zinc-100/80 dark:bg-zinc-900/80 border-t border-zinc-200 dark:border-zinc-800"
+  >
+    <div class="max-w-2xl mx-auto text-center text-sm text-zinc-600 dark:text-zinc-400">
+      <p class="m-0">
+        <strong class="text-zinc-800 dark:text-zinc-200">Privacy &amp; terms</strong>
+        — Full Privacy Policy and Terms of Service will be published here. Contact us if you have
+        questions.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ────────────────────────────────────────────────────── -->
+  <footer
+    class="py-12 px-4 sm:px-6 bg-zinc-900 text-zinc-300 dark:bg-black dark:text-zinc-400"
+  >
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-10">
+      <div>
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-xl font-black text-white tracking-tight">SnapSalon</span>
+        </div>
+        <p class="text-sm text-zinc-500 m-0">Made in Sri Lanka · Salon booking, simplified.</p>
+      </div>
+      <nav class="flex flex-wrap gap-x-6 gap-y-2 text-sm" aria-label="Footer">
+        <a
+          routerLink="/"
+          fragment="how-it-works"
+          class="text-zinc-400 hover:text-white transition-colors"
+          >About</a
+        >
+        <a href="mailto:hello@snapsalon.lk" class="text-zinc-400 hover:text-white transition-colors"
+          >Contact</a
+        >
+        <a
+          routerLink="/"
+          fragment="legal"
+          class="text-zinc-400 hover:text-white transition-colors"
+          >Privacy Policy</a
+        >
+        <a
+          routerLink="/"
+          fragment="legal"
+          class="text-zinc-400 hover:text-white transition-colors"
+          >Terms</a
+        >
+      </nav>
+      <div class="flex items-center gap-3" aria-label="Social links (placeholder)">
+        <span
+          class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-zinc-500"
+          title="Facebook (coming soon)"
+        >
+          <i class="pi pi-facebook text-lg"></i>
+        </span>
+        <span
+          class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-zinc-500"
+          title="Instagram (coming soon)"
+        >
+          <i class="pi pi-instagram text-lg"></i>
+        </span>
+        <span
+          class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 text-zinc-500"
+          title="X (coming soon)"
+        >
+          <i class="pi pi-twitter text-lg"></i>
+        </span>
+      </div>
+    </div>
+  </footer>
+</div>

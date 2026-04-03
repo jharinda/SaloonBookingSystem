@@ -24,8 +24,9 @@ interface CompleteResponse {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, RouterLink, ButtonModule, SelectButtonModule],
+  styles: [`:host { display: block; height: 100%; }`],
   template: `
-    <div class="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-8">
+    <div class="min-h-full flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-8">
       <div class="w-full max-w-md">
 
         <div class="flex items-center gap-3 mb-2">

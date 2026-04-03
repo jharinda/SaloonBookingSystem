@@ -12,6 +12,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Stepper, StepList, Step, StepPanels, StepPanel } from 'primeng/stepper';
 import { Button } from 'primeng/button';
 import { ProgressSpinner } from 'primeng/progressspinner';
+import { TranslateModule } from '@ngx-translate/core';
 import { catchError, of, switchMap } from 'rxjs';
 
 import { SalonService } from '@org/shared-data-access';
@@ -49,6 +50,7 @@ import { BookingService } from '@org/shared-data-access';
     StylistSelectionStepComponent,
     DateTimeSelectionStepComponent,
     BookingConfirmationStepComponent,
+    TranslateModule,
   ],
   providers: [BookingStateService], // Provide at component level for wizard state isolation
   templateUrl: './booking-wizard.component.html',
@@ -119,6 +121,14 @@ export class BookingWizardComponent implements OnInit {
       next: (salon) => {
         if (salon) {
           this.bookingState.initState(salonId, salon);
+
+          // Pre-select services from query params (for "Book Again" flow)
+          const serviceIdsParam = this.route.snapshot.queryParamMap.get('serviceIds');
+          if (serviceIdsParam) {
+            const ids = serviceIdsParam.split(',').filter(Boolean);
+            this.bookingState.preselectServicesByIds(ids);
+          }
+
           this.loading.set(false);
         }
         // If null, we're redirecting to booking view

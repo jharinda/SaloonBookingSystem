@@ -15,6 +15,7 @@ import { ProgressSpinner } from 'primeng/progressspinner';
 import { AvatarModule } from 'primeng/avatar';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { BookingStateService } from '../services/booking-state.service';
 import { BookingService, SalonService, SalonStaffDto } from '@org/shared-data-access';
@@ -39,6 +40,7 @@ import { BookingService, SalonService, SalonStaffDto } from '@org/shared-data-ac
     AvatarModule,
     TagModule,
     TooltipModule,
+    TranslateModule,
   ],
   templateUrl: './stylist-selection-step.component.html',
   styleUrl: './stylist-selection-step.component.scss',

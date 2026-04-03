@@ -32,7 +32,7 @@ export interface PortfolioReviewResponseDto {
   comment: string;
   serviceName: string;
   clientName: string;
-  date: Date;
+  date: Date | string;
 }
 
 export interface StylistPortfolioResponseDto {

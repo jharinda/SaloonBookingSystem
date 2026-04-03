@@ -1,20 +1,20 @@
 <!-- Two-column flex layout: slim sidebar + flex-1 content -->
-<div class="flex h-screen overflow-hidden">
+<div class="flex h-full overflow-hidden">
 
   <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
   <lib-dashboard-sidebar
     [salonName]="salon()?.name ?? null"
     [userEmail]="userEmail()"
     [isExpanded]="isExpanded()"
+    [showFranchise]="isFranchiseOwner()"
     (expanded)="isExpanded.set(true)"
     (collapsed)="isExpanded.set(false)"
     (logoutClicked)="logout()"
   />
 
   <!-- ── Main content area ──────────────────────────────────────────────── -->
-  <main class="flex-1 overflow-y-auto bg-slate-100 dark:bg-zinc-950 p-8 transition-all duration-300"
-        [class.ml-56]="isExpanded()"
-        [class.ml-20]="!isExpanded()">
+  <main class="flex-1 overflow-y-auto bg-slate-100 dark:bg-zinc-950 p-4 md:p-8 transition-all duration-300"
+        [ngClass]="mainMarginClass()">
 
     @if (isLoading()) {
       <div class="flex flex-col items-center justify-center gap-4 h-1/2 text-gray-500">
@@ -33,6 +33,15 @@
         <p>You do not have salon-owner access.</p>
       </div>
     } @else {
+      @if (isFranchiseOwner() && franchiseBranches().length > 1) {
+        <div class="mb-6 flex flex-wrap items-center justify-end gap-4">
+          <lib-branch-selector
+            [branches]="franchiseBranches()"
+            [currentSalonId]="salon()?._id ?? null"
+            (salonChanged)="onBranchChanged($event)"
+          />
+        </div>
+      }
       <router-outlet />
     }
 

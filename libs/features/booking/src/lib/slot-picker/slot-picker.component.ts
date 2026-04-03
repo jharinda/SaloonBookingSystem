@@ -10,15 +10,17 @@
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
-import { catchError, of, Subject, switchMap, tap } from 'rxjs';
+import { catchError, finalize, of, Subject, switchMap, tap } from 'rxjs';
 
 import { DatePicker } from 'primeng/datepicker';
 import { SelectButton } from 'primeng/selectbutton';
 import { Card } from 'primeng/card';
 import { Button } from 'primeng/button';
+import { Dialog } from 'primeng/dialog';
 
 import { BookingSlot } from '@org/models';
 import { BookingService } from '../services/booking.service';
+import { WaitlistService, JoinWaitlistPayload } from '@org/shared-data-access';
 
 interface SlotSelection {
   /** "YYYY-MM-DD" */
@@ -30,7 +32,7 @@ interface SlotSelection {
 @Component({
   selector: 'lib-slot-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, DatePipe, DatePicker, SelectButton, Card, Button],
+  imports: [FormsModule, DatePipe, DatePicker, SelectButton, Card, Button, Dialog],
   template: `
     <div class="step-header mb-6">
       <h2 class="text-xl font-bold text-gray-900 m-0 mb-1">Pick a Date &amp; Time</h2>
@@ -79,7 +81,19 @@ interface SlotSelection {
                 <p-button label="Retry" icon="pi pi-refresh" size="small" variant="outlined" (onClick)="retry()" />
               </div>
             } @else if (slots().length === 0) {
-              <p class="text-gray-400 text-sm py-4 m-0">No slots available for this date. Please try another day.</p>
+              <div class="flex flex-col gap-3 py-4">
+                <p class="text-gray-400 text-sm m-0">No slots available for this date.</p>
+                @if (selectedDateStr()) {
+                  <p-button
+                    label="Join Waitlist"
+                    icon="pi pi-bell"
+                    severity="secondary"
+                    variant="outlined"
+                    size="small"
+                    (onClick)="openWaitlistDialog()"
+                  />
+                }
+              </div>
             } @else {
               <p-selectbutton
                 [options]="slotOptions()"
@@ -113,6 +127,59 @@ interface SlotSelection {
         (onClick)="confirm()"
       />
     </div>
+
+    <!-- Waitlist Dialog -->
+    <p-dialog
+      header="Join the Waitlist"
+      [modal]="true"
+      [(visible)]="waitlistDialogVisible"
+      [style]="{ width: '24rem' }"
+      [draggable]="false"
+    >
+      @if (waitlistSuccess()) {
+        <div class="flex flex-col items-center gap-4 py-4 text-center">
+          <i class="pi pi-check-circle text-green-500 text-5xl"></i>
+          <p class="text-gray-700 m-0">
+            You're on the waitlist! We'll notify you by email and push notification
+            as soon as a slot opens up.
+          </p>
+          <p-button label="Close" (onClick)="waitlistDialogVisible.set(false)" />
+        </div>
+      } @else {
+        <div class="flex flex-col gap-4">
+          <p class="text-gray-600 text-sm m-0">
+            All slots are fully booked for
+            <strong>{{ selectedDate()! | date: 'EEEE, MMMM d' }}</strong>.
+            Join the waitlist and we'll notify you the moment a slot becomes available.
+          </p>
+          <div class="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
+            <p class="m-0 font-semibold text-gray-700 mb-1">How it works</p>
+            <ul class="list-disc list-inside m-0 space-y-1">
+              <li>We watch for cancellations on your chosen date.</li>
+              <li>You'll get an email and a push notification instantly.</li>
+              <li>Head back to book before the slot fills again!</li>
+            </ul>
+          </div>
+          @if (waitlistError()) {
+            <p class="text-red-500 text-sm m-0">{{ waitlistError() }}</p>
+          }
+          <div class="flex gap-2 justify-end">
+            <p-button
+              label="Cancel"
+              severity="secondary"
+              variant="outlined"
+              (onClick)="waitlistDialogVisible.set(false)"
+            />
+            <p-button
+              label="Notify Me"
+              icon="pi pi-bell"
+              [loading]="waitlistLoading()"
+              (onClick)="submitWaitlist()"
+            />
+          </div>
+        </div>
+      }
+    </p-dialog>
   `,
   styles: [`
     :host ::ng-deep .date-time-card .p-card-body {
@@ -138,11 +205,14 @@ interface SlotSelection {
 })
 export class SlotPickerComponent {
   private readonly bookingService = inject(BookingService);
+  private readonly waitlistService = inject(WaitlistService);
 
   //  Inputs / outputs
   readonly salonId      = input.required<string>();
   readonly duration     = input.required<number>();
   readonly serviceLabel = input<string>('');
+  /** Services selected in a prior wizard step — used to build the waitlist payload. */
+  readonly services     = input<Array<{ serviceId: string; name: string; price: number; durationMinutes: number }>>([]);
 
   readonly slotSelected = output<SlotSelection>();
   readonly back         = output<void>();
@@ -153,6 +223,18 @@ export class SlotPickerComponent {
   readonly slots        = signal<BookingSlot[]>([]);
   readonly isLoading    = signal(false);
   readonly slotsError   = signal<string | null>(null);
+
+  /** YYYY-MM-DD string derived from selectedDate */
+  readonly selectedDateStr = computed(() => {
+    const d = this.selectedDate();
+    return d ? formatDate(d) : null;
+  });
+
+  // ── Waitlist state ───────────────────────────────────────────────────────
+  readonly waitlistDialogVisible = signal(false);
+  readonly waitlistLoading       = signal(false);
+  readonly waitlistSuccess       = signal(false);
+  readonly waitlistError         = signal<string | null>(null);
 
   readonly minDate = new Date();
 
@@ -232,6 +314,50 @@ export class SlotPickerComponent {
     const slot = this.selectedSlot();
     if (!date || !slot) return;
     this.slotSelected.emit({ date: formatDate(date), slot });
+  }
+
+  // ── Waitlist ─────────────────────────────────────────────────────────────
+
+  openWaitlistDialog(): void {
+    this.waitlistSuccess.set(false);
+    this.waitlistError.set(null);
+    this.waitlistDialogVisible.set(true);
+  }
+
+  submitWaitlist(): void {
+    const dateStr = this.selectedDateStr();
+    if (!dateStr) return;
+
+    const totalDurationMinutes = this.duration();
+    // Derive a sensible default preferred window: the full working day.
+    // If services are provided, we use their total duration for the end time.
+    const preferredStartTime = '08:00';
+    const endMin = 8 * 60 + totalDurationMinutes;
+    const preferredEndTime = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`;
+
+    const payload: JoinWaitlistPayload = {
+      salonId: this.salonId(),
+      appointmentDate: dateStr,
+      preferredStartTime,
+      preferredEndTime,
+      services: this.services().length > 0
+        ? this.services()
+        : [{ serviceId: 'unknown', name: this.serviceLabel() || 'Service', price: 0, durationMinutes: totalDurationMinutes }],
+    };
+
+    this.waitlistLoading.set(true);
+    this.waitlistError.set(null);
+
+    this.waitlistService.joinWaitlist(payload).pipe(
+      finalize(() => this.waitlistLoading.set(false)),
+    ).subscribe({
+      next: () => this.waitlistSuccess.set(true),
+      error: (err: { error?: { message?: string } }) => {
+        this.waitlistError.set(
+          err?.error?.message ?? 'Could not join the waitlist. Please try again.',
+        );
+      },
+    });
   }
 }
 

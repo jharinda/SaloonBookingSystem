@@ -2,13 +2,21 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
-import { CorrelationLoggingMiddleware } from '@org/shared-auth';
+import { LoggerModule } from 'nestjs-pino';
+
+import {
+  CorrelationLoggingMiddleware,
+  createLoggerConfig,
+  getBullRedisConnection,
+  HealthModule,
+} from '@org/shared-auth';
 import { NotificationModule } from '../notification/notification.module';
 import configuration from '../config/configuration';
 import { validationSchema } from '../config/validation.schema';
 
 @Module({
   imports: [
+    LoggerModule.forRoot(createLoggerConfig('notification-service')),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -25,12 +33,10 @@ import { validationSchema } from '../config/validation.schema';
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        redis: {
-          host: config.get<string>('redis.host'),
-          port: config.get<number>('redis.port'),
-        },
+        redis: getBullRedisConnection(config),
       }),
     }),
+    HealthModule.forRoot({ redis: true }),
     NotificationModule,
   ],
 })

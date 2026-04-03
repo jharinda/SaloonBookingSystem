@@ -2,7 +2,7 @@ $brand: #6750a4;
 
 .dash-wrap {
   padding: 28px 32px;
-  max-width: 1100px;
+  max-width: 1200px;
 }
 
 .page-title {
@@ -28,10 +28,13 @@ $brand: #6750a4;
 .error-icon { font-size: 48px; width: 48px; height: 48px; color: #dc2626; opacity: .7; }
 .retry-btn  { background: $brand !important; color: #fff !important; border-radius: 24px !important; }
 
+// ── KPI Cards ──────────────────────────────────────────────────────────────
+
 .cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 20px;
+  margin-bottom: 24px;
 }
 
 .stat-card {
@@ -70,18 +73,134 @@ $brand: #6750a4;
   letter-spacing: .04em;
 }
 
+.stat-card__body {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .stat-value {
   font-size: 2.2rem;
   font-weight: 800;
   color: #111827;
 }
 
+// ── Trend badge ────────────────────────────────────────────────────────────
+
+.trend-badge {
+  font-size: .75rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+
+  &--up   { background: #dcfce7; color: #166534; }
+  &--down { background: #fee2e2; color: #991b1b; }
+}
+
+// ── Platform metrics row ───────────────────────────────────────────────────
+
+.metrics-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.metric-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 20px;
+
+  &__label {
+    font-size: .8rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  &__value {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #111827;
+  }
+}
+
+// ── Insights (table + chart) ───────────────────────────────────────────────
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.insight-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 24px;
+  overflow: hidden;
+
+  &--chart {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.insight-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .pi { color: $brand; }
+}
+
+.insight-subtitle {
+  margin-left: auto;
+  font-size: .75rem;
+  font-weight: 500;
+  color: #9ca3af;
+}
+
+.rank-cell {
+  color: #9ca3af;
+  font-weight: 600;
+  font-size: .85rem;
+}
+
+.chart-wrap {
+  flex: 1;
+  min-height: 260px;
+  position: relative;
+}
+
 // ── Dark mode ──────────────────────────────────────────────────
+
 :host-context(.app-dark) {
-  .page-title { color: #f4f4f5; }
-  .error-card { border-color: #3f3f46; color: #a1a1aa; }
-  .stat-card { background: #18181b; border-color: #3f3f46; }
+  .page-title  { color: #f4f4f5; }
+  .error-card  { border-color: #3f3f46; color: #a1a1aa; }
+  .stat-card   { background: #18181b; border-color: #3f3f46; }
   .stat-card--warn { background: rgba(255,247,237,.05); border-color: #c2410c; }
-  .stat-label { color: #a1a1aa; }
-  .stat-value { color: #f4f4f5; }
+  .stat-label  { color: #a1a1aa; }
+  .stat-value  { color: #f4f4f5; }
+  .metric-chip { background: #27272a; border-color: #3f3f46; }
+  .metric-chip__label { color: #a1a1aa; }
+  .metric-chip__value { color: #f4f4f5; }
+  .insight-card { background: #18181b; border-color: #3f3f46; }
+  .insight-title { color: #f4f4f5; }
 }

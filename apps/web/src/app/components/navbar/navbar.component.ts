@@ -16,8 +16,9 @@ import { Menubar } from 'primeng/menubar';
 import { Button } from 'primeng/button';
 import { Menu } from 'primeng/menu';
 
-import { AuthService } from '@org/shared-data-access';
+import { AuthService, UserService, LanguageService } from '@org/shared-data-access';
 import { NotificationBellComponent } from '../notification-bell/notification-bell.component';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 const THEME_KEY = 'snapsalon-theme';
 
@@ -25,12 +26,15 @@ const THEME_KEY = 'snapsalon-theme';
   selector: 'app-navbar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, Menubar, Button, Menu, NotificationBellComponent],
+  imports: [RouterLink, Menubar, Button, Menu, NotificationBellComponent, TranslateModule],
   templateUrl: './navbar.component.html',
   styleUrl: './navbar.component.scss',
 })
 export class NavbarComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
+  private readonly userService = inject(UserService);
+  private readonly languageService = inject(LanguageService);
+  private readonly translateService = inject(TranslateService);
   protected readonly router = inject(Router);
   private readonly doc = inject(DOCUMENT);
   private readonly platformId = inject(PLATFORM_ID);
@@ -52,50 +56,47 @@ export class NavbarComponent implements OnInit, OnDestroy {
     return user ? user.email.charAt(0).toUpperCase() : '';
   });
 
+  /** Profile avatar URL from the shared user profile state. */
+  readonly avatarUrl = this.userService.avatarUrl;
+
   /** Main nav items — rebuilt whenever auth state or URL changes */
   readonly menuItems = computed<MenuItem[]>(() => {
     const items: MenuItem[] = [];
 
-    if (this.isLoggedIn()) {
-      items.push({
-        label: 'Chat',
-        icon: 'pi pi-comments',
-        routerLink: '/chat',
-        styleClass: 'chat-menu-item'
-      });
-    }
-
     return items;
   });
 
-  /** User dropdown items */
+  /** User dropdown items — recomputed when language changes */
   readonly userMenuItems = computed<MenuItem[]>(() => {
     const user = this.currentUser();
     const url  = this.currentUrl();
+    // Depend on currentLang so items recompute on language switch
+    void this.languageService.currentLang();
+    const t = (key: string) => this.translateService.instant(key);
     const onDashboard = url.startsWith('/salon-dashboard');
     const onStylistDashboard = url.startsWith('/stylist-dashboard');
     const items: MenuItem[] = [
-      { label: 'My Profile', icon: 'pi pi-user', routerLink: '/account' },
+      { label: t('nav.myProfile'), icon: 'pi pi-user', routerLink: '/account' },
     ];
 
     if (user?.role === 'client') {
-      items.push({ label: 'My Bookings', icon: 'pi pi-calendar', routerLink: '/my-appointments' });
+      items.push({ label: t('nav.myBookings'), icon: 'pi pi-calendar', routerLink: '/my-appointments' });
     }
 
     if ((user?.role === 'salon_owner' || user?.role === 'franchise_owner') && !onDashboard) {
-      items.push({ label: 'Dashboard', icon: 'pi pi-gauge', routerLink: '/salon-dashboard' });
+      items.push({ label: t('nav.dashboard'), icon: 'pi pi-gauge', routerLink: '/salon-dashboard' });
     }
 
     if (user?.role === 'stylist' && !onStylistDashboard) {
-      items.push({ label: 'Dashboard', icon: 'pi pi-gauge', routerLink: '/stylist-dashboard' });
+      items.push({ label: t('nav.dashboard'), icon: 'pi pi-gauge', routerLink: '/stylist-dashboard' });
     }
 
     if (user?.role === 'admin') {
-      items.push({ label: 'Admin Dashboard', icon: 'pi pi-shield', routerLink: '/admin' });
+      items.push({ label: t('nav.adminDashboard'), icon: 'pi pi-shield', routerLink: '/admin' });
     }
 
     items.push({ separator: true });
-    items.push({ label: 'Logout', icon: 'pi pi-sign-out', command: () => this.logout() });
+    items.push({ label: t('common.logout'), icon: 'pi pi-sign-out', command: () => this.logout() });
 
     return items;
   });
@@ -133,8 +134,8 @@ export class NavbarComponent implements OnInit, OnDestroy {
 
   logout(): void {
     this.authService.logout().subscribe({
-      complete: () => void this.router.navigate(['/discover']),
-      error: () => void this.router.navigate(['/discover']),
+      complete: () => { this.userService.clearProfile(); void this.router.navigate(['/discover']); },
+      error: () => { this.userService.clearProfile(); void this.router.navigate(['/discover']); },
     });
   }
 }

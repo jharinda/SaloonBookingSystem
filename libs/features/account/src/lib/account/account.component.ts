@@ -25,7 +25,6 @@ import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
-import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
@@ -34,9 +33,10 @@ import { DividerModule } from 'primeng/divider';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { DialogModule } from 'primeng/dialog';
+import { SelectModule } from 'primeng/select';
 import { ConfirmationService, MessageService } from 'primeng/api';
 
-import { AuthService, BookingService } from '@org/shared-data-access';
+import { AuthService, BookingService, FavoritesService, SalonService, LanguageService, SupportedLang } from '@org/shared-data-access';
 import {
   NotificationPreferences,
   UserProfile,
@@ -44,7 +44,8 @@ import {
   ConnectedAccounts,
   SalonInvitationDto,
 } from '@org/shared-data-access';
-import { Booking, BookingStatus } from '@org/models';
+import { Booking, BookingStatus, Salon } from '@org/models';
+import { SalonCardComponent } from '@org/discover';
 
 //  Validators
 
@@ -79,6 +80,7 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [ConfirmationService, MessageService],
+  styles: [`:host { display: block; height: 100%; }`],
   imports: [
     ReactiveFormsModule,
     FormsModule,
@@ -89,7 +91,6 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
     ButtonModule,
     InputTextModule,
     PasswordModule,
-    SelectModule,
     TableModule,
     TagModule,
     ToggleSwitchModule,
@@ -98,6 +99,8 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
     ToastModule,
     ConfirmDialogModule,
     DialogModule,
+    SelectModule,
+    SalonCardComponent,
   ],
   template: `
     <p-toast />
@@ -112,19 +115,20 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
       [closable]="!deletingAccount()"
     >
       <div class="flex flex-col gap-4">
-        <div class="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
-          <i class="pi pi-exclamation-triangle text-red-600 text-xl shrink-0 mt-0.5"></i>
-          <p class="text-sm text-red-700 m-0 leading-relaxed">
+        <div class="flex items-start gap-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/60 rounded-lg p-4">
+          <i class="pi pi-exclamation-triangle text-red-600 dark:text-red-400 text-xl shrink-0 mt-0.5"></i>
+          <p class="text-sm text-red-700 dark:text-red-400 m-0 leading-relaxed">
             This action is <strong>permanent and irreversible</strong>. All your bookings,
             reviews, and personal data will be deleted immediately.
           </p>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium text-gray-700">
-            Type <strong class="text-red-600">DELETE</strong> to confirm
+          <label for="deleteConfirm" class="text-sm font-medium text-gray-700 dark:text-zinc-300">
+            Type <strong class="text-red-600 dark:text-red-400">DELETE</strong> to confirm
           </label>
           <input
             pInputText
+            id="deleteConfirm"
             [(ngModel)]="deleteConfirmText"
             placeholder="DELETE"
             autocomplete="off"
@@ -152,19 +156,19 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
     </p-dialog>
 
     <!--  Page  -->
-    <div class="min-h-screen bg-gray-50 py-8 px-4">
+    <div class="min-h-full bg-gray-50 dark:bg-zinc-950 py-8 px-4">
       <div class="max-w-2xl mx-auto">
 
-        <h1 class="text-2xl font-bold text-gray-900 mb-6">Account Settings</h1>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-zinc-100 mb-6">Account Settings</h1>
 
         @if (loading()) {
-          <div class="flex items-center justify-center gap-3 py-24 text-gray-400">
+          <div class="flex items-center justify-center gap-3 py-24 text-gray-400 dark:text-zinc-500">
             <p-progressSpinner styleClass="w-10 h-10" strokeWidth="4" />
             <span>Loading profile</span>
           </div>
         } @else {
 
-          <p-card styleClass="shadow-sm border border-gray-100">
+          <p-card styleClass="shadow-sm border border-gray-100 dark:border-zinc-700">
             <p-tabs value="profile">
 
               <p-tablist>
@@ -181,8 +185,18 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                   <p-tab value="invitations">
                     <i class="pi pi-envelope mr-2"></i>Invitations
                     @if (invitations().length) {
-                      <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-purple-600 rounded-full">
+                      <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-emerald-600 rounded-full">
                         {{ invitations().length }}
+                      </span>
+                    }
+                  </p-tab>
+                }
+                @if (isClient()) {
+                  <p-tab value="saved">
+                    <i class="pi pi-heart mr-2"></i>Saved Salons
+                    @if (savedSalonsCount()) {
+                      <span class="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                        {{ savedSalonsCount() }}
                       </span>
                     }
                   </p-tab>
@@ -202,23 +216,30 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                           [image]="src"
                           size="xlarge"
                           shape="circle"
-                          styleClass="shrink-0 border-2 border-purple-200"
+                          styleClass="shrink-0 border-2 border-emerald-200"
                         />
                       } @else {
                         <p-avatar
                           [label]="initials()"
                           size="xlarge"
                           shape="circle"
-                          styleClass="shrink-0 bg-purple-100 text-purple-700 font-bold text-xl border-2 border-purple-200"
+                          styleClass="shrink-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold text-xl border-2 border-emerald-200 dark:border-emerald-700"
                         />
                       }
 
                       <div class="flex flex-col gap-2">
                         <label
-                          class="flex items-center gap-2 cursor-pointer text-sm font-medium text-purple-700 border border-purple-300 hover:bg-purple-50 rounded-lg px-4 py-2 transition-colors"
+                          class="flex items-center gap-2 cursor-pointer text-sm font-medium text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg px-4 py-2 transition-colors"
+                          [class.pointer-events-none]="savingAvatar()"
+                          [class.opacity-60]="savingAvatar()"
                         >
-                          <i class="pi pi-camera"></i>
-                          Change Photo
+                          @if (savingAvatar()) {
+                            <i class="pi pi-spin pi-spinner"></i>
+                            Uploading…
+                          } @else {
+                            <i class="pi pi-camera"></i>
+                            Change Photo
+                          }
                           <input
                             type="file"
                             accept="image/*"
@@ -226,16 +247,6 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                             (change)="onAvatarFileChange($event)"
                           />
                         </label>
-                        @if (avatarFile()) {
-                          <p-button
-                            label="Upload"
-                            icon="pi pi-cloud-upload"
-                            size="small"
-                            [outlined]="true"
-                            [loading]="savingAvatar()"
-                            (onClick)="uploadAvatar()"
-                          />
-                        }
                       </div>
                     </div>
 
@@ -243,14 +254,15 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
 
                     <!-- Personal information form -->
                     <div [formGroup]="profileForm" class="flex flex-col gap-4">
-                      <h3 class="text-base font-semibold text-gray-800 m-0">Personal Information</h3>
+                      <h3 class="text-base font-semibold text-gray-800 dark:text-zinc-100 m-0">Personal Information</h3>
 
                       <!-- Name row -->
                       <div class="grid grid-cols-2 gap-3">
                         <div class="flex flex-col gap-1">
-                          <label class="text-sm font-medium text-gray-700">First Name *</label>
+                          <label for="firstName" class="text-sm font-medium text-gray-700 dark:text-zinc-300">First Name *</label>
                           <input
                             pInputText
+                            id="firstName"
                             formControlName="firstName"
                             autocomplete="given-name"
                             class="w-full"
@@ -262,9 +274,10 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                           }
                         </div>
                         <div class="flex flex-col gap-1">
-                          <label class="text-sm font-medium text-gray-700">Last Name *</label>
+                          <label for="lastName" class="text-sm font-medium text-gray-700 dark:text-zinc-300">Last Name *</label>
                           <input
                             pInputText
+                            id="lastName"
                             formControlName="lastName"
                             autocomplete="family-name"
                             class="w-full"
@@ -279,18 +292,19 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
 
                       <!-- Phone -->
                       <div class="flex flex-col gap-1">
-                        <label class="text-sm font-medium text-gray-700">Phone</label>
+                        <label for="phone" class="text-sm font-medium text-gray-700 dark:text-zinc-300">Phone</label>
                         <div class="p-inputgroup">
                           <span class="p-inputgroup-addon"><i class="pi pi-phone"></i></span>
                           <input
                             pInputText
+                            id="phone"
                             formControlName="phone"
                             placeholder="+94XXXXXXXXX"
                             autocomplete="tel"
                             class="flex-1"
                           />
                         </div>
-                        <small class="text-gray-400">Sri Lanka format: +94XXXXXXXXX</small>
+                        <small class="text-gray-400 dark:text-zinc-500">Sri Lanka format: +94XXXXXXXXX</small>
                         @if (profileError('phone'); as err) {
                           <small class="text-red-500">{{ err }}</small>
                         }
@@ -298,42 +312,34 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
 
                       <!-- Email (read-only) -->
                       <div class="flex flex-col gap-1">
-                        <label class="text-sm font-medium text-gray-700">Email Address</label>
+                        <label for="email" class="text-sm font-medium text-gray-700 dark:text-zinc-300">Email Address</label>
                         <div class="p-inputgroup">
                           <span class="p-inputgroup-addon"><i class="pi pi-envelope"></i></span>
                           <input
                             pInputText
+                            id="email"
                             formControlName="email"
                             autocomplete="email"
-                            class="flex-1 bg-gray-50"
+                            class="flex-1 bg-gray-50 dark:bg-zinc-800 dark:text-zinc-300"
                             readonly
                           />
                         </div>
-                        <small class="text-gray-400">Email cannot be changed. Contact support if needed.</small>
+                        <small class="text-gray-400 dark:text-zinc-500">Email cannot be changed. Contact support if needed.</small>
                       </div>
 
-                      <!-- Preferences row -->
-                      <div class="grid grid-cols-2 gap-3">
-                        <div class="flex flex-col gap-1">
-                          <label class="text-sm font-medium text-gray-700">Preferred Language</label>
-                          <p-select
-                            formControlName="preferredLanguage"
-                            [options]="languageOptions"
-                            optionLabel="label"
-                            optionValue="value"
-                            styleClass="w-full"
-                          />
-                        </div>
-                        <div class="flex flex-col gap-1">
-                          <label class="text-sm font-medium text-gray-700">Preferred Contact</label>
-                          <p-select
-                            formControlName="preferredContact"
-                            [options]="contactOptions"
-                            optionLabel="label"
-                            optionValue="value"
-                            styleClass="w-full"
-                          />
-                        </div>
+                      <!-- Language preference -->
+                      <div class="flex flex-col gap-1">
+                        <label class="text-sm font-medium text-gray-700 dark:text-zinc-300">Language</label>
+                        <p-select
+                          [options]="langOptions"
+                          [ngModel]="languageService.currentLang()"
+                          (ngModelChange)="languageService.switchLanguage($event)"
+                          [ngModelOptions]="{standalone: true}"
+                          optionLabel="label"
+                          optionValue="value"
+                          styleClass="w-full"
+                          aria-label="Select language"
+                        />
                       </div>
 
                       <!-- Save button -->
@@ -351,15 +357,15 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
 
                     <!-- Booking history -->
                     <div class="flex flex-col gap-3">
-                      <h3 class="text-base font-semibold text-gray-800 m-0">Recent Bookings</h3>
+                      <h3 class="text-base font-semibold text-gray-800 dark:text-zinc-100 m-0">Recent Bookings</h3>
 
                       @if (bookingsLoading()) {
-                        <div class="flex items-center gap-2 text-gray-400 text-sm py-4">
+                        <div class="flex items-center gap-2 text-gray-400 dark:text-zinc-500 text-sm py-4">
                           <p-progressSpinner styleClass="w-5 h-5" strokeWidth="4" />
                           <span>Loading history</span>
                         </div>
                       } @else if (recentBookings().length === 0) {
-                        <div class="flex items-center gap-2 text-gray-400 text-sm py-4">
+                        <div class="flex items-center gap-2 text-gray-400 dark:text-zinc-500 text-sm py-4">
                           <i class="pi pi-calendar"></i>
                           <span>No bookings yet.</span>
                         </div>
@@ -379,11 +385,11 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                           </ng-template>
                           <ng-template pTemplate="body" let-b>
                             <tr>
-                              <td class="text-sm text-gray-700 whitespace-nowrap">
+                              <td class="text-sm text-gray-700 dark:text-zinc-300 whitespace-nowrap">
                                 {{ b.appointmentDate | date:'d MMM y' }}
                               </td>
-                              <td class="text-sm text-gray-700">{{ b.salonName }}</td>
-                              <td class="text-sm text-gray-700">{{ b.serviceName }}</td>
+                              <td class="text-sm text-gray-700 dark:text-zinc-300">{{ b.salonName }}</td>
+                              <td class="text-sm text-gray-700 dark:text-zinc-300">{{ b.serviceName }}</td>
                               <td>
                                 <p-tag
                                   [value]="b.status"
@@ -406,11 +412,12 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
 
                     <!-- Change password -->
                     <div [formGroup]="passwordForm" class="flex flex-col gap-4">
-                      <h3 class="text-base font-semibold text-gray-800 m-0">Change Password</h3>
+                      <h3 class="text-base font-semibold text-gray-800 dark:text-zinc-100 m-0">Change Password</h3>
 
                       <div class="flex flex-col gap-1">
-                        <label class="text-sm font-medium text-gray-700">Current Password *</label>
+                        <label for="currentPassword" class="text-sm font-medium text-gray-700 dark:text-zinc-300">Current Password *</label>
                         <p-password
+                          inputId="currentPassword"
                           formControlName="currentPassword"
                           [feedback]="false"
                           [toggleMask]="true"
@@ -426,8 +433,9 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                       </div>
 
                       <div class="flex flex-col gap-1">
-                        <label class="text-sm font-medium text-gray-700">New Password *</label>
+                        <label for="newPassword" class="text-sm font-medium text-gray-700 dark:text-zinc-300">New Password *</label>
                         <p-password
+                          inputId="newPassword"
                           formControlName="newPassword"
                           [feedback]="true"
                           [toggleMask]="true"
@@ -437,15 +445,16 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                           [class.ng-invalid]="passwordError('newPassword')"
                           [class.ng-dirty]="passwordForm.controls.newPassword.touched"
                         />
-                        <small class="text-gray-400">Min 8 chars  uppercase  lowercase  number  special character</small>
+                        <small class="text-gray-400 dark:text-zinc-500">Min 8 chars  uppercase  lowercase  number  special character</small>
                         @if (passwordError('newPassword'); as err) {
                           <small class="text-red-500">{{ err }}</small>
                         }
                       </div>
 
                       <div class="flex flex-col gap-1">
-                        <label class="text-sm font-medium text-gray-700">Confirm New Password *</label>
+                        <label for="confirmPassword" class="text-sm font-medium text-gray-700 dark:text-zinc-300">Confirm New Password *</label>
                         <p-password
+                          inputId="confirmPassword"
                           formControlName="confirmPassword"
                           [feedback]="false"
                           [toggleMask]="true"
@@ -474,10 +483,10 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
 
                     <!-- Connected accounts -->
                     <div class="flex flex-col gap-3">
-                      <h3 class="text-base font-semibold text-gray-800 m-0">Connected Accounts</h3>
-                      <p class="text-sm text-gray-500 m-0">Link third-party accounts for faster sign-in.</p>
+                      <h3 class="text-base font-semibold text-gray-800 dark:text-zinc-100 m-0">Connected Accounts</h3>
+                      <p class="text-sm text-gray-500 dark:text-zinc-400 m-0">Link third-party accounts for faster sign-in.</p>
 
-                      <div class="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
+                      <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-zinc-700 rounded-xl">
                         <div class="flex items-center gap-3">
                           <svg class="w-6 h-6" viewBox="0 0 48 48">
                             <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.7 33.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.7 1.1 7.8 2.9L37.9 9A20 20 0 1 0 44 24c0-1.4-.1-2.7-.4-4z"/>
@@ -486,11 +495,11 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                             <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.8 2.2-2.3 4-4.2 5.4l6.2 5.2C40.8 35.7 44 30.3 44 24c0-1.4-.1-2.7-.4-4z"/>
                           </svg>
                           <div>
-                            <p class="font-medium text-gray-900 text-sm m-0">Google</p>
+                            <p class="font-medium text-gray-900 dark:text-zinc-100 text-sm m-0">Google</p>
                             @if (connectedAccounts().google; as g) {
-                              <p class="text-xs text-gray-500 m-0">{{ g.email }}</p>
+                              <p class="text-xs text-gray-500 dark:text-zinc-400 m-0">{{ g.email }}</p>
                             } @else {
-                              <p class="text-xs text-gray-400 m-0">Not connected</p>
+                              <p class="text-xs text-gray-400 dark:text-zinc-500 m-0">Not connected</p>
                             }
                           </div>
                         </div>
@@ -521,18 +530,18 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                 <!--  NOTIFICATIONS TAB  -->
                 <p-tabpanel value="notifications">
                   <div class="flex flex-col gap-0 pt-4">
-                    <h3 class="text-base font-semibold text-gray-800 m-0 mb-1">Notification Preferences</h3>
-                    <p class="text-sm text-gray-500 mb-4 mt-0">Choose how you want to be notified about your appointments.</p>
+                    <h3 class="text-base font-semibold text-gray-800 dark:text-zinc-100 m-0 mb-1">Notification Preferences</h3>
+                    <p class="text-sm text-gray-500 dark:text-zinc-400 mb-4 mt-0">Choose how you want to be notified about your appointments.</p>
 
                     @for (row of notifRows; track row.key) {
-                      <div class="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
+                      <div class="flex items-center justify-between py-4 border-b border-gray-100 dark:border-zinc-700/50 last:border-0">
                         <div class="flex items-center gap-3">
-                          <span class="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
-                            <i [class]="row.icon + ' text-purple-600'"></i>
+                          <span class="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
+                            <i [class]="row.icon + ' text-emerald-600 dark:text-emerald-400'"></i>
                           </span>
                           <div>
-                            <p class="font-medium text-gray-900 text-sm m-0">{{ row.label }}</p>
-                            <p class="text-xs text-gray-500 m-0">{{ row.desc }}</p>
+                            <p class="font-medium text-gray-900 dark:text-zinc-100 text-sm m-0">{{ row.label }}</p>
+                            <p class="text-xs text-gray-500 dark:text-zinc-400 m-0">{{ row.desc }}</p>
                           </div>
                         </div>
                         <p-toggleSwitch
@@ -548,8 +557,8 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                 @if (isStylist()) {
                   <p-tabpanel value="invitations">
                     <div class="flex flex-col gap-4 pt-4">
-                      <h3 class="text-base font-semibold text-gray-800 m-0">Salon Invitations</h3>
-                      <p class="text-sm text-gray-500 mt-0 mb-2">
+                      <h3 class="text-base font-semibold text-gray-800 dark:text-zinc-100 m-0">Salon Invitations</h3>
+                      <p class="text-sm text-gray-500 dark:text-zinc-400 mt-0 mb-2">
                         Salon owners can invite you to join their team. Accept to become a staff member.
                       </p>
 
@@ -558,20 +567,20 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                           <p-progressSpinner styleClass="w-8 h-8" strokeWidth="4" />
                         </div>
                       } @else if (invitations().length === 0) {
-                        <div class="text-center py-12 text-gray-400">
+                        <div class="text-center py-12 text-gray-400 dark:text-zinc-500">
                           <i class="pi pi-inbox text-4xl mb-3 block"></i>
                           <p class="text-sm">No pending invitations</p>
                         </div>
                       } @else {
                         @for (inv of invitations(); track inv.salonId) {
-                          <div class="flex items-center justify-between py-4 px-4 border border-gray-200 rounded-xl">
+                          <div class="flex items-center justify-between py-4 px-4 border border-gray-200 dark:border-zinc-700 rounded-xl">
                             <div class="flex items-center gap-3">
-                              <span class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
-                                <i class="pi pi-building text-purple-600"></i>
+                              <span class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                                <i class="pi pi-building text-emerald-600 dark:text-emerald-400"></i>
                               </span>
                               <div>
-                                <div class="font-semibold text-gray-900">{{ inv.salonName }}</div>
-                                <div class="text-xs text-gray-400">
+                                <div class="font-semibold text-gray-900 dark:text-zinc-100">{{ inv.salonName }}</div>
+                                <div class="text-xs text-gray-400 dark:text-zinc-500">
                                   Invited {{ inv.invitedAt | date:'mediumDate' }}
                                 </div>
                               </div>
@@ -600,17 +609,50 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                   </p-tabpanel>
                 }
 
+                <!--  SAVED SALONS TAB (clients only)  -->
+                @if (isClient()) {
+                  <p-tabpanel value="saved">
+                    <div class="flex flex-col gap-4 pt-4">
+                      <h3 class="text-base font-semibold text-gray-800 dark:text-zinc-100 m-0">Saved Salons</h3>
+
+                      @if (savedSalonsLoading()) {
+                        <div class="flex justify-center py-12">
+                          <p-progressSpinner styleClass="w-8 h-8" strokeWidth="4" />
+                        </div>
+                      } @else if (savedSalons().length === 0) {
+                        <div class="flex flex-col items-center justify-center py-16 gap-3 text-gray-400 dark:text-zinc-500">
+                          <i class="pi pi-heart text-5xl"></i>
+                          <p class="text-sm text-center m-0">No saved salons yet.<br>Browse salons to save your favorites.</p>
+                          <p-button
+                            label="Browse Salons"
+                            icon="pi pi-search"
+                            [outlined]="true"
+                            size="small"
+                            (onClick)="goToDiscover()"
+                          />
+                        </div>
+                      } @else {
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          @for (salon of savedSalons(); track salon._id) {
+                            <lib-salon-card [salon]="salon" />
+                          }
+                        </div>
+                      }
+                    </div>
+                  </p-tabpanel>
+                }
+
               </p-tabpanels>
             </p-tabs>
           </p-card>
 
           <!--  Danger zone  -->
-          <div class="mt-6 border border-red-200 rounded-xl p-5 bg-red-50">
+          <div class="mt-6 border border-red-200 dark:border-red-800/50 rounded-xl p-5 bg-red-50 dark:bg-red-950/20">
             <div class="flex items-start gap-3">
-              <i class="pi pi-exclamation-circle text-red-500 text-xl shrink-0 mt-0.5"></i>
+              <i class="pi pi-exclamation-circle text-red-500 dark:text-red-400 text-xl shrink-0 mt-0.5"></i>
               <div class="flex-1 min-w-0">
-                <h3 class="font-semibold text-red-700 text-base m-0">Danger Zone</h3>
-                <p class="text-sm text-red-600 mt-1 mb-3">
+                <h3 class="font-semibold text-red-700 dark:text-red-400 text-base m-0">Danger Zone</h3>
+                <p class="text-sm text-red-600 dark:text-red-400/80 mt-1 mb-3">
                   Once you delete your account, all your data will be permanently removed. This cannot be undone.
                 </p>
                 <p-button
@@ -631,14 +673,23 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
   `,
 })
 export class AccountComponent implements OnInit {
-  private readonly userService    = inject(UserService);
-  private readonly authService    = inject(AuthService);
-  private readonly bookingService = inject(BookingService);
-  private readonly router         = inject(Router);
-  private readonly confirmSvc     = inject(ConfirmationService);
-  private readonly msgSvc         = inject(MessageService);
-  private readonly fb             = inject(FormBuilder);
-  private readonly cdr            = inject(ChangeDetectorRef);
+  private readonly userService      = inject(UserService);
+  private readonly authService       = inject(AuthService);
+  private readonly bookingService    = inject(BookingService);
+  private readonly favoritesService  = inject(FavoritesService);
+  private readonly salonService      = inject(SalonService);
+  readonly         languageService   = inject(LanguageService);
+  private readonly router            = inject(Router);
+  private readonly confirmSvc        = inject(ConfirmationService);
+  private readonly msgSvc            = inject(MessageService);
+  private readonly fb                = inject(FormBuilder);
+  private readonly cdr               = inject(ChangeDetectorRef);
+
+  readonly langOptions: Array<{ label: string; value: SupportedLang }> = [
+    { label: 'English',  value: 'en' },
+    { label: 'සිංහල',   value: 'si' },
+    { label: 'தமிழ்',   value: 'ta' },
+  ];
 
   //  State
   readonly loading             = signal(true);
@@ -663,7 +714,12 @@ export class AccountComponent implements OnInit {
   readonly invitations         = signal<SalonInvitationDto[]>([]);
   readonly invitationsLoading  = signal(false);
 
+  readonly savedSalons         = signal<Salon[]>([]);
+  readonly savedSalonsLoading  = signal(false);
+
   readonly isStylist = computed(() => this.profile()?.role?.toLowerCase() === 'stylist');
+  readonly isClient  = computed(() => this.profile()?.role?.toLowerCase() === 'client');
+  readonly savedSalonsCount = computed(() => this.favoritesService.favorites().size);
 
   deleteDialogVisible = false;
   deleteConfirmText   = '';
@@ -679,19 +735,6 @@ export class AccountComponent implements OnInit {
       (a, b) => new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
     ).slice(0, 5)
   );
-
-  //  Options
-  readonly languageOptions = [
-    { label: 'English', value: 'en' },
-    { label: 'Sinhala', value: 'si' },
-    { label: 'Tamil',   value: 'ta' },
-  ];
-
-  readonly contactOptions = [
-    { label: 'Email',    value: 'email' },
-    { label: 'SMS',      value: 'sms' },
-    { label: 'WhatsApp', value: 'whatsapp' },
-  ];
 
   readonly notifRows: Array<{
     key: keyof NotificationPreferences;
@@ -727,12 +770,10 @@ export class AccountComponent implements OnInit {
 
   //  Forms
   readonly profileForm = this.fb.group({
-    firstName:         ['', [Validators.required, Validators.maxLength(50)]],
-    lastName:          ['', [Validators.required, Validators.maxLength(50)]],
-    phone:             ['', [Validators.pattern(SL_PHONE)]],
-    email:             [{ value: '', disabled: true }],
-    preferredLanguage: ['en'],
-    preferredContact:  ['email'],
+    firstName: ['', [Validators.required, Validators.maxLength(50)]],
+    lastName:  ['', [Validators.required, Validators.maxLength(50)]],
+    phone:     ['', [Validators.pattern(SL_PHONE)]],
+    email:     [{ value: '', disabled: true }],
   });
 
   readonly passwordForm = this.fb.group(
@@ -756,6 +797,9 @@ export class AccountComponent implements OnInit {
     this.userService.getProfile().subscribe({
       next: (p) => {
         this.profile.set(p);
+        if (p.notificationPreferences) {
+          this.notifPrefs.set(p.notificationPreferences);
+        }
         this.profileForm.patchValue({
           firstName: p.firstName,
           lastName:  p.lastName,
@@ -766,6 +810,10 @@ export class AccountComponent implements OnInit {
         // Load invitations for stylists
         if (p.role?.toLowerCase() === 'stylist') {
           this.loadInvitations();
+        }
+        // Load saved salons for clients
+        if (p.role?.toLowerCase() === 'client') {
+          this.loadSavedSalons();
         }
       },
       error: () => {
@@ -799,17 +847,23 @@ export class AccountComponent implements OnInit {
     const reader = new FileReader();
     reader.onload = () => { this.avatarPreview.set(reader.result as string); this.cdr.markForCheck(); };
     reader.readAsDataURL(file);
+
+    // Auto-upload immediately
+    this.uploadAvatar(file);
+
+    // Reset the input so re-selecting the same file triggers change
+    input.value = '';
   }
 
-  uploadAvatar(): void {
-    const file = this.avatarFile();
-    if (!file) return;
+  private uploadAvatar(file: File): void {
     const fd = new FormData();
     fd.append('avatar', file);
     this.savingAvatar.set(true);
     this.userService.updateAvatar(fd).subscribe({
       next: (res) => {
         this.profile.update((p) => p ? { ...p, avatarUrl: res.avatarUrl } : p);
+        // Propagate to shared state so navbar and other components update
+        this.userService.patchAvatarUrl(res.avatarUrl);
         this.avatarFile.set(null);
         this.savingAvatar.set(false);
         this.toast('success', 'Photo updated');
@@ -976,5 +1030,41 @@ export class AccountComponent implements OnInit {
       },
       error: () => this.toast('error', 'Failed to decline invitation'),
     });
+  }
+
+  // ── Saved Salons ──────────────────────────────────────────────────────────
+
+  private loadSavedSalons(): void {
+    const ids = Array.from(this.favoritesService.favorites());
+    if (ids.length === 0) {
+      this.savedSalons.set([]);
+      return;
+    }
+    this.savedSalonsLoading.set(true);
+    let resolved = 0;
+    const results: Salon[] = [];
+    for (const id of ids) {
+      this.salonService.getSalonById(id).subscribe({
+        next: (salon) => {
+          results.push(salon);
+          resolved++;
+          if (resolved === ids.length) {
+            this.savedSalons.set(results);
+            this.savedSalonsLoading.set(false);
+          }
+        },
+        error: () => {
+          resolved++;
+          if (resolved === ids.length) {
+            this.savedSalons.set(results);
+            this.savedSalonsLoading.set(false);
+          }
+        },
+      });
+    }
+  }
+
+  goToDiscover(): void {
+    void this.router.navigate(['/discover']);
   }
 }

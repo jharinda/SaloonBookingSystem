@@ -9,6 +9,14 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -23,39 +31,35 @@ import {
   BookingDocument,
 } from './schemas/booking-ref.schema';
 
+@ApiTags('calendar')
+@ApiBearerAuth('JWT')
 @Controller('calendar')
 export class CalendarController {
   constructor(
     private readonly oAuth: GoogleOAuthService,
     private readonly iCal: ICalService,
-    @InjectModel(Booking.name)
+    @InjectModel(Booking.name, 'booking')
     private readonly bookingModel: Model<BookingDocument>,
     private readonly configService: ConfigService,
   ) {}
 
-  // ── Google OAuth ────────────────────────────────────────────────────────────
-
-  /**
-   * GET /calendar/auth
-   * Redirects the authenticated user to Google's OAuth consent screen.
-   */
+  @ApiOperation({ summary: 'Start Google Calendar OAuth (redirect)' })
+  @ApiResponse({ status: 302, description: 'Redirect to Google' })
   @Get('auth')
   @UseGuards(JwtAuthGuard, SubscriptionGuard)
   @RequiresFeature('google_calendar')
   @Redirect()
   initiateOAuth(@CurrentUser() user: JwtUser) {
     const url = this.oAuth.getAuthUrl();
-    // Embed userId in state so callback can identify who to persist tokens for
     const urlWithState = new URL(url);
     urlWithState.searchParams.set('state', user.sub);
     return { url: urlWithState.toString() };
   }
 
-  /**
-   * GET /calendar/auth/callback?code=...&state=...
-   * Google redirects here after user grants consent.
-   * The `state` parameter carries the SnapSalon userId.
-   */
+  @ApiOperation({ summary: 'Google OAuth callback' })
+  @ApiQuery({ name: 'code', required: true })
+  @ApiQuery({ name: 'state', required: true, description: 'User id' })
+  @ApiResponse({ status: 302, description: 'Redirect to frontend' })
   @Get('auth/callback')
   async oAuthCallback(
     @Query('code') code: string,
@@ -68,15 +72,12 @@ export class CalendarController {
 
     const googleEmail = await this.oAuth.handleCallback(code, userId);
 
-    // Redirect to the frontend with a success indicator
     const frontendUrl = `${this.configService.get<string>('app.frontendUrl') ?? 'http://localhost:4200'}/settings/calendar?connected=true&email=${encodeURIComponent(googleEmail)}`;
     res.redirect(frontendUrl);
   }
 
-  /**
-   * GET /calendar/disconnect
-   * Remove stored Google tokens for the authenticated user.
-   */
+  @ApiOperation({ summary: 'Disconnect Google Calendar' })
+  @ApiResponse({ status: 200, description: 'Disconnected' })
   @Get('disconnect')
   @UseGuards(JwtAuthGuard, SubscriptionGuard)
   @RequiresFeature('google_calendar')
@@ -87,10 +88,8 @@ export class CalendarController {
     return { message: 'Google Calendar disconnected successfully' };
   }
 
-  /**
-   * GET /calendar/status
-   * Check whether the current user has Google Calendar connected.
-   */
+  @ApiOperation({ summary: 'Whether Google Calendar is connected' })
+  @ApiResponse({ status: 200, description: 'Connection status' })
   @Get('status')
   @UseGuards(JwtAuthGuard, SubscriptionGuard)
   @RequiresFeature('google_calendar')
@@ -101,13 +100,9 @@ export class CalendarController {
     return { connected };
   }
 
-  // ── iCal Download ───────────────────────────────────────────────────────────
-
-  /**
-   * GET /calendar/download/:bookingId
-   * Returns a .ics file compatible with Apple Calendar and Outlook.
-   * No OAuth required — works for any user.
-   */
+  @ApiOperation({ summary: 'Download .ics file for a booking' })
+  @ApiParam({ name: 'bookingId', description: 'Booking ID' })
+  @ApiResponse({ status: 200, description: 'Calendar file' })
   @Get('download/:bookingId')
   @UseGuards(JwtAuthGuard)
   async downloadIcs(
@@ -129,7 +124,6 @@ export class CalendarController {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const b = booking as any;
 
-      // Safely parse appointmentDate — could be a Date object or a string
       let appointmentDateIso: string;
       try {
         appointmentDateIso = b.appointmentDate instanceof Date
@@ -143,7 +137,6 @@ export class CalendarController {
         );
       }
 
-      // Ensure services array has valid entries for iCal generation
       const services = Array.isArray(b.services)
         ? b.services.map((s: Record<string, unknown>) => ({
             serviceId: String(s['serviceId'] ?? s['_id'] ?? ''),
@@ -167,7 +160,7 @@ export class CalendarController {
           googleEventId: b.googleEventId ?? undefined,
         },
         {
-          name: user.email,   // resolved name would come from auth-service in production
+          name: user.email,
           email: user.email,
           phone: '',
         },

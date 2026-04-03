@@ -63,7 +63,14 @@
           "buildTarget": "booking-service:build:production"
         }
       }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/apps/booking-service"],
+      "options": {
+        "jestConfig": "apps/booking-service/jest.config.ts"
+      }
     }
   },
-  "tags": []
+  "tags": ["scope:api", "type:service"]
 }

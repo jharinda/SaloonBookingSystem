@@ -13,7 +13,7 @@ import { Button } from 'primeng/button';
 import { Rating } from 'primeng/rating';
 
 import { Salon, SalonServiceItem } from '@org/models';
-import { AppCurrencyPipe } from '@org/shared-data-access';
+import { AppCurrencyPipe, AuthService, FavoritesService } from '@org/shared-data-access';
 
 
 @Component({
@@ -48,6 +48,18 @@ import { AppCurrencyPipe } from '@org/shared-data-access';
             <span class="absolute top-2 left-2 bg-black/60 text-white text-xs font-semibold px-2 py-0.5 rounded-full uppercase tracking-wide">
               Closed
             </span>
+          }
+          @if (isLoggedIn()) {
+            <button
+              class="absolute top-2 right-2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm shadow transition-transform hover:scale-110 focus:outline-none"
+              [attr.aria-label]="isFavorite() ? 'Remove from saved salons' : 'Save salon'"
+              (click)="onToggleFavorite($event)"
+            >
+              <i
+                [class]="isFavorite() ? 'pi pi-heart-fill text-red-500' : 'pi pi-heart text-gray-500 dark:text-gray-300'"
+                style="font-size:1rem"
+              ></i>
+            </button>
           }
         </div>
       </ng-template>
@@ -125,8 +137,17 @@ import { AppCurrencyPipe } from '@org/shared-data-access';
 })
 export class SalonCardComponent {
   private readonly router = inject(Router);
+  private readonly favoritesService = inject(FavoritesService);
+  private readonly authService = inject(AuthService);
 
   readonly salon = input.required<Salon>();
+
+  readonly isLoggedIn = computed(() => this.authService.isLoggedIn());
+
+  readonly isFavorite = computed(() => {
+    const id = this.salon()._id;
+    return id ? this.favoritesService.isFavorite(id) : false;
+  });
 
   readonly coverImage = computed(() =>
     this.salon().images?.[0]?.url ?? null,
@@ -144,6 +165,12 @@ export class SalonCardComponent {
   onBookNow(): void {
     const id = this.salon()._id;
     if (id) void this.router.navigate(['/discover', id]);
+  }
+
+  onToggleFavorite(event: Event): void {
+    event.stopPropagation();
+    const id = this.salon()._id;
+    if (id) this.favoritesService.toggle(id);
   }
 
   onImgError(event: Event): void {

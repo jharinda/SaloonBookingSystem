@@ -1,8 +1,8 @@
 <div class="stylist-selection">
   <div class="stylist-selection__header">
-    <h2 class="stylist-selection__title">Choose Your Stylist</h2>
+    <h2 class="stylist-selection__title">{{ 'booking.chooseYourStylist' | translate }}</h2>
     <p class="stylist-selection__subtitle">
-      Select a preferred stylist or let us assign the best available one
+      {{ 'booking.stylistSubtitle' | translate }}
     </p>
   </div>
 
@@ -37,9 +37,9 @@
         </ng-template>
 
         <ng-template pTemplate="content">
-          <h3 class="stylist-card__name">Any Available Stylist</h3>
+          <h3 class="stylist-card__name">{{ 'booking.anyAvailableStylist' | translate }}</h3>
           <p class="stylist-card__desc">
-            We'll randomly assign an available stylist for your selected time
+            {{ 'booking.anyAvailableStylistDesc' | translate }}
           </p>
         </ng-template>
       </p-card>
@@ -94,7 +94,7 @@
                 </h3>
                 @if (onBreak) {
                   <p-tag
-                    value="Not Available"
+                    [value]="'booking.notAvailable' | translate"
                     severity="warn"
                     icon="pi pi-ban"
                     styleClass="text-xs shrink-0"
@@ -111,7 +111,7 @@
 
               @if (staff.stylistProfile?.yearsExperience) {
                 <p class="stylist-card__experience" [class.opacity-50]="onBreak">
-                  {{ staff.stylistProfile!.yearsExperience }} yrs experience
+                  {{ staff.stylistProfile!.yearsExperience }} {{ 'booking.yrsExperience' | translate }}
                 </p>
               }
 
@@ -131,7 +131,7 @@
               @if (onBreak) {
                 <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                   <i class="pi pi-info-circle mr-1"></i>
-                  Not available at your selected time
+                  {{ 'booking.notAvailableAtTime' | translate }}
                 </p>
               }
             </ng-template>
@@ -139,8 +139,7 @@
         }
       } @else {
         <p class="text-zinc-500 text-sm mt-2">
-          No other stylists are available for your selected time.
-          "Any available stylist" has been selected automatically.
+          {{ 'booking.noOtherStylists' | translate }}
         </p>
       }
     </div>

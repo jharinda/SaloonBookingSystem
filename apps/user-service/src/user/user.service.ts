@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { JwtUser } from '@org/shared-auth';
+import { FILE_UPLOAD_SERVICE, FileUploadService } from './interfaces/file-upload.interface';
 import {
   UserProfile,
   UserProfileDocument,
@@ -29,6 +31,7 @@ export class UserService {
     private readonly userProfileModel: Model<UserProfileDocument>,
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
+    @Inject(FILE_UPLOAD_SERVICE) private readonly uploadService: FileUploadService,
   ) {}
 
   /**
@@ -48,14 +51,44 @@ export class UserService {
   }
 
   /**
-   * Get user profile by userId (from JWT)
+   * Get user profile by userId (from JWT).
+   *
+   * If the profile doesn't exist yet (e.g. the user.created queue event hasn't
+   * been processed yet for a freshly registered account), a stub profile is
+   * created from the JWT claims so the caller never receives a 404.  The stub
+   * will be enriched by the user.created processor once it runs.
    */
-  async getProfile(userId: string): Promise<UserProfileResponseDto> {
+  async getProfile(userId: string, jwtUser?: JwtUser): Promise<UserProfileResponseDto> {
     const profile = await this.userProfileModel.findOne({ userId }).lean().exec();
-    if (!profile) {
+    if (profile) {
+      return this.toResponseDto(profile);
+    }
+
+    if (!jwtUser) {
       throw new NotFoundException(`User profile not found for userId: ${userId}`);
     }
-    return this.toResponseDto(profile);
+
+    this.logger.warn(
+      `Profile missing for userId ${userId} — creating stub from JWT claims`,
+    );
+
+    // Derive a reasonable name from the email local-part so we can satisfy
+    // the schema's required fields.  The user.created queue event will
+    // overwrite these with the real names once it is processed.
+    const localPart = jwtUser.email.split('@')[0] ?? 'User';
+    const nameParts = localPart.split(/[._-]/);
+    const firstName = nameParts[0] || 'User';
+    const lastName = nameParts.length > 1 ? nameParts[1] : 'User';
+
+    const stub = new this.userProfileModel({
+      userId,
+      email: jwtUser.email,
+      firstName,
+      lastName,
+      role: jwtUser.role,
+    });
+    await stub.save();
+    return this.toResponseDto(stub.toObject());
   }
 
   /**
@@ -101,9 +134,29 @@ export class UserService {
   }
 
   /**
-   * Update avatar URL
+   * Upload a new avatar for the user, deleting the old one from Cloudinary first.
+   * Returns the new public URL.
    */
-  async updateAvatar(userId: string, avatarUrl: string): Promise<void> {
+  async updateAvatar(userId: string, file: Express.Multer.File): Promise<{ avatarUrl: string }> {
+    const existing = await this.userProfileModel.findOne({ userId }).lean().exec();
+
+    if (existing?.avatarUrl) {
+      await this.uploadService.delete(existing.avatarUrl);
+    }
+
+    const avatarUrl = await this.uploadService.upload(file);
+
+    await this.userProfileModel
+      .findOneAndUpdate({ userId }, { $set: { avatarUrl } })
+      .exec();
+
+    return { avatarUrl };
+  }
+
+  /**
+   * Set avatar URL from sync events (no Cloudinary upload).
+   */
+  async setAvatarUrl(userId: string, avatarUrl: string): Promise<void> {
     await this.userProfileModel
       .findOneAndUpdate({ userId }, { $set: { avatarUrl } })
       .exec();
@@ -139,6 +192,34 @@ export class UserService {
     }
 
     return profile.notificationPreferences;
+  }
+
+  /**
+   * Whether the auth user has Google linked (googleId on auth User model).
+   */
+  async getConnectedAccounts(userId: string): Promise<{ google: boolean }> {
+    const token = this.configService.get<string>('internalToken');
+    const authUrl = this.configService.get<string>('services.authUrl', 'http://localhost:3003');
+    if (!token) {
+      this.logger.warn(
+        'INTERNAL_TOKEN not set — cannot resolve connected accounts from auth-service',
+      );
+      return { google: false };
+    }
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get<{ googleId?: string | null }>(
+          `${authUrl}/api/auth/users/${encodeURIComponent(userId)}`,
+          { headers: { 'x-internal-token': token } },
+        ),
+      );
+      return { google: !!data?.googleId };
+    } catch (err) {
+      this.logger.warn(
+        `getConnectedAccounts failed for ${userId}: ${(err as Error).message}`,
+      );
+      return { google: false };
+    }
   }
 
   /**
@@ -321,6 +402,56 @@ export class UserService {
       phone: p.phone || null,
       avatarUrl: p.avatarUrl || null,
     }));
+  }
+
+  // ── Favorites ────────────────────────────────────────────────────────────
+
+  async addFavorite(userId: string, salonId: string): Promise<{ favoriteSalonIds: string[] }> {
+    const profile = await this.userProfileModel
+      .findOneAndUpdate(
+        { userId },
+        { $addToSet: { favoriteSalonIds: salonId } },
+        { new: true },
+      )
+      .lean()
+      .exec();
+
+    if (!profile) {
+      throw new NotFoundException(`User profile not found for userId: ${userId}`);
+    }
+
+    return { favoriteSalonIds: profile.favoriteSalonIds ?? [] };
+  }
+
+  async removeFavorite(userId: string, salonId: string): Promise<{ favoriteSalonIds: string[] }> {
+    const profile = await this.userProfileModel
+      .findOneAndUpdate(
+        { userId },
+        { $pull: { favoriteSalonIds: salonId } },
+        { new: true },
+      )
+      .lean()
+      .exec();
+
+    if (!profile) {
+      throw new NotFoundException(`User profile not found for userId: ${userId}`);
+    }
+
+    return { favoriteSalonIds: profile.favoriteSalonIds ?? [] };
+  }
+
+  async getFavorites(userId: string): Promise<string[]> {
+    const profile = await this.userProfileModel
+      .findOne({ userId })
+      .select('favoriteSalonIds')
+      .lean()
+      .exec();
+
+    if (!profile) {
+      throw new NotFoundException(`User profile not found for userId: ${userId}`);
+    }
+
+    return profile.favoriteSalonIds ?? [];
   }
 
   /**

@@ -3,7 +3,7 @@
   @if (loading()) {
     <div class="wizard-state wizard-state--loading">
       <p-progressspinner strokeWidth="4" />
-      <p>Loading salon details...</p>
+      <p>{{ 'booking.loadingDetails' | translate }}</p>
     </div>
   }
 
@@ -12,7 +12,7 @@
     <div class="wizard-state wizard-state--error">
       <i class="pi pi-exclamation-circle wizard-state__icon"></i>
       <p class="wizard-state__message">{{ error() }}</p>
-      <p-button label="Back to Discover" icon="pi pi-search" (onClick)="goToDiscover()" />
+      <p-button [label]="'booking.backToDiscover' | translate" icon="pi pi-search" (onClick)="goToDiscover()" />
     </div>
   }
 
@@ -41,10 +41,10 @@
     <!-- PrimeNG Stepper -->
     <p-stepper #stepper class="booking-stepper" [value]="currentStep()">
       <p-step-list>
-        <p-step [value]="1">Services</p-step>
-        <p-step [value]="2">Date & Time</p-step>
-        <p-step [value]="3">Stylist</p-step>
-        <p-step [value]="4">Confirm</p-step>
+        <p-step [value]="1">{{ 'booking.stepServices' | translate }}</p-step>
+        <p-step [value]="2">{{ 'booking.stepDateTime' | translate }}</p-step>
+        <p-step [value]="3">{{ 'booking.stepStylist' | translate }}</p-step>
+        <p-step [value]="4">{{ 'booking.stepConfirm' | translate }}</p-step>
       </p-step-list>
 
       <p-step-panels>
@@ -55,13 +55,13 @@
 
             <div class="step-actions">
               <p-button
-                label="Cancel"
+                [label]="'common.cancel' | translate"
                 icon="pi pi-times"
                 severity="secondary"
                 (onClick)="goToDiscover()"
               />
               <p-button
-                label="Next"
+                [label]="'common.next' | translate"
                 icon="pi pi-arrow-right"
                 iconPos="right"
                 [disabled]="!isStep1Valid()"
@@ -78,13 +78,13 @@
 
             <div class="step-actions">
               <p-button
-                label="Back"
+                [label]="'common.back' | translate"
                 icon="pi pi-arrow-left"
                 severity="secondary"
                 (onClick)="goToPreviousStep()"
               />
               <p-button
-                label="Next"
+                [label]="'common.next' | translate"
                 icon="pi pi-arrow-right"
                 iconPos="right"
                 [disabled]="!isStep2Valid()"
@@ -101,13 +101,13 @@
 
             <div class="step-actions">
               <p-button
-                label="Back"
+                [label]="'common.back' | translate"
                 icon="pi pi-arrow-left"
                 severity="secondary"
                 (onClick)="goToPreviousStep()"
               />
               <p-button
-                label="Next"
+                [label]="'common.next' | translate"
                 icon="pi pi-arrow-right"
                 iconPos="right"
                 (onClick)="goToNextStep()"
@@ -125,7 +125,7 @@
 
             <div class="step-actions">
               <p-button
-                label="Back"
+                [label]="'common.back' | translate"
                 icon="pi pi-arrow-left"
                 severity="secondary"
                 (onClick)="goToPreviousStep()"

@@ -10,6 +10,7 @@
       <p-button label="Retry" (onClick)="loadStats()" styleClass="retry-btn" />
     </div>
   } @else {
+    <!-- KPI Cards -->
     <div class="cards-grid">
       @for (card of cards; track card.key) {
         <div class="stat-card" [class.stat-card--warn]="card.key === 'pendingApproval' && getStatValue(card.key) > 0">
@@ -25,9 +26,78 @@
                 {{ card.prefix ?? '' }}{{ getStatValue(card.key) | number }}
               }
             </span>
+            @let trend = getTrend(card.key);
+            @if (trend !== null && trend !== 0) {
+              <span class="trend-badge" [class.trend-badge--up]="trend > 0" [class.trend-badge--down]="trend < 0">
+                <i class="pi {{ trend > 0 ? 'pi-arrow-up' : 'pi-arrow-down' }}"></i>
+                {{ trend > 0 ? '+' : '' }}{{ trend }}%
+              </span>
+            }
           </div>
         </div>
       }
+    </div>
+
+    <!-- Platform Metrics Row -->
+    <div class="metrics-row">
+      @if (stats()?.totalBookings !== undefined) {
+        <div class="metric-chip">
+          <span class="metric-chip__label">Total Bookings</span>
+          <span class="metric-chip__value">{{ stats()!.totalBookings! | number }}</span>
+        </div>
+      }
+      @if (stats()?.completionRate !== undefined) {
+        <div class="metric-chip">
+          <span class="metric-chip__label">Completion Rate</span>
+          <span class="metric-chip__value">{{ completionRate }}%</span>
+        </div>
+      }
+    </div>
+
+    <!-- Revenue by Salon & Subscription Breakdown -->
+    <div class="insights-grid">
+
+      <!-- Revenue by Salon table -->
+      @if (revenueRows.length > 0) {
+        <div class="insight-card">
+          <h2 class="insight-title">
+            <i class="pi pi-chart-bar"></i> Revenue by Salon
+            <span class="insight-subtitle">This month · Top 10</span>
+          </h2>
+          <p-table [value]="revenueRows" [rowHover]="true" styleClass="p-datatable-sm">
+            <ng-template pTemplate="header">
+              <tr>
+                <th style="width:3rem">#</th>
+                <th>Salon</th>
+                <th style="text-align:right">Revenue</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-row>
+              <tr>
+                <td class="rank-cell">{{ row.rank }}</td>
+                <td>{{ row.salonName }}</td>
+                <td style="text-align:right">{{ row.revenue | appCurrency }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+      }
+
+      <!-- Subscription Breakdown Pie -->
+      @if (chartData()) {
+        <div class="insight-card insight-card--chart">
+          <h2 class="insight-title">
+            <i class="pi pi-chart-pie"></i> Subscription Breakdown
+            @if (subscriptionDist()?.total) {
+              <span class="insight-subtitle">{{ subscriptionDist()!.total }} salons</span>
+            }
+          </h2>
+          <div class="chart-wrap">
+            <p-chart type="doughnut" [data]="chartData()!" [options]="chartOptions()" />
+          </div>
+        </div>
+      }
+
     </div>
   }
 </div>

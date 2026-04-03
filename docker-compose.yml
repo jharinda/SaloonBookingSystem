@@ -104,7 +104,7 @@ services:
       - '3008:3008'
     environment:
       USER_PORT: '3008'
-      USER_MONGODB_URI: 'mongodb://mongodb:27017/user-db'
+      USER_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-users'
       REDIS_HOST: 'redis'
       REDIS_PORT: '6379'
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
@@ -127,7 +127,7 @@ services:
       - '3001:3001'
     environment:
       SALON_PORT: '3001'
-      SALON_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-salons'
+      SALON_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-salon'
       REDIS_URL: 'redis://redis:6379'
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
       CLOUDINARY_CLOUD_NAME: '${CLOUDINARY_CLOUD_NAME:-}'
@@ -151,7 +151,7 @@ services:
       - '3002:3002'
     environment:
       BOOKING_PORT: '3002'
-      BOOKING_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-bookings'
+      BOOKING_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-booking'
       REDIS_URL: 'redis://redis:6379'
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
       INTERNAL_SERVICE_TOKEN: '${INTERNAL_SERVICE_TOKEN}'
@@ -176,7 +176,8 @@ services:
       - '3005:3005'
     environment:
       CALENDAR_PORT: '3005'
-      MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-calendar'
+      BOOKING_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-booking'
+      CALENDAR_MONGODB_URI: 'mongodb://mongodb:27017/snapsalon-calendar'
       REDIS_URL: 'redis://redis:6379'
       JWT_ACCESS_SECRET: '${JWT_ACCESS_SECRET}'
       INTERNAL_SERVICE_TOKEN: '${INTERNAL_SERVICE_TOKEN}'
@@ -260,7 +261,7 @@ services:
   chat-service:
     build:
       context: .
-      dockerfile: chat-service/Dockerfile
+      dockerfile: apps/chat-service/Dockerfile
     restart: unless-stopped
     ports:
       - '3009:3009'
@@ -287,4 +288,17 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # ─── Angular PWA (nginx) ────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '80:80'
+    networks:
+      - snapsalon
+    depends_on:
+      - api
 

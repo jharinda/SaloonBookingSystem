@@ -41,10 +41,16 @@
   --offline-status: #6b7280;
 }
 
+/* ─── Host element sizing ────────────────────────────────────────────────── */
+lib-chat {
+  display: block;
+  height: 100%;
+}
+
 /* ─── Container Layout ───────────────────────────────────────────────────── */
 .chat-container-modern {
   display: flex;
-  height: 100vh;  /* Fill parent (.content) instead of full viewport */
+  height: 100%;
   width: 100%;
   background: var(--chat-bg);
   color: var(--text-primary);
@@ -157,6 +163,89 @@
 .search-input:focus {
   border-color: var(--accent-primary);
   background: var(--hover-bg);
+}
+
+/* Platform filter (All / SnapSalon / WhatsApp / Instagram) */
+.platform-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 24px 14px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.platform-filter-chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.platform-filter-chip:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.platform-filter-chip.active {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.dark .platform-filter-chip.active,
+.app-dark .platform-filter-chip.active {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.filter-empty-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 8px;
+}
+
+.filter-empty-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+}
+
+.filter-clear-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--accent-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-clear-btn:hover {
+  background: var(--hover-bg);
+}
+
+.platform-inline {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.platform-inline[data-channel='whatsapp'] {
+  color: #22c55e;
+}
+
+.platform-inline[data-channel='instagram'] {
+  color: #e11d48;
+}
+
+.platform-inline[data-channel='snapsalon'] {
+  color: var(--accent-primary);
 }
 
 .clear-search {
@@ -455,6 +544,33 @@
   text-overflow: ellipsis;
 }
 
+.header-channel-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-primary);
+}
+
+.header-channel-badge[data-channel='whatsapp'] {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.header-channel-badge[data-channel='instagram'] {
+  background: rgba(225, 29, 72, 0.12);
+  color: #e11d48;
+}
+
+.header-channel-badge[data-channel='snapsalon'] {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-primary);
+}
+
 .participant-status {
   display: flex;
   align-items: center;
@@ -644,9 +760,39 @@
 .message-footer {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-top: 4px;
-  justify-content: flex-end;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.msg-channel-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.msg-channel-label[data-channel='whatsapp'] {
+  color: #22c55e;
+}
+
+.msg-channel-label[data-channel='instagram'] {
+  color: #e11d48;
+}
+
+.msg-channel-label[data-channel='snapsalon'] {
+  color: var(--accent-primary);
+}
+
+.message-bubble.user-bubble .msg-channel-label {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.message-footer .msg-time {
+  margin-left: auto;
 }
 
 .msg-time {

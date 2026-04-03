@@ -1,4 +1,4 @@
-﻿import {
+import {
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -92,7 +92,7 @@ export class ManageServicesComponent implements OnInit {
   private salonId = '';
 
   ngOnInit(): void {
-    this.adminService.getOwnSalon().subscribe({
+    this.adminService.getDashboardSalon().subscribe({
       next: (salon) => {
         this.salonId = salon._id;
         this.services.set(salon.services);

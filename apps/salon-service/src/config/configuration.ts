@@ -19,8 +19,10 @@ export default () => ({
     apiSecret: process.env['CLOUDINARY_API_SECRET'],
   },
   redis: {
-    host: process.env['REDIS_HOST'] ?? 'localhost',
-    port: parseInt(process.env['REDIS_PORT'] ?? '6379', 10),
+    host:       process.env['REDIS_HOST'] ?? 'localhost',
+    port:       parseInt(process.env['REDIS_PORT'] ?? '6379', 10),
+    password:   process.env['REDIS_PASSWORD']?.trim() || undefined,
+    tlsEnabled: process.env['REDIS_TLS'] === 'true',
   },
   services: {
     authUrl: process.env['AUTH_SERVICE_URL'] ?? 'http://localhost:3003',

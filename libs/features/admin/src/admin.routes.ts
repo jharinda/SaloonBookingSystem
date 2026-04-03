@@ -51,6 +51,13 @@ export const ADMIN_ROUTES: Route[] = [
             (m) => m.AdminSpecialtiesComponent,
           ),
       },
+      {
+        path: 'plans',
+        loadComponent: () =>
+          import('./lib/plans/admin-plans.component').then(
+            (m) => m.AdminPlansComponent,
+          ),
+      },
     ],
   },
 ];

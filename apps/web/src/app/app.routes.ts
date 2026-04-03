@@ -8,7 +8,7 @@ export const appRoutes: Route[] = [
   {
     path: '',
     loadComponent: () =>
-      import('./app.component').then((m) => m.HomeComponent),
+      import('./home/home.component').then((m) => m.HomeComponent),
     pathMatch: 'full',
   },
 
@@ -64,6 +64,14 @@ export const appRoutes: Route[] = [
     canActivate: [authGuard],
     loadComponent: () =>
       import('@org/account').then((m) => m.AccountComponent),
+  },
+
+  // Account analytics — auth required
+  {
+    path: 'account/analytics',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('@org/account').then((m) => m.MyAnalyticsComponent),
   },
 
   // Salon owner / franchise dashboard — role-gated

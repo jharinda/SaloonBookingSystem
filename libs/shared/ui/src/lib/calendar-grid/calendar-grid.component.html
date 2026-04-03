@@ -11,9 +11,15 @@
       tooltipPosition="top"
       [disabled]="zoomLevel() <= 0.5"
     />
-    <span class="zoom-label" (click)="resetZoom()" pTooltip="Reset zoom" tooltipPosition="top">
+    <button
+      type="button"
+      class="zoom-label"
+      (click)="resetZoom()"
+      pTooltip="Reset zoom"
+      tooltipPosition="top"
+    >
       {{ zoomPercent() }}%
-    </span>
+    </button>
     <p-button
       icon="pi pi-search-plus"
       [rounded]="true"
@@ -38,6 +44,13 @@
       <p>{{ emptyMessage() }}</p>
     </div>
   } @else {
+    <div #wrapperEl class="calendar-grid-wrapper">
+    @let ni = nowIndicator();
+    @if (ni.visible) {
+      <div class="now-indicator" [style.top.px]="ni.topPx">
+        <span class="now-indicator-time">{{ ni.label }}</span>
+      </div>
+    }
     <div
       class="calendar-grid"
       [style.--column-count]="columns().length"
@@ -66,7 +79,10 @@
         <!-- Normal data row -->
         <div class="calendar-row">
           <div class="time-cell" [style.min-height.px]="rowHeight()">
-            {{ time }}
+            <span class="time-label">{{ time }}</span>
+            @if (showSubLabels()) {
+              <span class="sub-time-label">{{ getSubTime(time) }}</span>
+            }
           </div>
           @for (col of columns(); track col.id) {
             <ng-container
@@ -79,5 +95,6 @@
         </div>
       }
     </div>
+    </div> <!-- /calendar-grid-wrapper -->
   }
 </div>

@@ -1,4 +1,4 @@
-﻿import {
+import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -308,7 +308,7 @@ export class BookingsTodayComponent implements OnInit {
       });
 
     // ── 3. Load salon + initial bookings ─────────────────────────────────────
-    this.adminService.getOwnSalon().subscribe({
+    this.adminService.getDashboardSalon().subscribe({
       next: (salon) => {
         this.salonId = salon._id;
         this._loadBookings();

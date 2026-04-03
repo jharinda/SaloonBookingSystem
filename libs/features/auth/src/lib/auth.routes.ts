@@ -2,6 +2,11 @@ import { Routes } from '@angular/router';
 
 export const AUTH_ROUTES: Routes = [
   {
+    path: '',
+    loadComponent: () =>
+      import('./auth-redirect.component').then((m) => m.AuthRedirectComponent),
+  },
+  {
     path: 'login',
     loadComponent: () =>
       import('./login/login.component').then((m) => m.LoginComponent),
@@ -39,5 +44,4 @@ export const AUTH_ROUTES: Routes = [
         (m) => m.GoogleCompleteComponent,
       ),
   },
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
 ];

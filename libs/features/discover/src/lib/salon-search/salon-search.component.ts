@@ -22,6 +22,7 @@ import { ButtonModule } from 'primeng/button';
 import { ChipModule } from 'primeng/chip';
 import { CardModule } from 'primeng/card';
 import { SelectButtonModule } from 'primeng/selectbutton';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { Salon, SalonSearchResponse } from '@org/models';
 import { SalonService, SearchParams } from '@org/shared-data-access';
@@ -117,6 +118,7 @@ type ViewMode = 'list' | 'map';
     CardModule,
     SelectButtonModule,
     SalonCardComponent,
+    TranslateModule,
   ],
   templateUrl: './salon-search.component.html',
   styleUrl: './salon-search.component.scss',

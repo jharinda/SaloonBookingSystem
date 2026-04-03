@@ -12,6 +12,14 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import {
   JwtAuthGuard,
   RolesGuard,
   Roles,
@@ -29,15 +37,18 @@ import {
   ReviewResponseDto,
 } from './dto/review-response.dto';
 
+@ApiTags('reviews')
+@ApiBearerAuth('JWT')
 @Controller('reviews')
 export class ReviewController {
   constructor(private readonly reviewService: ReviewService) {}
 
-  /**
-   * GET /api/reviews?salonId=...&page=1&limit=20
-   * GET /api/reviews?stylistId=...&page=1&limit=20
-   * Visible reviews only, newest-first.
-   */
+  @ApiOperation({ summary: 'List reviews by salon or stylist' })
+  @ApiQuery({ name: 'salonId', required: false })
+  @ApiQuery({ name: 'stylistId', required: false })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Paginated reviews' })
   @Get()
   async findAll(@Query() query: ReviewQueryDto): Promise<PaginatedReviewsDto> {
     const page  = query.page  ?? 1;
@@ -49,15 +60,11 @@ export class ReviewController {
     if (query.salonId) {
       return this.reviewService.getSalonReviews(query.salonId, page, limit);
     }
-    // No filter — return empty set rather than doing a full-collection scan
     return { data: [], total: 0, page, limit, totalPages: 0 };
   }
 
-  /**
-   * GET /api/reviews/my
-   * Returns all reviews written by the authenticated user.
-   * Used by the client-side "My Bookings" page.
-   */
+  @ApiOperation({ summary: 'List reviews written by the current user' })
+  @ApiResponse({ status: 200, description: 'User reviews' })
   @Get('my')
   @UseGuards(JwtAuthGuard)
   async getMyReviews(
@@ -66,6 +73,8 @@ export class ReviewController {
     return this.reviewService.getClientReviews(user.sub);
   }
 
+  @ApiOperation({ summary: 'Create a review (client)' })
+  @ApiResponse({ status: 201, description: 'Review created' })
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -77,6 +86,9 @@ export class ReviewController {
     return this.reviewService.createReview(dto, user.sub);
   }
 
+  @ApiOperation({ summary: 'Add salon owner reply to a review' })
+  @ApiParam({ name: 'id', description: 'Review ID' })
+  @ApiResponse({ status: 200, description: 'Review with reply' })
   @Patch(':id/reply')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -88,6 +100,9 @@ export class ReviewController {
     return this.reviewService.addOwnerReply(id, dto.reply);
   }
 
+  @ApiOperation({ summary: 'Remove a review (admin)' })
+  @ApiParam({ name: 'id', description: 'Review ID' })
+  @ApiResponse({ status: 200, description: 'Review removed' })
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)

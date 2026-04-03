@@ -1,0 +1,117 @@
+<div class="appointments-all">
+  <p class="appointments-all__intro text-surface-600 dark:text-surface-300">
+    Filter by date range, service, or stylist. Results load as you change filters or pages.
+  </p>
+
+  <div class="appointments-all__filters">
+    <div class="appointments-all__field">
+      <label class="appointments-all__label text-surface-600 dark:text-surface-300" for="salon-ar">Date range</label>
+      <p-datepicker
+        inputId="salon-ar"
+        [ngModel]="dateRange()"
+        (ngModelChange)="dateRange.set($event); onDateRangeChange()"
+        selectionMode="range"
+        [readonlyInput]="true"
+        [showIcon]="true"
+        dateFormat="yy-mm-dd"
+        styleClass="w-full"
+        [appendTo]="'body'"
+        [baseZIndex]="11000"
+      />
+    </div>
+
+    <div class="appointments-all__field">
+      <label class="appointments-all__label" for="salon-svc">Service</label>
+      <p-select
+        inputId="salon-svc"
+        [options]="serviceOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="filterServiceId()"
+        (ngModelChange)="filterServiceId.set($event); onFilterChange()"
+        [showClear]="true"
+        styleClass="w-full"
+        [appendTo]="'body'"
+      />
+    </div>
+
+    <div class="appointments-all__field">
+      <label class="appointments-all__label text-surface-600 dark:text-surface-300" for="salon-sty">Stylist</label>
+      <p-select
+        inputId="salon-sty"
+        [options]="staffOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="filterStylistId()"
+        (ngModelChange)="filterStylistId.set($event); onFilterChange()"
+        [showClear]="true"
+        styleClass="w-full"
+        [appendTo]="'body'"
+      />
+    </div>
+  </div>
+
+  <div class="appointments-all__table surface-card border border-surface-200 dark:border-surface-700 rounded-xl overflow-hidden">
+    <p-table
+      [value]="rows()"
+      [lazy]="true"
+      (onLazyLoad)="onLazyLoad($event)"
+      [loading]="loading()"
+      [paginator]="true"
+      [rows]="20"
+      [first]="lazyFirst()"
+      [totalRecords]="totalRecords()"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Showing {first}–{last} of {totalRecords}"
+      responsiveLayout="stack"
+      [breakpoint]="'768px'"
+      styleClass="p-datatable-sm appointments-all-datatable"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Client</th>
+          <th>Service</th>
+          <th>Stylist</th>
+          <th>Station</th>
+          <th>Status</th>
+          <th class="text-end">Price</th>
+          <th class="w-24"></th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-booking>
+        <tr>
+          <td>{{ booking.appointmentDate }}</td>
+          <td>{{ booking.startTime }} – {{ booking.endTime }}</td>
+          <td>{{ booking.clientName }}</td>
+          <td>{{ booking.serviceName }}</td>
+          <td>{{ booking.stylistName || '—' }}</td>
+          <td>{{ booking.stationName || '—' }}</td>
+          <td>
+            <p-tag [value]="booking.status" [severity]="getStatusSeverity(booking.status)" />
+          </td>
+          <td class="text-end">{{ booking.totalPrice | appCurrency }}</td>
+          <td>
+            <p-button
+              icon="pi pi-eye"
+              [rounded]="true"
+              [text]="true"
+              severity="secondary"
+              (onClick)="bookingOpen.emit(booking)"
+              aria-label="View booking"
+            />
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="9" class="text-center py-8 text-surface-500 dark:text-surface-400">
+            No appointments match your filters.
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>

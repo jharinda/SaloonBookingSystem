@@ -62,7 +62,14 @@
           "inspect": false
         }
       }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/apps/auth-service"],
+      "options": {
+        "jestConfig": "apps/auth-service/jest.config.ts"
+      }
     }
   },
-  "tags": []
+  "tags": ["scope:api", "type:service"]
 }

@@ -8,6 +8,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
@@ -38,6 +39,8 @@ const multerConfig = {
   },
 };
 
+@ApiTags('reviews')
+@ApiBearerAuth('JWT')
 @Controller('reviews')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UploadController {
@@ -49,6 +52,9 @@ export class UploadController {
    * Must be declared before any :id routes so NestJS doesn't treat
    * "upload" as a param value.
    */
+  @ApiOperation({ summary: 'Upload review image (multipart field: file)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Cloudinary id and URL' })
   @Post('upload')
   @HttpCode(HttpStatus.CREATED)
   @Roles(UserRole.CLIENT)

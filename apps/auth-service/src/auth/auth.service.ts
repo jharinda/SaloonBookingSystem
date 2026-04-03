@@ -13,14 +13,16 @@ import { InjectQueue } from '@nestjs/bull';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
-import { Model, Schema as MongooseSchema } from 'mongoose';
+import { Model, Schema as MongooseSchema, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { firstValueFrom, timeout } from 'rxjs';
 import type { Queue } from 'bull';
 import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '@org/shared-auth';
 
-import { User, UserDocument, PortfolioReview } from './schemas/user.schema';
+import type { PortfolioReview } from '@org/models';
+import { User, UserDocument } from './schemas/user.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -34,7 +36,7 @@ import {
   UserProfileResponseDto,
 } from './dto/user-profile.dto';
 import { GooglePendingProfile } from './strategies/google.strategy';
-import { UserRole } from './dto/register.dto';
+import { UserRole } from '@org/shared-auth';
 
 export interface AdminUserDto {
   _id:       string;
@@ -68,6 +70,7 @@ function toSalonIdStr(val: unknown): string {
   return val?.toString?.() ?? '';
 }
 const NOTIFICATION_QUEUE = 'notifications';
+const USER_EVENTS_QUEUE = 'user-events';
 
 @Injectable()
 export class AuthService {
@@ -79,7 +82,8 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
     @InjectQueue(NOTIFICATION_QUEUE) private readonly notifQueue: Queue,
-    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @InjectQueue(USER_EVENTS_QUEUE) private readonly userEventsQueue: Queue,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -467,6 +471,15 @@ export class AuthService {
 
     const user = await this.userModel.create(userData);
 
+    // Sync profile to user-service
+    await this.userEventsQueue.add('user.created', {
+      userId: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+    });
+
     const tokens = await this.generateTokens(user);
     return { user: this.toUserResponse(user), ...tokens };
   }
@@ -488,12 +501,14 @@ export class AuthService {
 
   // ── User profile management ────────────────────────────────────────────
 
+  /** @deprecated Prefer user-service; retained for legacy callers until migration completes. */
   async getProfile(userId: string): Promise<UserProfileResponseDto> {
     const user = await this.userModel.findById(userId).lean();
     if (!user) throw new NotFoundException('User not found');
     return this.toProfileResponse(user as UserDocument);
   }
 
+  /** @deprecated Prefer user-service; retained for legacy callers until migration completes. */
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<UserProfileResponseDto> {
     const user = await this.userModel
       .findByIdAndUpdate(
@@ -503,17 +518,35 @@ export class AuthService {
       )
       .lean();
     if (!user) throw new NotFoundException('User not found');
+
+    // Sync updated profile to user-service
+    await this.userEventsQueue.add('user.updated', {
+      userId: (user as any)._id.toString(),
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    });
+
     return this.toProfileResponse(user as UserDocument);
   }
 
+  /** @deprecated Avatar updates live in user-service; retained for legacy callers until migration completes. */
   async updateAvatar(userId: string, avatarUrl: string): Promise<UserProfileResponseDto> {
     const user = await this.userModel
       .findByIdAndUpdate(userId, { avatarUrl }, { new: true })
       .lean();
     if (!user) throw new NotFoundException('User not found');
+
+    // Sync avatar to user-service
+    await this.userEventsQueue.add('user.updated', {
+      userId: (user as any)._id.toString(),
+      avatarUrl,
+    });
+
     return this.toProfileResponse(user as UserDocument);
   }
 
+  /** @deprecated Prefer user-service; retained for legacy callers until migration completes. */
   async updateNotificationPreferences(
     userId: string,
     dto: UpdateNotificationPreferencesDto,
@@ -533,6 +566,7 @@ export class AuthService {
     return prefs;
   }
 
+  /** @deprecated Prefer user-service; retained for legacy callers until migration completes. */
   async getConnectedAccounts(userId: string): Promise<ConnectedAccountsResponseDto> {
     const user = await this.userModel.findById(userId).lean();
     if (!user) throw new NotFoundException('User not found');
@@ -580,6 +614,11 @@ export class AuthService {
       page,
       limit,
     };
+  }
+
+  async adminCountClients(): Promise<{ count: number }> {
+    const count = await this.userModel.countDocuments({ role: 'client' });
+    return { count };
   }
 
   async adminSuspendUser(userId: string): Promise<void> {
@@ -695,7 +734,7 @@ export class AuthService {
     }
 
     // Update stylist profile
-    user.stylistProfile.currentSalonId = new MongooseSchema.Types.ObjectId(salonId) as unknown as typeof user.stylistProfile.currentSalonId;
+    user.stylistProfile.currentSalonId = new Types.ObjectId(salonId);
     user.stylistProfile.joinRequestStatus = 'pending';
     await user.save();
 
@@ -749,7 +788,7 @@ export class AuthService {
 
     // If salonId is provided, filter by it
     if (salonId) {
-      filter['stylistProfile.currentSalonId'] = new MongooseSchema.Types.ObjectId(salonId);
+      filter['stylistProfile.currentSalonId'] = new Types.ObjectId(salonId);
     }
 
     const stylists = await this.userModel.find(filter).lean();
@@ -877,7 +916,7 @@ export class AuthService {
     // Support both legacy (currentSalonId + approved) and new (salonInvitations) models
     // Note: salonId may be stored as ObjectId or string depending on how it was inserted,
     // so we match both forms.
-    const salonOid = new MongooseSchema.Types.ObjectId(salonId);
+    const salonOid = new Types.ObjectId(salonId);
     const stylists = await this.userModel
       .find({
         role: UserRole.STYLIST,
@@ -1321,7 +1360,7 @@ export class AuthService {
         comment: string;
         serviceName: string;
         clientName: string;
-        date: Date;
+        date: Date | string;
       }>;
       isAvailable: boolean;
       workingHours: Array<{
@@ -1462,6 +1501,7 @@ export class AuthService {
       isEmailVerified: user.isEmailVerified,
       phone: user.phone ?? undefined,
       avatarUrl: user.avatarUrl ?? undefined,
+      googleId: user.googleId ?? undefined,
       createdAt: user.createdAt,
     };
 

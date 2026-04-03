@@ -1,35 +1,32 @@
+import { Inject, Logger } from '@nestjs/common';
 import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
-import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
 
 import {
   NOTIFICATION_QUEUE,
-  NotificationChannel,
   NotificationEvent,
   TemplateType,
 } from '../constants/notification-events.constants';
 import { BookingNotificationPayload } from '../interfaces/notification-payload.interface';
-import { EmailService } from '../providers/email.service';
-import { SmsService } from '../providers/sms.service';
-import { WhatsAppService } from '../providers/whatsapp.service';
+import {
+  IPushNotificationService,
+  PUSH_NOTIFICATION_SERVICE,
+} from '../interfaces/notification-channel.interface';
 import { SsePushService } from '../providers/sse-push.service';
-import { PushNotificationService } from '../providers/push-notification.service';
-import { TemplateService, TemplateVariables } from '../template.service';
-import { NotificationStatus } from '../schemas/notification-log.schema';
+import { NotificationDispatchService } from '../notification-dispatch.service';
 import { InboxNotificationService } from '../inbox-notification.service';
 import { NotificationType } from '../schemas/inbox-notification.schema';
+import { TemplateVariables } from '../template.service';
 
 @Processor(NOTIFICATION_QUEUE)
 export class ReminderNotificationProcessor {
   private readonly logger = new Logger(ReminderNotificationProcessor.name);
 
   constructor(
-    private readonly email: EmailService,
-    private readonly sms: SmsService,
-    private readonly whatsApp: WhatsAppService,
-    private readonly templates: TemplateService,
+    private readonly dispatch: NotificationDispatchService,
+    @Inject(PUSH_NOTIFICATION_SERVICE)
+    private readonly pushNotification: IPushNotificationService,
     private readonly ssePush: SsePushService,
-    private readonly pushNotification: PushNotificationService,
     private readonly inboxService: InboxNotificationService,
   ) {}
 
@@ -39,10 +36,9 @@ export class ReminderNotificationProcessor {
   async handleReminder24Hr(
     job: Job<BookingNotificationPayload>,
   ): Promise<void> {
-    const { booking, client, salonName, salonAddress } = job.data;
+    const { booking, client, salonName, salonAddress, stylist, stylistId, stylistName } = job.data;
 
-    const vars: TemplateVariables = {
-      clientName: client.name,
+    const baseVars: TemplateVariables = {
       salonName,
       address: salonAddress,
       serviceName: booking.services.map((s) => s.name).join(', '),
@@ -51,33 +47,56 @@ export class ReminderNotificationProcessor {
       totalPrice: booking.totalPrice.toFixed(2),
     };
 
+    // Client reminder
     await Promise.allSettled([
-      this.sendEmail(
+      this.dispatch.sendEmail(
+        NotificationEvent.REMINDER_24HR,
         TemplateType.BOOKING_REMINDER_24HR,
         client.email,
-        vars,
+        { ...baseVars, clientName: client.name },
         booking.id,
       ),
-      this.sendWhatsApp(
+      this.dispatch.sendWhatsApp(
+        NotificationEvent.REMINDER_24HR,
         TemplateType.BOOKING_REMINDER_24HR,
         client.phone,
-        vars,
+        { ...baseVars, clientName: client.name },
         booking.id,
       ),
       this.pushNotification.sendToUser(
         booking.clientId,
         'Appointment Reminder (24 Hours)',
-        `Reminder: Your appointment at ${salonName} is tomorrow at ${vars.time}.`,
+        `Reminder: Your appointment at ${salonName} is tomorrow at ${baseVars.time}.`,
         { bookingId: booking.id, event: NotificationEvent.REMINDER_24HR },
       ),
       this.inboxService.save(
         booking.clientId,
         'Appointment Reminder (24 Hours)',
-        `Your appointment at ${salonName} is scheduled for ${vars.date} at ${vars.time}.`,
+        `Your appointment at ${salonName} is scheduled for ${baseVars.date} at ${baseVars.time}.`,
         NotificationType.BOOKING_REMINDER,
         { bookingId: booking.id },
       ),
     ]);
+
+    // Stylist 24-hour reminder
+    if (stylist?.email && stylistId) {
+      const stylistDisplayName = stylistName ?? stylist.name;
+      await Promise.allSettled([
+        this.dispatch.sendEmail(
+          NotificationEvent.REMINDER_24HR,
+          TemplateType.BOOKING_REMINDER_24HR_STYLIST,
+          stylist.email,
+          { ...baseVars, stylistName: stylistDisplayName, clientName: client.name },
+          booking.id,
+        ),
+        this.pushNotification.sendToUser(
+          stylistId,
+          'Appointment Tomorrow',
+          `Reminder: You have an appointment with ${client.name} tomorrow at ${baseVars.time} at ${salonName}.`,
+          { bookingId: booking.id, event: NotificationEvent.REMINDER_24HR },
+        ),
+      ]);
+    }
   }
 
   // ── booking.reminder.2hr ───────────────────────────────────────────────────
@@ -98,7 +117,8 @@ export class ReminderNotificationProcessor {
     };
 
     await Promise.allSettled([
-      this.sendSms(
+      this.dispatch.sendSms(
+        NotificationEvent.REMINDER_2HR,
         TemplateType.BOOKING_REMINDER_2HR,
         client.phone,
         vars,
@@ -193,126 +213,5 @@ export class ReminderNotificationProcessor {
     this.logger.error(
       `Reminder job failed | queue=${NOTIFICATION_QUEUE} event=${job.name} id=${job.id}: ${error.message}`,
     );
-  }
-
-  // ── Private helpers ────────────────────────────────────────────────────────
-
-  private async sendEmail(
-    type: TemplateType,
-    recipient: string,
-    vars: TemplateVariables,
-    bookingId: string,
-  ): Promise<void> {
-    try {
-      const { subject, body } = await this.templates.render(
-        type,
-        NotificationChannel.EMAIL,
-        vars,
-      );
-      const msgId = await this.email.sendEmail({
-        to: recipient,
-        toName: vars.clientName ?? '',
-        subject,
-        html: body,
-      });
-      await this.templates.logNotification({
-        templateType: type,
-        channel: NotificationChannel.EMAIL,
-        recipient,
-        status: NotificationStatus.SENT,
-        providerMessageId: msgId,
-        error: null,
-        bookingId,
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Reminder email failed [${type}] → ${recipient}: ${message}`);
-      await this.templates.logNotification({
-        templateType: type,
-        channel: NotificationChannel.EMAIL,
-        recipient,
-        status: NotificationStatus.FAILED,
-        providerMessageId: null,
-        error: message,
-        bookingId,
-      });
-    }
-  }
-
-  private async sendSms(
-    type: TemplateType,
-    recipient: string,
-    vars: TemplateVariables,
-    bookingId: string,
-  ): Promise<void> {
-    try {
-      const { body } = await this.templates.render(
-        type,
-        NotificationChannel.SMS,
-        vars,
-      );
-      const msgId = await this.sms.sendSms({ to: recipient, message: body });
-      await this.templates.logNotification({
-        templateType: type,
-        channel: NotificationChannel.SMS,
-        recipient,
-        status: NotificationStatus.SENT,
-        providerMessageId: msgId,
-        error: null,
-        bookingId,
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Reminder SMS failed [${type}] → ${recipient}: ${message}`);
-      await this.templates.logNotification({
-        templateType: type,
-        channel: NotificationChannel.SMS,
-        recipient,
-        status: NotificationStatus.FAILED,
-        providerMessageId: null,
-        error: message,
-        bookingId,
-      });
-    }
-  }
-
-  private async sendWhatsApp(
-    type: TemplateType,
-    recipient: string,
-    vars: TemplateVariables,
-    bookingId: string,
-  ): Promise<void> {
-    try {
-      const { body } = await this.templates.render(
-        type,
-        NotificationChannel.WHATSAPP,
-        vars,
-      );
-      const msgId = await this.whatsApp.sendMessage({
-        to: recipient,
-        message: body,
-      });
-      await this.templates.logNotification({
-        templateType: type,
-        channel: NotificationChannel.WHATSAPP,
-        recipient,
-        status: NotificationStatus.SENT,
-        providerMessageId: msgId,
-        error: null,
-        bookingId,
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Reminder WhatsApp failed [${type}] → ${recipient}: ${message}`);
-      await this.templates.logNotification({
-        templateType: type,
-        channel: NotificationChannel.WHATSAPP,
-        recipient,
-        status: NotificationStatus.FAILED,
-        providerMessageId: null,
-        error: message,
-        bookingId,
-      });
-    }
   }
 }

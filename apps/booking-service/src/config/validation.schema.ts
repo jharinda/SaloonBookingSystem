@@ -5,16 +5,19 @@ import * as Joi from 'joi';
  */
 export const validationSchema = Joi.object({
   BOOKING_PORT: Joi.number().integer().default(3002),
-  NODE_ENV:     Joi.string().valid('development', 'production', 'test').default('development'),
+  NODE_ENV:     Joi.string().valid('development', 'staging', 'production', 'test').default('development'),
+  SENTRY_DSN:   Joi.string().uri().optional(),
 
   // MongoDB
   BOOKING_MONGODB_URI: Joi.string().required().messages({
-    'any.required': 'BOOKING_MONGODB_URI is required (e.g. mongodb://localhost:27017/snapsalon-bookings)',
+    'any.required': 'BOOKING_MONGODB_URI is required (e.g. mongodb://localhost:27017/snapsalon-booking)',
   }),
 
   // Redis (used for Bull queues and slot-availability caching)
-  REDIS_HOST: Joi.string().default('localhost'),
-  REDIS_PORT: Joi.number().integer().default(6379),
+  REDIS_HOST:     Joi.string().default('localhost'),
+  REDIS_PORT:     Joi.number().integer().default(6379),
+  REDIS_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_TLS:      Joi.string().optional().valid('true', 'false').default('false'),
 
   // JWT
   JWT_ACCESS_SECRET: Joi.string().min(32).required().messages({

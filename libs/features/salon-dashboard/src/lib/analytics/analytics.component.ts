@@ -1,5 +1,18 @@
-import { Component, OnInit, signal, inject, ViewChild, ElementRef, AfterViewInit, ChangeDetectionStrategy } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  signal,
+  inject,
+  ViewChild,
+  ElementRef,
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  computed,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   Chart,
   ChartConfiguration,
@@ -21,9 +34,17 @@ import {
 
 import { Card } from 'primeng/card';
 import { Button } from 'primeng/button';
-import { Toast } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
-import { SalonAdminService, CurrencyService } from '@org/shared-data-access';
+import { DatePicker } from 'primeng/datepicker';
+import { ProgressSpinner } from 'primeng/progressspinner';
+import { TooltipModule } from 'primeng/tooltip';
+
+import {
+  AnalyticsService,
+  CurrencyService,
+  PlanFeatureService,
+  SalonAdminService,
+  StaffAnalyticsItem,
+} from '@org/shared-data-access';
 
 Chart.register(
   CategoryScale, LinearScale, BarElement, LineElement, PointElement,
@@ -59,24 +80,42 @@ interface BookingStats {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
+    RouterLink,
     Card,
     Button,
-    Toast
+    DatePicker,
+    ProgressSpinner,
+    TooltipModule,
   ],
-  providers: [MessageService],
   templateUrl: './analytics.component.html',
   styleUrl: './analytics.component.scss'
 })
 export class AnalyticsComponent implements OnInit, AfterViewInit {
   private readonly salonService = inject(SalonAdminService);
-  private readonly messageService = inject(MessageService);
+  private readonly analyticsService = inject(AnalyticsService);
   private readonly currency = inject(CurrencyService);
+  private readonly planFeature = inject(PlanFeatureService);
+
+  readonly isLocked    = computed(() => !this.planFeature.hasFeature('analytics'));
+  readonly requiredPlan = computed(() => this.planFeature.requiredPlanFor('analytics'));
 
   @ViewChild('revenueChart') revenueChartRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('bookingStatusChart') bookingStatusChartRef!: ElementRef<HTMLCanvasElement>;
 
   private revenueChart?: Chart;
   private bookingStatusChart?: Chart;
+
+  readonly salonId = signal<string | null>(null);
+
+  /** PrimeNG range: [start, end]; default last 30 days */
+  readonly dateRange = signal<Date[] | null>(this.defaultLast30DaysRange());
+
+  readonly periodLabel = computed(() => {
+    const r = this.dateRange();
+    if (!r?.[0] || !r[1]) return 'Selected period';
+    return `${this.fmtDate(r[0])} – ${this.fmtDate(r[1])}`;
+  });
 
   revenueData = signal<RevenueData[]>([]);
   staffPerformance = signal<StaffPerformance[]>([]);
@@ -91,122 +130,142 @@ export class AnalyticsComponent implements OnInit, AfterViewInit {
   totalRevenue = signal(0);
   totalBookings = signal(0);
   averageRating = signal(0);
-  loading = signal(false);
+
+  /** Booking-service analytics: revenue + status charts + headline totals */
+  salonMetricsLoading = signal(false);
+  salonMetricsError = signal<string | null>(null);
+
+  /** Salon-service staff-analytics */
+  staffLoading = signal(false);
+  staffError = signal<string | null>(null);
 
   ngOnInit(): void {
-    this.loadAnalytics();
+    if (this.isLocked()) return;
+    this.salonService.getDashboardSalon().subscribe({
+      next: (salon) => {
+        this.salonId.set(salon._id as string);
+        this.loadSalonMetrics();
+        this.loadStaffPerformance();
+      },
+      error: () => {
+        this.salonMetricsError.set('Could not load your salon profile.');
+      },
+    });
   }
 
   ngAfterViewInit(): void {
     this.initializeCharts();
   }
 
-  async loadAnalytics(): Promise<void> {
-    this.loading.set(true);
-    try {
-      await Promise.all([
-        this.loadRevenueData(),
-        this.loadStaffPerformance(),
-        this.loadBookingStats()
-      ]);
-    } catch (error) {
-      console.error('Error loading analytics:', error);
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Failed to load analytics data'
-      });
-    } finally {
-      this.loading.set(false);
-    }
+  onDateRangeChange(value: Date[] | null): void {
+    this.dateRange.set(value);
+    if (!value?.[0] || !value[1] || this.isLocked()) return;
+    if (!this.salonId()) return;
+    this.loadSalonMetrics();
   }
 
-  async loadRevenueData(): Promise<void> {
-    // Mock data - replace with actual API call
-    const mockData: RevenueData[] = [];
-    const today = new Date();
+  loadSalonMetrics(): void {
+    const id = this.salonId();
+    const range = this.dateRange();
+    if (!id || !range?.[0] || !range[1]) return;
 
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      mockData.push({
-        date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
-        revenue: Math.floor(Math.random() * 50000) + 20000
-      });
-    }
+    this.salonMetricsLoading.set(true);
+    this.salonMetricsError.set(null);
 
-    this.revenueData.set(mockData);
+    const from = this.fmtDate(range[0]);
+    const to = this.fmtDate(range[1]);
 
-    const total = mockData.reduce((sum, d) => sum + d.revenue, 0);
-    this.totalRevenue.set(total);
+    this.analyticsService.getSalonAnalytics(id, from, to).subscribe({
+      next: (res) => {
+        this.revenueData.set(
+          res.dailyRevenue.map((d) => ({ date: d.date, revenue: d.revenue })),
+        );
+        this.bookingStats.set({
+          pending: res.statusBreakdown.pending,
+          confirmed: res.statusBreakdown.confirmed,
+          completed: res.statusBreakdown.completed,
+          cancelled: res.statusBreakdown.cancelled,
+          noShow: res.statusBreakdown.noShow,
+        });
+        this.totalRevenue.set(res.totalRevenue);
+        this.totalBookings.set(res.totalBookings);
+        this.salonMetricsLoading.set(false);
 
-    if (this.revenueChart) {
-      this.updateRevenueChart();
-    }
+        if (this.revenueChart) {
+          this.updateRevenueChart();
+        }
+        if (this.bookingStatusChart) {
+          this.updateBookingStatusChart();
+        }
+      },
+      error: (err: HttpErrorResponse) => {
+        const msg =
+          (err.error as { message?: string })?.message ??
+          err.message ??
+          'Failed to load booking analytics';
+        this.salonMetricsError.set(msg);
+        this.salonMetricsLoading.set(false);
+      },
+    });
   }
 
-  async loadStaffPerformance(): Promise<void> {
-    // Mock data - replace with actual API call
-    // Try to use: GET /api/salons/:id/staff-analytics
-    const mockData: StaffPerformance[] = [
-      {
-        staffId: '1',
-        staffName: 'Emma Wilson',
-        totalBookings: 145,
-        totalRevenue: 725000,
-        rating: 4.8,
-        completionRate: 96
-      },
-      {
-        staffId: '2',
-        staffName: 'John Smith',
-        totalBookings: 132,
-        totalRevenue: 660000,
-        rating: 4.6,
-        completionRate: 94
-      },
-      {
-        staffId: '3',
-        staffName: 'Lisa Chen',
-        totalBookings: 118,
-        totalRevenue: 590000,
-        rating: 4.9,
-        completionRate: 98
-      },
-      {
-        staffId: '4',
-        staffName: 'Mike Davis',
-        totalBookings: 95,
-        totalRevenue: 475000,
-        rating: 4.5,
-        completionRate: 92
-      }
-    ];
+  loadStaffPerformance(): void {
+    const id = this.salonId();
+    if (!id) return;
 
-    this.staffPerformance.set(mockData);
+    this.staffLoading.set(true);
+    this.staffError.set(null);
 
-    const avgRating = mockData.reduce((sum, s) => sum + s.rating, 0) / mockData.length;
-    this.averageRating.set(avgRating);
+    this.salonService.getStaffAnalytics(id).subscribe({
+      next: (res) => {
+        const rows = res.staff.map((s) => this.mapStaffToPerformance(s));
+        this.staffPerformance.set(rows);
+        const avg = rows.length
+          ? rows.reduce((sum, s) => sum + s.rating, 0) / rows.length
+          : 0;
+        this.averageRating.set(avg);
+        this.staffLoading.set(false);
+      },
+      error: (err: HttpErrorResponse) => {
+        const msg =
+          (err.error as { message?: string })?.message ??
+          err.message ??
+          'Failed to load staff analytics';
+        this.staffError.set(msg);
+        this.staffPerformance.set([]);
+        this.averageRating.set(0);
+        this.staffLoading.set(false);
+      },
+    });
   }
 
-  async loadBookingStats(): Promise<void> {
-    // Mock data - replace with actual API call
-    const mockStats: BookingStats = {
-      pending: 23,
-      confirmed: 67,
-      completed: 145,
-      cancelled: 8,
-      noShow: 5
+  private mapStaffToPerformance(s: StaffAnalyticsItem): StaffPerformance {
+    const total = s.totalAppointments;
+    const completionRate =
+      total > 0 ? Math.round((s.completedAppointments / total) * 100) : 0;
+    return {
+      staffId: s.stylistId,
+      staffName: s.name,
+      totalBookings: total,
+      totalRevenue: s.revenueGenerated,
+      rating: s.averageRating,
+      completionRate,
     };
+  }
 
-    this.bookingStats.set(mockStats);
+  private defaultLast30DaysRange(): Date[] {
+    const end = new Date();
+    end.setHours(0, 0, 0, 0);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 29);
+    return [start, end];
+  }
 
-    const total = Object.values(mockStats).reduce((sum, val) => sum + val, 0);
-    this.totalBookings.set(total);
-
-    if (this.bookingStatusChart) {
-      this.updateBookingStatusChart();
-    }
+  private fmtDate(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   initializeCharts(): void {
@@ -220,7 +279,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit {
     const config: ChartConfiguration = {
       type: 'line' as ChartType,
       data: {
-        labels: data.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+        labels: data.map(d => new Date(d.date + 'T12:00:00.000Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
         datasets: [{
           label: `Revenue (${this.currency.currencySymbol()})`,
           data: data.map(d => d.revenue),
@@ -298,7 +357,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit {
                 const label = context.label || '';
                 const value = context.parsed;
                 const total = (context.dataset.data as number[]).reduce((a, b) => a + b, 0);
-                const percentage = ((value / total) * 100).toFixed(1);
+                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
                 return `${label}: ${value} (${percentage}%)`;
               }
             }
@@ -315,7 +374,7 @@ export class AnalyticsComponent implements OnInit, AfterViewInit {
 
     const data = this.revenueData();
     this.revenueChart.data.labels = data.map(d =>
-      new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      new Date(d.date + 'T12:00:00.000Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     );
     this.revenueChart.data.datasets[0].data = data.map(d => d.revenue);
     this.revenueChart.update();

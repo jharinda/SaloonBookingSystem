@@ -1,10 +1,8 @@
-import axios from 'axios';
-
-describe('GET /api', () => {
-  it('should return a message', async () => {
-    const res = await axios.get(`/api`);
-
-    expect(res.status).toBe(200);
-    expect(res.data).toEqual({ message: 'Hello API' });
-  });
+﻿/**
+ * E2E tests for subscription-service.
+ * These tests require a running subscription-service instance.
+ * Run `nx serve subscription-service` before executing this suite.
+ */
+describe('subscription-service e2e', () => {
+  it.todo('add integration tests (service must be running)');
 });

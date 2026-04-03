@@ -21,6 +21,19 @@
     <ng-template #end>
       <div class="flex items-center gap-2">
 
+        <!-- Chat icon (logged-in users only) -->
+        @if (isLoggedIn()) {
+          <p-button
+            icon="pi pi-comments"
+            [text]="true"
+            [rounded]="true"
+            severity="secondary"
+            size="small"
+            aria-label="Chat"
+            (onClick)="router.navigate(['/chat'])"
+          />
+        }
+
         <!-- Notification bell (salon owners / admins only) -->
         <app-notification-bell />
 
@@ -38,14 +51,14 @@
         <!-- Guest: Login + Register buttons -->
         @if (!isLoggedIn()) {
           <p-button
-            label="Login"
+            [label]="'common.login' | translate"
             severity="secondary"
             [outlined]="true"
             size="small"
             (onClick)="router.navigate(['/auth/login'])"
           />
           <p-button
-            label="Register"
+            [label]="'common.register' | translate"
             size="small"
             (onClick)="router.navigate(['/auth/register'])"
           />
@@ -60,7 +73,11 @@
             (click)="userMenu.toggle($event)"
             aria-label="Open user menu"
           >
-            <span class="avatar-circle">{{ userInitial() }}</span>
+            @if (avatarUrl()) {
+              <img [src]="avatarUrl()" alt="Profile" class="avatar-img" />
+            } @else {
+              <span class="avatar-circle">{{ userInitial() }}</span>
+            }
           </button>
         }
 

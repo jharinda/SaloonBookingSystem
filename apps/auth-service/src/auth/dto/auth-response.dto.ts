@@ -1,27 +1,15 @@
-import { UserRole } from './register.dto';
-
-export interface WorkingHoursResponse {
-  day: number;
-  start: string;
-  end: string;
-  isOff: boolean;
-}
-
-export interface PortfolioImageResponse {
-  cloudinaryId: string;
-  url: string;
-  caption?: string;
-}
+import { UserRole } from '@org/shared-auth';
+import type { JoinRequestStatus, WorkingHours, PortfolioImage } from '@org/models';
 
 export interface StylistProfileResponse {
   bio?: string;
   specialties: string[];
   yearsExperience: number;
-  portfolioImages: PortfolioImageResponse[];
+  portfolioImages: PortfolioImage[];
   currentSalonId?: string | null;
-  joinRequestStatus: 'none' | 'pending' | 'approved' | 'rejected';
+  joinRequestStatus: JoinRequestStatus;
   isAvailable: boolean;
-  workingHours: WorkingHoursResponse[];
+  workingHours: WorkingHours[];
 }
 
 export class TokensDto {
@@ -38,6 +26,8 @@ export class UserResponseDto {
   isEmailVerified: boolean;
   phone?: string;
   avatarUrl?: string;
+  /** Present when returned from internal GET /api/auth/users/:id (user-service, etc.). */
+  googleId?: string | null;
   createdAt: Date;
   stylistProfile?: StylistProfileResponse;
 }

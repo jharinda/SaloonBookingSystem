@@ -3,7 +3,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
-import { CorrelationLoggingMiddleware } from '@org/shared-auth';
+import { LoggerModule } from 'nestjs-pino';
+
+import {
+  CorrelationLoggingMiddleware,
+  createLoggerConfig,
+  getBullRedisConnection,
+  HealthModule,
+} from '@org/shared-auth';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { BookingModule } from '../booking/booking.module';
@@ -12,6 +19,7 @@ import { validationSchema } from '../config/validation.schema';
 
 @Module({
   imports: [
+    LoggerModule.forRoot(createLoggerConfig('booking-service')),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -29,12 +37,10 @@ import { validationSchema } from '../config/validation.schema';
     BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        redis: {
-          host: config.get<string>('redis.host'),
-          port: config.get<number>('redis.port'),
-        },
+        redis: getBullRedisConnection(config),
       }),
     }),
+    HealthModule.forRoot({ redis: true }),
     BookingModule,
   ],
   controllers: [AppController],

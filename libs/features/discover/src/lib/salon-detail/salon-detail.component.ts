@@ -18,9 +18,11 @@ import { Tag } from 'primeng/tag';
 import { Panel } from 'primeng/panel';
 import { TableModule } from 'primeng/table';
 import { Tabs, TabList, Tab, TabPanels, TabPanel } from 'primeng/tabs';
+import { Tooltip } from 'primeng/tooltip';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { Salon, SalonServiceItem, Review, ReviewsPage } from '@org/models';
-import { SalonService, AppCurrencyPipe, CurrencyService } from '@org/shared-data-access';
+import { SalonService, AppCurrencyPipe, CurrencyService, AuthService, FavoritesService } from '@org/shared-data-access';
 import { ReviewService } from '@org/shared-data-access';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -87,19 +89,23 @@ function isOpenNow(open: string, close: string): boolean {
     Panel,
     TableModule,
     Tabs, TabList, Tab, TabPanels, TabPanel,
+    Tooltip,
     AppCurrencyPipe,
+    TranslateModule,
   ],
   templateUrl: './salon-detail.component.html',
   styleUrl: './salon-detail.component.scss',
 })
 export class SalonDetailComponent implements OnInit {
   // ── Dependencies ────────────────────────────────────────────────────────────
-  private readonly route         = inject(ActivatedRoute);
-  private readonly router        = inject(Router);
-  private readonly salonService  = inject(SalonService);
-  private readonly reviewService = inject(ReviewService);
-  private readonly msgSvc        = inject(MessageService);
-  readonly currencyService       = inject(CurrencyService);
+  private readonly route           = inject(ActivatedRoute);
+  private readonly router          = inject(Router);
+  private readonly salonService    = inject(SalonService);
+  private readonly reviewService   = inject(ReviewService);
+  private readonly msgSvc          = inject(MessageService);
+  readonly currencyService         = inject(CurrencyService);
+  private readonly favoritesService = inject(FavoritesService);
+  private readonly authService      = inject(AuthService);
 
   // ── State ───────────────────────────────────────────────────────────────────
   readonly salon          = signal<Salon | null>(null);
@@ -179,6 +185,13 @@ export class SalonDetailComponent implements OnInit {
   readonly hasMoreReviews = computed(
     () => this.reviews().length < this.totalReviews()
   );
+
+  readonly isLoggedIn = computed(() => this.authService.isLoggedIn());
+
+  readonly isFavorite = computed(() => {
+    const s = this.salon();
+    return s?._id ? this.favoritesService.isFavorite(s._id) : false;
+  });
 
   readonly ratingBreakdown = computed(() => {
     const data = this.reviews();
@@ -306,6 +319,12 @@ export class SalonDetailComponent implements OnInit {
         },
       },
     });
+  }
+
+  // ── Favorites ────────────────────────────────────────────────────────────────
+  toggleFavorite(): void {
+    const id = this.salon()?._id;
+    if (id) this.favoritesService.toggle(id);
   }
 
   // ── Share ────────────────────────────────────────────────────────────────────

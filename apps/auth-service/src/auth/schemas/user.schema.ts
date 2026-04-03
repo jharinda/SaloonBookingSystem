@@ -1,42 +1,23 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, HydratedDocument, Schema as MongooseSchema } from 'mongoose';
-import { UserRole } from '../dto/register.dto';
+import { Document, HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
+import { UserRole } from '@org/shared-auth';
+import type {
+  JoinRequestStatus,
+  WorkingHours,
+  PortfolioImage,
+  PortfolioReview,
+} from '@org/models';
 
 export type UserDocument = HydratedDocument<User>;
-
-export type JoinRequestStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
 export type InvitationStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface SalonInvitation {
-  salonId: MongooseSchema.Types.ObjectId;
+  salonId: Types.ObjectId;
   salonName: string;
   status: InvitationStatus;
   invitedAt: Date;
   respondedAt?: Date;
-}
-
-export interface WorkingHours {
-  day: number; // 0-6 (Sunday to Saturday)
-  start: string;
-  end: string;
-  isOff: boolean;
-}
-
-export interface PortfolioImage {
-  cloudinaryId: string;
-  url: string;
-  caption?: string;
-}
-
-export interface PortfolioReview {
-  reviewId: string;
-  salonId: string;
-  rating: number;
-  comment: string;
-  serviceName: string;
-  clientName: string;
-  date: Date;
 }
 
 export interface StylistProfile {
@@ -45,7 +26,7 @@ export interface StylistProfile {
   yearsExperience: number;
   portfolioImages: PortfolioImage[];
   portfolioReviews: PortfolioReview[];
-  currentSalonId?: MongooseSchema.Types.ObjectId | null;
+  currentSalonId?: Types.ObjectId | null;
   joinRequestStatus: JoinRequestStatus;
   salonInvitations: SalonInvitation[];
   isAvailable: boolean;

@@ -11,8 +11,9 @@ const REDIRECT_KEY = 'auth_redirect_url';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ProgressSpinnerModule],
+  styles: [`:host { display: block; height: 100%; }`],
   template: `
-    <div class="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+    <div class="min-h-full flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
       <p-progressSpinner strokeWidth="4" styleClass="w-12 h-12" />
     </div>
   `,

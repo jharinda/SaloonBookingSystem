@@ -22,6 +22,7 @@ import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
 import { AppointmentCardComponent } from './appointment-card.component';
+import { TranslateModule } from '@ngx-translate/core';
 import {
   CancelBookingDialogComponent,
   CancelDialogResult,
@@ -30,14 +31,25 @@ import {
   WriteReviewDialogComponent,
   WriteReviewDialogResult,
 } from './write-review-dialog.component';
+import {
+  ModifyBookingDialogComponent,
+  ModifyBookingDialogResult,
+} from './modify-booking-dialog.component';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type RichBooking = Booking & { hasReview?: boolean; clientRating?: number };
 
-const UPCOMING_STATUSES: BookingStatus[] = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'];
-const PAST_STATUSES: BookingStatus[]      = ['COMPLETED'];
-const CANCELLED_STATUSES: BookingStatus[] = ['CANCELLED', 'NO_SHOW'];
+const UPCOMING_STATUSES: BookingStatus[] = [
+  BookingStatus.PENDING,
+  BookingStatus.CONFIRMED,
+  BookingStatus.IN_PROGRESS,
+];
+const PAST_STATUSES: BookingStatus[] = [BookingStatus.COMPLETED];
+const CANCELLED_STATUSES: BookingStatus[] = [
+  BookingStatus.CANCELLED,
+  BookingStatus.NO_SHOW,
+];
 
 // ── Time helpers ─────────────────────────────────────────────────────────────
 
@@ -89,6 +101,7 @@ function buildCountdown(appointmentDate: string, startTime: string): string {
     TabPanels,
     TabPanel,
     AppointmentCardComponent,
+    TranslateModule,
   ],
   templateUrl: './my-appointments.component.html',
   styleUrl:    './my-appointments.component.scss',
@@ -102,6 +115,7 @@ export class MyAppointmentsComponent implements OnInit, OnDestroy {
 
   private cancelDialogRef: DynamicDialogRef | null = null;
   private reviewDialogRef: DynamicDialogRef | null = null;
+  private modifyDialogRef: DynamicDialogRef | null = null;
 
   // ── State ────────────────────────────────────────────────────────────────────
   readonly loading = signal(true);
@@ -267,6 +281,51 @@ export class MyAppointmentsComponent implements OnInit, OnDestroy {
         ),
       );
       this.msgSvc.add({ severity: 'success', summary: 'Thank you!', detail: 'Your review has been submitted.', life: 3000 });
+    });
+  }
+
+  // ── Modify flow ──────────────────────────────────────────────────────────────────────
+  openModifyDialog(booking: RichBooking): void {
+    this.modifyDialogRef = this.dialogService.open(ModifyBookingDialogComponent, {
+      header: 'Modify Appointment',
+      width: '480px',
+      closable: true,
+      data: { booking },
+    });
+
+    this.modifyDialogRef?.onClose.subscribe((result: ModifyBookingDialogResult | undefined) => {
+      if (!result) return;
+      this.executeModify(booking, result);
+    });
+  }
+
+  private executeModify(booking: RichBooking, result: ModifyBookingDialogResult): void {
+    const dto = {
+      services: result.services.map((s) => ({
+        serviceId: s._id,
+        name: s.name,
+        price: s.price,
+        durationMinutes: s.duration,
+      })),
+      notes: result.notes,
+    };
+
+    this.bookingService.modifyBooking(booking._id, dto).subscribe({
+      next: (updated) => {
+        this.allBookings.update((list) =>
+          list.map((b) => (b._id === updated._id ? { ...b, ...updated } : b)),
+        );
+        this.msgSvc.add({
+          severity: 'success',
+          summary: 'Updated',
+          detail: 'Your appointment has been modified.',
+          life: 3000,
+        });
+      },
+      error: (err) => {
+        const message: string = err?.error?.message ?? 'Could not modify — please try again.';
+        this.msgSvc.add({ severity: 'error', summary: 'Error', detail: message, life: 5000 });
+      },
     });
   }
 }

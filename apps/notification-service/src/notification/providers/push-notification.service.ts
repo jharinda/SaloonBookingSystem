@@ -5,13 +5,14 @@ import { firstValueFrom } from 'rxjs';
 import * as admin from 'firebase-admin';
 
 import { FCM_PROVIDER } from './fcm.provider';
+import { IPushNotificationService } from '../interfaces/notification-channel.interface';
 
 export interface PushNotificationData {
   [key: string]: string;
 }
 
 @Injectable()
-export class PushNotificationService {
+export class PushNotificationService implements IPushNotificationService {
   private readonly logger = new Logger(PushNotificationService.name);
   private readonly authServiceUrl: string;
 

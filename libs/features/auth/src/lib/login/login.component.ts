@@ -1,4 +1,4 @@
-﻿import {
+import {
   ChangeDetectionStrategy,
   Component,
   inject,
@@ -17,6 +17,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
 import { FloatLabelModule } from 'primeng/floatlabel';
 import { DividerModule } from 'primeng/divider';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { AuthService } from '@org/shared-data-access';
 
@@ -32,8 +33,10 @@ import { AuthService } from '@org/shared-data-access';
     PasswordModule,
     FloatLabelModule,
     DividerModule,
+    TranslateModule,
   ],
   templateUrl: './login.component.html',
+  styles: [`:host { display: block; height: 100%; }`],
 })
 export class LoginComponent {
   private readonly fb          = inject(FormBuilder);

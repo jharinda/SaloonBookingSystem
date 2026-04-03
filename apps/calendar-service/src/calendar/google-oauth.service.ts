@@ -15,7 +15,7 @@ export class GoogleOAuthService {
 
   constructor(
     private readonly config: ConfigService,
-    @InjectModel(GoogleToken.name)
+    @InjectModel(GoogleToken.name, 'calendar')
     private readonly tokenModel: Model<GoogleTokenDocument>,
   ) {
     this.clientId = this.config.getOrThrow<string>('GOOGLE_CLIENT_ID');

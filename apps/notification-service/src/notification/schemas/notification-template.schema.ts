@@ -6,8 +6,7 @@ export type NotificationTemplateDocument = HydratedDocument<NotificationTemplate
 
 @Schema({ timestamps: true })
 export class NotificationTemplate {
-  /** Unique key used to look up the template, e.g. booking_created */
-  @Prop({ required: true, unique: true, type: String, enum: TemplateType })
+  @Prop({ required: true, type: String, enum: TemplateType })
   type: TemplateType;
 
   @Prop({ required: true, type: String, enum: NotificationChannel })
@@ -46,3 +45,6 @@ export class NotificationTemplate {
 
 export const NotificationTemplateSchema =
   SchemaFactory.createForClass(NotificationTemplate);
+
+// Compound unique index: one template per (type, channel) combination
+NotificationTemplateSchema.index({ type: 1, channel: 1 }, { unique: true });

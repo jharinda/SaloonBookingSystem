@@ -7,7 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { ROLES_KEY } from '../decorators/roles.decorator';
-import { UserRole } from '../dto/register.dto';
+import { UserRole } from '@org/shared-auth';
 import { JwtUser } from '../decorators/current-user.decorator';
 
 @Injectable()

@@ -1,8 +1,8 @@
 <div class="datetime-selection">
   <div class="datetime-selection__header">
-    <h2 class="datetime-selection__title">Select Date & Time</h2>
+    <h2 class="datetime-selection__title">{{ 'booking.selectDate' | translate }}</h2>
     <p class="datetime-selection__subtitle">
-      Choose your preferred appointment date and time
+      {{ 'booking.dateTimeSubtitle' | translate }}
     </p>
   </div>
 
@@ -32,13 +32,13 @@
 
       <!-- Weekday headers -->
       <div class="calendar__weekdays">
-        <div class="calendar__weekday">Sun</div>
-        <div class="calendar__weekday">Mon</div>
-        <div class="calendar__weekday">Tue</div>
-        <div class="calendar__weekday">Wed</div>
-        <div class="calendar__weekday">Thu</div>
-        <div class="calendar__weekday">Fri</div>
-        <div class="calendar__weekday">Sat</div>
+        <div class="calendar__weekday">{{ 'calendar.sun' | translate }}</div>
+        <div class="calendar__weekday">{{ 'calendar.mon' | translate }}</div>
+        <div class="calendar__weekday">{{ 'calendar.tue' | translate }}</div>
+        <div class="calendar__weekday">{{ 'calendar.wed' | translate }}</div>
+        <div class="calendar__weekday">{{ 'calendar.thu' | translate }}</div>
+        <div class="calendar__weekday">{{ 'calendar.fri' | translate }}</div>
+        <div class="calendar__weekday">{{ 'calendar.sat' | translate }}</div>
       </div>
 
       <!-- Calendar days grid -->
@@ -65,14 +65,14 @@
     <div class="time-slots">
       @if (selectedDate()) {
         <h3 class="time-slots__title">
-          Available Times
+          {{ 'booking.availableTimes' | translate }}
           <span class="time-slots__date">{{ selectedDate() | date:'EEEE, MMM d' }}</span>
         </h3>
 
         @if (loadingSlots()) {
           <div class="time-slots__loading">
             <p-progressspinner strokeWidth="4" [style]="{width:'40px',height:'40px'}" />
-            <p>Loading available time slots...</p>
+            <p>{{ 'booking.loadingSlots' | translate }}</p>
           </div>
         } @else if (slotsError()) {
           <div class="time-slots__error">
@@ -82,7 +82,7 @@
         } @else if (availableSlots().length === 0) {
           <div class="time-slots__empty">
             <i class="pi pi-calendar-times"></i>
-            <p>No available time slots for this date. Please choose another day.</p>
+            <p>{{ 'booking.noSlotsForDate' | translate }}</p>
           </div>
         } @else {
           <div class="time-slots__grid">
@@ -101,7 +101,7 @@
         <div class="time-slots__placeholder">
           <i class="pi pi-calendar time-slots__placeholder-icon"></i>
           <p class="time-slots__placeholder-text">
-            Select a date to see available time slots
+            {{ 'booking.selectDatePrompt' | translate }}
           </p>
         </div>
       }

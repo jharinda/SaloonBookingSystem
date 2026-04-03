@@ -26,6 +26,9 @@
             <p-tab value="notif">
               <i class="pi pi-bell mr-2"></i>Notifications
             </p-tab>
+            <p-tab value="integrations">
+              <i class="pi pi-link mr-2"></i>Integrations
+            </p-tab>
             <p-tab value="photos">
               <i class="pi pi-images mr-2"></i>Photos
             </p-tab>
@@ -234,6 +237,18 @@
               <div class="pt-4">
                 <p class="text-sm text-zinc-500 mb-4 m-0">Choose which events send you notifications.</p>
 
+                <!-- SMS locked banner -->
+                @if (!hasSms()) {
+                  <div class="flex items-center gap-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 mb-4">
+                    <i class="pi pi-lock text-amber-500 flex-shrink-0"></i>
+                    <span class="text-sm text-amber-800 dark:text-amber-300">
+                      <span class="font-semibold">SMS notifications</span> are not included in your current plan.
+                      {{ smsUpgradeMsg() }}.
+                      <a [routerLink]="'/salon-dashboard/subscription'" class="underline font-semibold ml-1">Upgrade →</a>
+                    </span>
+                  </div>
+                }
+
                 <p-card styleClass="border border-zinc-200 dark:border-zinc-700 shadow-none">
 
                   <!-- Header row -->
@@ -241,7 +256,12 @@
                     <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 w-48">Event</span>
                     <div class="flex gap-8 text-xs font-semibold uppercase tracking-wider text-zinc-400">
                       <span class="w-12 text-center">Email</span>
-                      <span class="w-12 text-center">SMS</span>
+                      <span class="w-12 text-center flex items-center gap-1 justify-center">
+                        SMS
+                        @if (!hasSms()) {
+                          <i class="pi pi-lock text-[10px] text-amber-400"></i>
+                        }
+                      </span>
                     </div>
                   </div>
 
@@ -258,11 +278,14 @@
                             (ngModelChange)="setNotif(row.key, 'email', $event)"
                           />
                         </div>
-                        <div class="w-12 flex justify-center">
+                        <div class="w-12 flex justify-center relative">
                           @if (row.hasSms) {
                             <p-toggleSwitch
-                              [ngModel]="notif()[row.key].sms"
-                              (ngModelChange)="setNotif(row.key, 'sms', $event)"
+                              [ngModel]="notif()[row.key].sms && hasSms()"
+                              (ngModelChange)="hasSms() && setNotif(row.key, 'sms', $event)"
+                              [disabled]="!hasSms()"
+                              [pTooltip]="!hasSms() ? smsUpgradeMsg() : ''"
+                              tooltipPosition="left"
                             />
                           } @else {
                             <span class="text-xs text-zinc-300 self-center">—</span>
@@ -273,6 +296,174 @@
                   }
 
                 </p-card>
+              </div>
+            </p-tabpanel>
+
+            <!-- ── TAB 4: INTEGRATIONS ───────────────────────────────── -->
+            <p-tabpanel value="integrations">
+              <div class="pt-4 flex flex-col gap-5">
+                <p class="text-sm text-zinc-500 m-0">Connect third-party services to enhance your salon workflow.</p>
+
+                <!-- Google Calendar -->
+                <div class="border rounded-xl overflow-hidden"
+                     [class]="hasGoogleCal() ? 'border-zinc-200 dark:border-zinc-700' : 'border-zinc-200 dark:border-zinc-700 opacity-75'">
+                  <div class="flex items-start justify-between gap-4 p-5">
+                    <div class="flex items-start gap-4">
+                      <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950 flex items-center justify-center flex-shrink-0">
+                        <i class="pi pi-calendar text-blue-500 text-lg"></i>
+                      </div>
+                      <div>
+                        <div class="flex items-center gap-2 mb-1">
+                          <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 m-0">Google Calendar Sync</h3>
+                          @if (!hasGoogleCal()) {
+                            <span class="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-amber-600 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                              <i class="pi pi-lock text-[9px]"></i>Locked
+                            </span>
+                          }
+                        </div>
+                        <p class="text-xs text-zinc-500 m-0">
+                          Automatically sync confirmed bookings to your Google Calendar. Clients also get calendar invites.
+                        </p>
+                      </div>
+                    </div>
+                    @if (hasGoogleCal()) {
+                      <p-button
+                        label="Connect"
+                        icon="pi pi-link"
+                        size="small"
+                        [outlined]="true"
+                        styleClass="flex-shrink-0"
+                      />
+                    } @else {
+                      <p-button
+                        label="Upgrade"
+                        icon="pi pi-lock"
+                        size="small"
+                        severity="secondary"
+                        [outlined]="true"
+                        styleClass="flex-shrink-0"
+                        [routerLink]="'/salon-dashboard/subscription'"
+                        [pTooltip]="googleCalUpgradeMsg()"
+                        tooltipPosition="left"
+                      />
+                    }
+                  </div>
+                  @if (!hasGoogleCal()) {
+                    <div class="bg-amber-50 dark:bg-amber-950/50 border-t border-amber-100 dark:border-amber-900 px-5 py-2.5">
+                      <p class="text-xs text-amber-700 dark:text-amber-400 m-0">
+                        {{ googleCalUpgradeMsg() }} to connect Google Calendar.
+                      </p>
+                    </div>
+                  }
+                </div>
+
+                <!-- WhatsApp -->
+                <div class="border rounded-xl overflow-hidden"
+                     [class]="hasWhatsApp() ? 'border-zinc-200 dark:border-zinc-700' : 'border-zinc-200 dark:border-zinc-700 opacity-75'">
+                  <div class="flex items-start justify-between gap-4 p-5">
+                    <div class="flex items-start gap-4">
+                      <div class="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-950 flex items-center justify-center flex-shrink-0">
+                        <i class="pi pi-whatsapp text-green-500 text-lg"></i>
+                      </div>
+                      <div>
+                        <div class="flex items-center gap-2 mb-1">
+                          <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 m-0">WhatsApp integration</h3>
+                          @if (!hasWhatsApp()) {
+                            <span class="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-amber-600 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                              <i class="pi pi-lock text-[9px]"></i>Locked
+                            </span>
+                          }
+                        </div>
+                        <p class="text-xs text-zinc-500 m-0">
+                          Send automated booking confirmations, reminders, and updates to clients via WhatsApp Business.
+                        </p>
+                      </div>
+                    </div>
+                    @if (hasWhatsApp()) {
+                      <p-button
+                        label="Configure"
+                        icon="pi pi-cog"
+                        size="small"
+                        [outlined]="true"
+                        styleClass="flex-shrink-0"
+                      />
+                    } @else {
+                      <p-button
+                        label="Upgrade"
+                        icon="pi pi-lock"
+                        size="small"
+                        severity="secondary"
+                        [outlined]="true"
+                        styleClass="flex-shrink-0"
+                        [routerLink]="'/salon-dashboard/subscription'"
+                        [pTooltip]="whatsAppUpgradeMsg()"
+                        tooltipPosition="left"
+                      />
+                    }
+                  </div>
+                  @if (!hasWhatsApp()) {
+                    <div class="bg-amber-50 dark:bg-amber-950/50 border-t border-amber-100 dark:border-amber-900 px-5 py-2.5">
+                      <p class="text-xs text-amber-700 dark:text-amber-400 m-0">
+                        {{ whatsAppUpgradeMsg() }}.
+                      </p>
+                    </div>
+                  }
+                </div>
+
+                <!-- Instagram -->
+                <div class="border rounded-xl overflow-hidden"
+                     [class]="hasInstagram() ? 'border-zinc-200 dark:border-zinc-700' : 'border-zinc-200 dark:border-zinc-700 opacity-75'">
+                  <div class="flex items-start justify-between gap-4 p-5">
+                    <div class="flex items-start gap-4">
+                      <div class="w-10 h-10 rounded-xl bg-pink-50 dark:bg-pink-950 flex items-center justify-center flex-shrink-0">
+                        <i class="pi pi-instagram text-pink-600 text-lg"></i>
+                      </div>
+                      <div>
+                        <div class="flex items-center gap-2 mb-1">
+                          <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 m-0">Instagram integration</h3>
+                          @if (!hasInstagram()) {
+                            <span class="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-amber-600 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                              <i class="pi pi-lock text-[9px]"></i>Locked
+                            </span>
+                          }
+                        </div>
+                        <p class="text-xs text-zinc-500 m-0">
+                          Receive and reply to client DMs from your connected Instagram Business account (chat service).
+                        </p>
+                      </div>
+                    </div>
+                    @if (hasInstagram()) {
+                      <p-button
+                        label="Configure"
+                        icon="pi pi-cog"
+                        size="small"
+                        [outlined]="true"
+                        styleClass="flex-shrink-0"
+                        [routerLink]="'/chat'"
+                      />
+                    } @else {
+                      <p-button
+                        label="Upgrade"
+                        icon="pi pi-lock"
+                        size="small"
+                        severity="secondary"
+                        [outlined]="true"
+                        styleClass="flex-shrink-0"
+                        [routerLink]="'/salon-dashboard/subscription'"
+                        [pTooltip]="instagramUpgradeMsg()"
+                        tooltipPosition="left"
+                      />
+                    }
+                  </div>
+                  @if (!hasInstagram()) {
+                    <div class="bg-amber-50 dark:bg-amber-950/50 border-t border-amber-100 dark:border-amber-900 px-5 py-2.5">
+                      <p class="text-xs text-amber-700 dark:text-amber-400 m-0">
+                        {{ instagramUpgradeMsg() }}.
+                      </p>
+                    </div>
+                  }
+                </div>
+
               </div>
             </p-tabpanel>
 

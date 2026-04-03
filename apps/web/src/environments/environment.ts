@@ -1,5 +1,7 @@
 export const environment = {
   production: false,
+  /** Sentry browser DSN (optional; only used when building with production config). */
+  sentryDsn: '',
   /**
    * All Angular HTTP calls are routed through the API Gateway.
    * In development the gateway runs on port 3000.

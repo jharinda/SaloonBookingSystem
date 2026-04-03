@@ -3,6 +3,8 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   DestroyRef,
+  ElementRef,
+  HostListener,
   OnInit,
   signal,
   computed,
@@ -12,8 +14,9 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { filter } from 'rxjs';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs';
+import { BreakpointObserver } from '@angular/cdk/layout';
 
 import { Button } from 'primeng/button';
 import { TableModule } from 'primeng/table';
@@ -25,6 +28,7 @@ import { Toolbar } from 'primeng/toolbar';
 import { SelectButton } from 'primeng/selectbutton';
 import { DialogModule } from 'primeng/dialog';
 import { TooltipModule } from 'primeng/tooltip';
+import { ProgressSpinner } from 'primeng/progressspinner';
 import { MessageService } from 'primeng/api';
 
 import { FullCalendarModule, FullCalendarComponent } from '@fullcalendar/angular';
@@ -38,9 +42,13 @@ import { SalonAdminService, Station, SalonStaffMember, AppCurrencyPipe, Realtime
 import type { StylistBreakDto } from '@org/shared-data-access';
 import { CalendarGridComponent, CalendarColumn } from '@org/shared-ui';
 import { CreateAppointmentDialogComponent, CreateAppointmentContext } from './create-appointment-dialog.component';
+import { SalonAppointmentsAllComponent } from './salon-appointments-all.component';
 
+type PageSection = 'calendar' | 'appointments';
 type ViewMode = 'day' | 'week' | 'month' | 'list';
 type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
+/** Sentinel placed in grid slots that are covered by a multi-slot booking */
+type GridCell = Booking | 'occupied' | null;
 
 @Component({
   selector: 'lib-appointments',
@@ -59,30 +67,93 @@ type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contr
     SelectButton,
     DialogModule,
     TooltipModule,
+    ProgressSpinner,
     AppCurrencyPipe,
     CalendarGridComponent,
     CreateAppointmentDialogComponent,
     FullCalendarModule,
+    SalonAppointmentsAllComponent,
   ],
   providers: [MessageService],
   templateUrl: './appointments.component.html',
   styleUrl: './appointments.component.scss',
 })
 export class AppointmentsComponent implements OnInit {
-  private readonly fullCalendarRef = viewChild(FullCalendarComponent);
+  private readonly fullCalendarRef    = viewChild(FullCalendarComponent);
 
-  private readonly salonService = inject(SalonAdminService);
-  private readonly messageService = inject(MessageService);
-  private readonly realtimeSvc = inject(RealtimeNotificationService);
-  private readonly destroyRef = inject(DestroyRef);
-  private readonly cdr = inject(ChangeDetectorRef);
-  private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+  private readonly salonService       = inject(SalonAdminService);
+  private readonly messageService     = inject(MessageService);
+  private readonly realtimeSvc        = inject(RealtimeNotificationService);
+  private readonly destroyRef         = inject(DestroyRef);
+  private readonly cdr                = inject(ChangeDetectorRef);
+  private readonly route              = inject(ActivatedRoute);
+  private readonly router             = inject(Router);
+  private readonly el                 = inject(ElementRef);
+  private readonly breakpointObserver = inject(BreakpointObserver);
+
+  readonly isMobile = toSignal(
+    this.breakpointObserver.observe('(max-width: 767px)').pipe(map((r) => r.matches)),
+    { initialValue: false },
+  );
+
+  /** Pull-to-refresh state */
+  readonly isRefreshing = signal(false);
+  private _touchStartY = 0;
+
+  @HostListener('touchstart', ['$event'])
+  onTouchStart(e: TouchEvent): void {
+    this._touchStartY = e.touches[0].clientY;
+  }
+
+  @HostListener('touchend', ['$event'])
+  onTouchEnd(e: TouchEvent): void {
+    if (!this.isMobile()) return;
+    const container = this.el.nativeElement as HTMLElement;
+    if (container.scrollTop > 0) return; // only trigger when at top
+    const dy = e.changedTouches[0].clientY - this._touchStartY;
+    if (dy > 70) this.triggerRefresh();
+  }
+
+  private triggerRefresh(): void {
+    if (this.isRefreshing()) return;
+    this.isRefreshing.set(true);
+    this.loadData();
+    setTimeout(() => this.isRefreshing.set(false), 1200);
+  }
+
+  /** Sorted bookings for the selected day — used by mobile timeline. */
+  timelineBookings = computed(() =>
+    this.filteredBookings().slice().sort((a, b) => a.startTime.localeCompare(b.startTime)),
+  );
+
+  /** Open create-appointment dialog with no pre-filled slot (FAB / walk-in). */
+  openCreateNow(): void {
+    this.createAppointmentContext.set({
+      time: '',
+      stationId: '',
+      stationName: '',
+      date: this.selectedDate(),
+    });
+    this.showCreateDialog.set(true);
+  }
 
   /** Consumed when opening the drawer from `?bookingId=` (e.g. notification deep link). */
   private pendingBookingId: string | null = null;
 
   // ── State ────────────────────────────────────────────────────────────────
+  pageSection = signal<PageSection>('calendar');
+  /** Bumps when list view should reload after a booking mutation */
+  appointmentsListRefresh = signal(0);
+
+  private bumpAppointmentsListRefresh(): void {
+    this.appointmentsListRefresh.update((n) => n + 1);
+  }
+
+  pageSectionOptions = [
+    { label: 'Calendar', value: 'calendar' as const, icon: 'pi pi-calendar' },
+    { label: 'Appointments', value: 'appointments' as const, icon: 'pi pi-list' },
+  ];
+
   viewMode = signal<ViewMode>('day');
   bookings = signal<Booking[]>([]);
   breaks = signal<StylistBreakDto[]>([]);
@@ -108,10 +179,22 @@ export class AppointmentsComponent implements OnInit {
     { label: 'List', value: 'list', icon: 'pi pi-list' },
   ];
 
+  selectedStylistId = signal<string | null>(null);
+
   // ── Station filter options ───────────────────────────────────────────────
   stationFilterOptions = computed(() => {
     const active = this.stations().filter((s) => s.isActive);
     return [{ _id: null as string | null, name: 'All Stations', isActive: true }, ...active];
+  });
+
+  // ── Stylist filter options ───────────────────────────────────────────────
+  stylistFilterOptions = computed(() => {
+    const all = { _id: null as string | null, label: 'All Stylists' };
+    const options = this.staffMembers().map((s) => ({
+      _id: s._id,
+      label: `${s.firstName} ${s.lastName}`,
+    }));
+    return [all, ...options];
   });
 
   // ── Stylist name map ─────────────────────────────────────────────────────
@@ -135,16 +218,18 @@ export class AppointmentsComponent implements OnInit {
     return stations.map((s) => ({ id: s._id, name: s.name }));
   });
 
-  // ── Filtered bookings (by date + optional station) ───────────────────────
+  // ── Filtered bookings (by date + optional station + optional stylist) ────
   filteredBookings = computed(() => {
     const bookings = this.bookings();
     const selectedDate = this.selectedDate();
     const dateStr = this._fmtDate(selectedDate);
     const stationId = this.selectedStationId();
+    const stylistId = this.selectedStylistId();
 
     return bookings.filter((b) => {
       if (b.appointmentDate !== dateStr) return false;
       if (stationId && b.stationId !== stationId) return false;
+      if (stylistId && b.stylistId !== stylistId) return false;
       return true;
     });
   });
@@ -158,24 +243,38 @@ export class AppointmentsComponent implements OnInit {
       ? this.activeStations().filter((s) => s._id === stationId)
       : this.activeStations();
 
-    // Time slots from 8 AM to 8 PM in 30-min intervals (matching stylist)
+    // Time slots from 8 AM to 8 PM in 30-min intervals
     const timeSlots: string[] = [];
     for (let hour = 8; hour < 20; hour++) {
       timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
       timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
     }
 
-    const grid: { [time: string]: { [stationId: string]: Booking | null } } = {};
+    const grid: { [time: string]: { [stationId: string]: GridCell } } = {};
 
+    // Initialise every cell to null
     timeSlots.forEach((time) => {
       grid[time] = {};
-      stations.forEach((station) => {
-        const booking = bookings.find(
-          (b) => b.stationId === station._id && b.startTime === time,
-        );
-        grid[time][station._id] = booking || null;
-      });
+      stations.forEach((station) => { grid[time][station._id] = null; });
     });
+
+    // Place each booking and mark the slots it occupies so empty cells
+    // are not rendered on top of the booking's CSS span.
+    for (const booking of bookings) {
+      const sid = booking.stationId;
+      if (!sid || !grid[booking.startTime]) continue;
+      const startIdx = timeSlots.indexOf(booking.startTime);
+      if (startIdx === -1) continue;
+
+      const duration = booking.services.reduce((sum, s) => sum + s.durationMinutes, 0);
+      const span = Math.max(1, Math.ceil(duration / 30));
+
+      grid[booking.startTime][sid] = booking;
+      for (let i = 1; i < span; i++) {
+        const slot = timeSlots[startIdx + i];
+        if (slot !== undefined && grid[slot]) grid[slot][sid] = 'occupied';
+      }
+    }
 
     return { grid, timeSlots, stations };
   });
@@ -198,8 +297,13 @@ export class AppointmentsComponent implements OnInit {
   fullCalendarOptions = computed<CalendarOptions>(() => {
     const mode = this.viewMode();
     const initialView = mode === 'month' ? 'dayGridMonth' : 'timeGridWeek';
-    const allBookings = this.bookings();
-    const allBreaks = this.breaks();
+    const stylistId = this.selectedStylistId();
+    const allBookings = stylistId
+      ? this.bookings().filter((b) => b.stylistId === stylistId)
+      : this.bookings();
+    const allBreaks = stylistId
+      ? this.breaks().filter((brk) => brk.stylistId === stylistId)
+      : this.breaks();
     const d = this.selectedDate();
     const initialDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
@@ -282,6 +386,10 @@ export class AppointmentsComponent implements OnInit {
   // ── Lifecycle ────────────────────────────────────────────────────────────
   ngOnInit(): void {
     this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const section = params['section'];
+      if (section === 'appointments' || section === 'calendar') {
+        this.pageSection.set(section);
+      }
       const id = params['bookingId'] ?? null;
       if (!id || !this.salonId) return;
       this.pendingBookingId = id;
@@ -289,12 +397,16 @@ export class AppointmentsComponent implements OnInit {
     });
 
     this.loading.set(true);
-    this.salonService.getOwnSalon().subscribe({
+    this.salonService.getDashboardSalon().subscribe({
       next: (salon) => {
         this.salonId = salon._id;
         this.salon.set(salon);
         this.loadStations();
         this.loadStaff();
+        const section = this.route.snapshot.queryParamMap.get('section');
+        if (section === 'appointments' || section === 'calendar') {
+          this.pageSection.set(section);
+        }
         const bookingId = this.route.snapshot.queryParamMap.get('bookingId');
         if (bookingId) {
           this.pendingBookingId = bookingId;
@@ -322,8 +434,22 @@ export class AppointmentsComponent implements OnInit {
       .subscribe(() => {
         if (this.salonId) {
           this.loadData();
+          this.bumpAppointmentsListRefresh();
         }
       });
+  }
+
+  onPageSectionChange(section: PageSection): void {
+    this.pageSection.set(section);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { section },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    if (section === 'calendar') {
+      this.loadData();
+    }
   }
 
   /** Resolve `?bookingId=` after salon is known (notification deep link). */
@@ -331,6 +457,7 @@ export class AppointmentsComponent implements OnInit {
     const id = this.pendingBookingId ?? this.route.snapshot.queryParamMap.get('bookingId');
     if (!id || !this.salonId) return;
     this.pendingBookingId = null;
+    this.pageSection.set('calendar');
     this.loading.set(true);
     const start = new Date();
     start.setDate(start.getDate() - 90);
@@ -377,7 +504,7 @@ export class AppointmentsComponent implements OnInit {
 
   // ── Data Loading ─────────────────────────────────────────────────────────
   loadData(): void {
-    if (!this.salonId) return;
+    if (!this.salonId || this.pageSection() !== 'calendar') return;
     this.loading.set(true);
 
     const mode = this.viewMode();
@@ -488,9 +615,13 @@ export class AppointmentsComponent implements OnInit {
     queueMicrotask(() => api.updateSize());
   }
 
-  // ── Station Filter ───────────────────────────────────────────────────────
+  // ── Station / Stylist Filters ─────────────────────────────────────────────
   onStationFilterChange(stationId: string | null): void {
     this.selectedStationId.set(stationId);
+  }
+
+  onStylistFilterChange(stylistId: string | null): void {
+    this.selectedStylistId.set(stylistId);
   }
 
   // ── Booking Details Drawer ───────────────────────────────────────────────
@@ -516,6 +647,7 @@ export class AppointmentsComponent implements OnInit {
         );
         this.messageService.add({ severity: 'success', summary: 'Success', detail: 'Booking confirmed' });
         this.closeBookingDetails();
+        this.bumpAppointmentsListRefresh();
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to confirm booking' });
@@ -534,6 +666,7 @@ export class AppointmentsComponent implements OnInit {
         );
         this.messageService.add({ severity: 'success', summary: 'Success', detail: 'Booking completed' });
         this.closeBookingDetails();
+        this.bumpAppointmentsListRefresh();
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to complete booking' });
@@ -552,6 +685,7 @@ export class AppointmentsComponent implements OnInit {
         );
         this.messageService.add({ severity: 'success', summary: 'Success', detail: 'Marked as no-show' });
         this.closeBookingDetails();
+        this.bumpAppointmentsListRefresh();
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to update booking' });
@@ -575,6 +709,7 @@ export class AppointmentsComponent implements OnInit {
           summary: 'Success',
           detail: `Reassigned to ${station?.name ?? 'station'}`,
         });
+        this.bumpAppointmentsListRefresh();
       },
       error: () => {
         this.messageService.add({ severity: 'error', summary: 'Error', detail: 'Failed to reassign station' });
@@ -623,17 +758,32 @@ export class AppointmentsComponent implements OnInit {
 
   // ── Slot Click (empty calendar cell) → open Create Appointment dialog ────
   onEmptySlotClick(time: string, station: { _id: string; name: string }): void {
+    const slotDate = this.selectedDate();
+    const [h, m] = time.split(':').map(Number);
+    const slotDateTime = new Date(slotDate.getFullYear(), slotDate.getMonth(), slotDate.getDate(), h, m, 0, 0);
+
+    if (slotDateTime < new Date()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Past Time Slot',
+        detail: 'You cannot create an appointment for a time that has already passed.',
+        life: 4000,
+      });
+      return;
+    }
+
     this.createAppointmentContext.set({
       time,
       stationId: station._id,
       stationName: station.name,
-      date: this.selectedDate(),
+      date: slotDate,
     });
     this.showCreateDialog.set(true);
   }
 
   onAppointmentCreated(): void {
     this.loadData();
+    this.bumpAppointmentsListRefresh();
     this.messageService.add({
       severity: 'success',
       summary: 'Success',
@@ -687,7 +837,20 @@ export class AppointmentsComponent implements OnInit {
 
   getBookingRowSpan(booking: Booking): number {
     const duration = this.getBookingDuration(booking);
-    return Math.ceil(duration / 30);
+    return Math.max(1, Math.ceil(duration / 30));
+  }
+
+  /** Fractional number of 30-min slots the booking actually fills (for CSS height). */
+  getBookingSlots(booking: Booking): number {
+    return this.getBookingDuration(booking) / 30;
+  }
+
+  isCompactBooking(booking: Booking): boolean {
+    return this.getBookingDuration(booking) < 30;
+  }
+
+  getBookingTooltip(booking: Booking): string {
+    return `${booking.clientName} · ${booking.serviceName}${booking.stylistName ? ' · ' + booking.stylistName : ''} · ${booking.startTime}–${booking.endTime} · ${booking.status}`;
   }
 
   private _fmtDate(d: Date): string {

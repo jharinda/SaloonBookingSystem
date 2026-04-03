@@ -15,6 +15,15 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiExcludeEndpoint,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
@@ -25,7 +34,8 @@ interface AuthenticatedRequest extends Request {
 }
 
 import { AuthService } from './auth.service';
-import { RegisterDto, UserRole } from './dto/register.dto';
+import { RegisterDto } from './dto/register.dto';
+import { UserRole } from '@org/shared-auth';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -59,6 +69,8 @@ class ResendVerificationDto {
 const REFRESH_COOKIE = 'refresh_token';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+@ApiTags('auth')
+@ApiBearerAuth('JWT')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -66,6 +78,8 @@ export class AuthController {
     private readonly configService: ConfigService,
   ) {}
 
+  @ApiOperation({ summary: 'Register new account' })
+  @ApiResponse({ status: 201, description: 'User and access token; refresh cookie set' })
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -78,6 +92,8 @@ export class AuthController {
     return body;
   }
 
+  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiResponse({ status: 200, description: 'User and access token; refresh cookie set' })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -90,6 +106,8 @@ export class AuthController {
     return body;
   }
 
+  @ApiOperation({ summary: 'Refresh access token (refresh cookie)' })
+  @ApiResponse({ status: 200, description: 'New access token' })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Req() req: Request): Promise<RefreshResponseDto> {
@@ -101,6 +119,8 @@ export class AuthController {
     return this.authService.refreshToken(token);
   }
 
+  @ApiOperation({ summary: 'Logout (clears refresh cookie)' })
+  @ApiResponse({ status: 204, description: 'Logged out' })
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
@@ -121,6 +141,8 @@ export class AuthController {
     await this.authService.forgotPassword(dto);
   }
 
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiResponse({ status: 204, description: 'Password updated' })
   @Post('reset-password')
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
@@ -128,6 +150,9 @@ export class AuthController {
     await this.authService.resetPassword(dto);
   }
 
+  @ApiOperation({ summary: 'Verify email address' })
+  @ApiQuery({ name: 'token', required: true })
+  @ApiResponse({ status: 200, description: 'Verification result' })
   @Get('verify-email')
   @HttpCode(HttpStatus.OK)
   async verifyEmail(@Query('token') token: string): Promise<{ message: string }> {
@@ -137,6 +162,8 @@ export class AuthController {
     return this.authService.verifyEmail(token);
   }
 
+  @ApiOperation({ summary: 'Resend email verification' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 60000 } })
@@ -146,6 +173,7 @@ export class AuthController {
 
   // ── Internal user lookup (consumed by other microservices) ─────────────────
 
+  @ApiExcludeEndpoint()
   @Get('users/:id')
   async getUser(
     @Param('id') id: string,
@@ -163,6 +191,8 @@ export class AuthController {
   /** Step 1: Set intent cookie then hand off to Passport.
    *  Using a pre-route lets us record login vs register intent before Google
    *  redirects away — the Passport guard runs on the next route below. */
+  @ApiOperation({ summary: 'Google OAuth: set intent cookie and redirect' })
+  @ApiQuery({ name: 'intent', required: false, enum: ['login', 'register'] })
   @Get('google/init')
   googleInit(
     @Query('intent') intent = 'register',
@@ -176,6 +206,7 @@ export class AuthController {
     res.redirect('/api/auth/google');
   }
 
+  @ApiOperation({ summary: 'Google OAuth redirect to Google' })
   @Get('google')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard('google'))
@@ -183,6 +214,7 @@ export class AuthController {
     // Passport redirects to Google — no body needed
   }
 
+  @ApiOperation({ summary: 'Google OAuth callback (redirect)' })
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleCallback(
@@ -211,6 +243,8 @@ export class AuthController {
     res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}`);
   }
 
+  @ApiOperation({ summary: 'Complete Google registration with role' })
+  @ApiResponse({ status: 200, description: 'User and tokens' })
   @Post('google/complete')
   @HttpCode(HttpStatus.OK)
   async completeGoogleRegistration(
@@ -227,6 +261,9 @@ export class AuthController {
 
   // ── Stylist join request endpoints ─────────────────────────────────────
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Request to join a salon (stylist)' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Post('stylist/join-request')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -238,6 +275,10 @@ export class AuthController {
     return this.authService.createJoinRequest(user.sub, dto.salonId, dto.message);
   }
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'List join requests for owner salons' })
+  @ApiQuery({ name: 'salonId', required: false })
+  @ApiResponse({ status: 200, description: 'Join requests' })
   @Get('stylist/join-requests')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -249,6 +290,10 @@ export class AuthController {
     return this.authService.getStylistJoinRequests(user.sub, salonId);
   }
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Approve stylist join request' })
+  @ApiParam({ name: 'stylistId' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Patch('stylist/join-requests/:stylistId/approve')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -259,6 +304,10 @@ export class AuthController {
     return this.authService.approveJoinRequest(stylistId);
   }
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Reject stylist join request' })
+  @ApiParam({ name: 'stylistId' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Patch('stylist/join-requests/:stylistId/reject')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -269,6 +318,10 @@ export class AuthController {
     return this.authService.rejectJoinRequest(stylistId);
   }
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'List staff for a salon (public)' })
+  @ApiParam({ name: 'salonId' })
+  @ApiResponse({ status: 200, description: 'Staff list' })
   @Get('salons/:salonId/staff')
   @HttpCode(HttpStatus.OK)
   async getSalonStaff(
@@ -279,6 +332,9 @@ export class AuthController {
 
   // ── Salon-owner invitation endpoints ───────────────────────────────────
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Invite stylist to salon' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Post('salon/invite-stylist')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -290,6 +346,10 @@ export class AuthController {
     return this.authService.inviteStylist(user.sub, dto.stylistId, dto.salonId, dto.salonName);
   }
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Sent invitations for a salon' })
+  @ApiParam({ name: 'salonId' })
+  @ApiResponse({ status: 200, description: 'Invitations' })
   @Get('salon/:salonId/sent-invitations')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -309,6 +369,9 @@ export class AuthController {
     return this.authService.getSalonSentInvitations(salonId);
   }
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Pending salon invitations for stylist' })
+  @ApiResponse({ status: 200, description: 'Invitations' })
   @Get('stylist/invitations')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -319,6 +382,10 @@ export class AuthController {
     return this.authService.getStylistInvitations(user.sub);
   }
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Accept salon invitation' })
+  @ApiParam({ name: 'salonId' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Patch('stylist/invitations/:salonId/accept')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -330,6 +397,10 @@ export class AuthController {
     return this.authService.acceptInvitation(user.sub, salonId);
   }
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Reject salon invitation' })
+  @ApiParam({ name: 'salonId' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Patch('stylist/invitations/:salonId/reject')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -343,6 +414,9 @@ export class AuthController {
 
   // ── Stylist profile update ─────────────────────────────────────────────
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Update stylist profile' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Patch('stylist/profile')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -356,6 +430,7 @@ export class AuthController {
 
   // ── Stylist portfolio endpoints ────────────────────────────────────────
 
+  @ApiExcludeEndpoint()
   @Patch('users/:stylistId/portfolio-review')
   @HttpCode(HttpStatus.OK)
   async addPortfolioReview(
@@ -370,6 +445,10 @@ export class AuthController {
     return this.authService.addPortfolioReview(stylistId, dto);
   }
 
+  @ApiTags('stylists')
+  @ApiOperation({ summary: 'Get stylist portfolio (public)' })
+  @ApiParam({ name: 'id', description: 'Stylist user id' })
+  @ApiResponse({ status: 200, description: 'Portfolio' })
   @Get('stylists/:id/portfolio')
   @HttpCode(HttpStatus.OK)
   async getStylistPortfolio(@Param('id') id: string): Promise<StylistPortfolioResponseDto> {
@@ -378,6 +457,8 @@ export class AuthController {
 
   // ── FCM Token Management ──────────────────────────────────────────────────
 
+  @ApiOperation({ summary: 'Register FCM device token' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Post('fcm-token')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
@@ -388,6 +469,8 @@ export class AuthController {
     return this.authService.addFcmToken(user.sub, dto.token, dto.device);
   }
 
+  @ApiOperation({ summary: 'Remove FCM device token' })
+  @ApiResponse({ status: 200, description: 'Result message' })
   @Delete('fcm-token')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
@@ -402,6 +485,7 @@ export class AuthController {
    * Internal endpoint for notification-service to fetch user FCM tokens.
    * No JWT required — network-only access.
    */
+  @ApiExcludeEndpoint()
   @Get('users/:userId/fcm-tokens')
   @HttpCode(HttpStatus.OK)
   async getFcmTokens(@Param('userId') userId: string): Promise<FcmTokensResponseDto> {

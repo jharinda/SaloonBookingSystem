@@ -13,6 +13,10 @@
 }
 
 .zoom-label {
+  margin: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--p-surface-500);
@@ -28,6 +32,53 @@
     background: var(--p-surface-100);
     color: var(--p-primary-500);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--p-primary-500);
+    outline-offset: 2px;
+  }
+}
+
+/* ── Grid + Now-indicator wrapper ─────────────────────────────────────── */
+.calendar-grid-wrapper {
+  position: relative;
+}
+
+/* ── Now-indicator ────────────────────────────────────────────────────── */
+.now-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #ef4444;
+  z-index: 20;
+  pointer-events: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ef4444;
+  }
+}
+
+.now-indicator-time {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: var(--p-surface-0);
+  padding: 0 3px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 /* ── Grid Layout ──────────────────────────────────────────────────────── */
@@ -69,7 +120,7 @@
 
 .time-cell {
   background: var(--p-primary-50);
-  padding: 0.5rem;
+  padding: 0.25rem 0.5rem;
   text-align: center;
   font-size: 0.875rem;
   font-weight: 500;
@@ -77,8 +128,25 @@
   border-right: 2px solid var(--p-surface-200);
   min-height: var(--row-height, 44px);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0;
+  position: relative;
+}
+
+.time-label {
+  line-height: 1.2;
+}
+
+/* Sub-time label shown when zoomed ≥ 1.5× */
+.sub-time-label {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--p-surface-400);
+  opacity: 0.7;
+  line-height: 1;
+  margin-top: 2px;
 }
 
 /* ── Loading / Empty ──────────────────────────────────────────────────── */
@@ -133,6 +201,14 @@
 
 /* ── Dark Mode ────────────────────────────────────────────────────────── */
 :host-context(.app-dark) {
+  .now-indicator-time {
+    background: var(--p-surface-900);
+  }
+
+  .sub-time-label {
+    color: var(--p-surface-500);
+  }
+
   .time-cell {
     background: var(--p-surface-800);
     color: var(--p-surface-400);

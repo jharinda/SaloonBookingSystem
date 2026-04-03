@@ -59,18 +59,21 @@ export const authInterceptor: HttpInterceptorFn = (
       // same time (e.g. two parallel calls on page init), only ONE refresh
       // HTTP request is issued and all retries receive the same new token.
       return authService.ensureFreshToken().pipe(
-        switchMap((res) => {
-          // Retry original request with the fresh token
-          return next(attachToken(req, res.accessToken));
-        }),
         catchError((refreshError: unknown) => {
-          // Refresh failed — clear the token locally and redirect to login.
-          // We deliberately avoid calling authService.logout() here because
-          // that would send a new HTTP request which would also get a 401,
-          // creating a circular request loop.
+          // The REFRESH itself failed — clear the token locally and redirect
+          // to login.  We deliberately avoid calling authService.logout()
+          // here because that would send a new HTTP request which would also
+          // get a 401, creating a circular request loop.
           authService.clearToken();
           void router.navigate(['/auth', 'login']);
           return throwError(() => refreshError);
+        }),
+        switchMap((res) => {
+          // Retry the original request with the fresh token.  Any error from
+          // the retry (404, 500, …) is propagated naturally to the caller —
+          // we must NOT clear the token here because the user is still
+          // authenticated; only the specific downstream request failed.
+          return next(attachToken(req, res.accessToken));
         }),
       );
     }),

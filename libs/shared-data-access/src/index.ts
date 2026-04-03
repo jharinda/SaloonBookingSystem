@@ -6,7 +6,7 @@ export { SalonService } from './lib/services/salon.service';
 export type { SearchParams, SalonStaffDto } from './lib/services/salon.service';
 
 export { BookingService } from './lib/services/booking.service';
-export type { CreateBookingDto, CancelBookingDto } from './lib/services/booking.service';
+export type { CreateBookingDto, CancelBookingDto, ModifyBookingDto, ClientAnalytics } from './lib/services/booking.service';
 
 export { CalendarService } from './lib/services/calendar.service';
 export type { CalendarAuthUrlResponse } from './lib/services/calendar.service';
@@ -14,13 +14,41 @@ export type { CalendarAuthUrlResponse } from './lib/services/calendar.service';
 export { ReviewService } from './lib/services/review.service';
 export type { CreateReviewDto, UploadReviewImageResult } from '@org/models';
 
-export { SalonAdminService } from './lib/services/salon-admin.service';
-export type { AddServiceDto, UpdateOperatingHoursDto, CreateSalonDto, CreateSalonAddressDto, UpdateSalonInfoDto, SalonImage, UploadImageResult, Station, SalonStaffMember, StylistSearchResult, ClientSearchResult, CreateManualBookingDto, JoinRequestDto, SentInvitationDto } from './lib/services/salon-admin.service';
+export { SalonAdminService, SALON_DASHBOARD_BRANCH_ID_KEY } from './lib/services/salon-admin.service';
+export type {
+  AddServiceDto,
+  UpdateOperatingHoursDto,
+  CreateSalonDto,
+  CreateSalonAddressDto,
+  UpdateSalonInfoDto,
+  SalonImage,
+  UploadImageResult,
+  Station,
+  SalonStaffMember,
+  StylistSearchResult,
+  ClientSearchResult,
+  CreateManualBookingDto,
+  JoinRequestDto,
+  SentInvitationDto,
+  StaffAnalyticsResponse,
+  StaffAnalyticsItem,
+  FranchiseOverview,
+} from './lib/services/salon-admin.service';
+
+export type { PaginatedBookingsPage } from './lib/types/paginated-bookings';
 
 export { UserService } from './lib/services/user.service';
 export type { SalonInvitationDto } from './lib/services/user.service';
 export type { UpdateStylistProfileDto, SpecialtyDto } from './lib/services/user.service';
 export type { StylistBreakDto, CreateStylistBreakPayload, BreakType } from './lib/services/user.service';
+
+export { FavoritesService } from './lib/services/favorites.service';
+
+export { WaitlistService } from './lib/services/waitlist.service';
+export type { WaitlistEntry, WaitlistStatus, JoinWaitlistPayload, WaitlistServiceItem } from './lib/services/waitlist.service';
+
+export { AnalyticsService } from './lib/services/analytics.service';
+export type { SalonAnalyticsResponse } from './lib/services/analytics.service';
 
 export { CurrencyService } from './lib/services/currency.service';
 
@@ -39,6 +67,9 @@ export type {
   AdminReviewsPage,
   AdminSpecialty,
   CreateSpecialtyDto,
+  AdminPlanConfig,
+  AdminUpdatePlanDto,
+  SubscriptionDistribution,
 } from './lib/services/admin.service';
 export type {
   UserProfile,
@@ -53,6 +84,19 @@ export type { FCMConfig } from './lib/services/push-notification.service';
 export { RealtimeNotificationService } from './lib/services/realtime-notification.service';
 export type { RealtimeNotification } from './lib/services/realtime-notification.service';
 export { ActiveChatService } from './lib/services/active-chat.service';
+
+export { SubscriptionService } from './lib/services/subscription.service';
+export { PlanFeatureService } from './lib/services/plan-feature.service';
+export type {
+  SubscriptionPlan,
+  SubscriptionStatus,
+  SubscriptionResponse,
+  PaymentHistoryEntry,
+  PlanConfig,
+} from './lib/services/subscription.service';
+
+export { LanguageService } from './lib/services/language.service';
+export type { SupportedLang } from './lib/services/language.service';
 
 // Interceptors
 export { authInterceptor } from './lib/interceptors/auth.interceptor';

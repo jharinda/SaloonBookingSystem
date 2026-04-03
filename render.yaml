@@ -1,0 +1,259 @@
+# Render Blueprint — SnapSalon topology (IaC reference).
+# Validate: render blueprints validate render.yaml
+# Provision MongoDB (Atlas or self-hosted) and Redis (Render Key Value / Upstash) separately;
+# point connection strings via sync: false env vars in the dashboard.
+
+services:
+  - type: web
+    name: snapsalon-web
+    runtime: docker
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  - type: web
+    name: snapsalon-gateway
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: '3000'
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: AUTH_SERVICE_URL
+        sync: false
+      - key: USER_SERVICE_URL
+        sync: false
+      - key: SALON_SERVICE_URL
+        sync: false
+      - key: BOOKING_SERVICE_URL
+        sync: false
+      - key: NOTIFICATION_SERVICE_URL
+        sync: false
+      - key: REVIEW_SERVICE_URL
+        sync: false
+      - key: CALENDAR_SERVICE_URL
+        sync: false
+      - key: SUBSCRIPTION_SERVICE_URL
+        sync: false
+      - key: CHAT_SERVICE_URL
+        sync: false
+
+  - type: pserv
+    name: snapsalon-auth-service
+    runtime: docker
+    dockerfilePath: apps/auth-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_PORT
+        value: '3003'
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: '6379'
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+
+  - type: pserv
+    name: snapsalon-user-service
+    runtime: docker
+    dockerfilePath: apps/user-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: USER_PORT
+        value: '3008'
+      - key: USER_MONGODB_URI
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: SUBSCRIPTION_SERVICE_URL
+        sync: false
+
+  - type: pserv
+    name: snapsalon-salon-service
+    runtime: docker
+    dockerfilePath: apps/salon-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SALON_PORT
+        value: '3001'
+      - key: SALON_MONGODB_URI
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: '6379'
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  - type: pserv
+    name: snapsalon-booking-service
+    runtime: docker
+    dockerfilePath: apps/booking-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BOOKING_PORT
+        value: '3002'
+      - key: BOOKING_MONGODB_URI
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: '6379'
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: INTERNAL_SERVICE_TOKEN
+        sync: false
+      - key: AUTH_SERVICE_URL
+        sync: false
+      - key: NOTIFICATION_SERVICE_URL
+        sync: false
+      - key: CALENDAR_SERVICE_URL
+        sync: false
+
+  - type: pserv
+    name: snapsalon-notification-service
+    runtime: docker
+    dockerfilePath: apps/notification-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NOTIFICATION_PORT
+        value: '3004'
+      - key: NOTIFICATION_MONGODB_URI
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: '6379'
+      - key: INTERNAL_TOKEN
+        sync: false
+      - key: AUTH_SERVICE_URL
+        sync: false
+      - key: SALON_SERVICE_URL
+        sync: false
+      - key: GATEWAY_URL
+        sync: false
+
+  - type: pserv
+    name: snapsalon-calendar-service
+    runtime: docker
+    dockerfilePath: apps/calendar-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CALENDAR_PORT
+        value: '3005'
+      - key: BOOKING_MONGODB_URI
+        sync: false
+      - key: CALENDAR_MONGODB_URI
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: '6379'
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: INTERNAL_SERVICE_TOKEN
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+  - type: pserv
+    name: snapsalon-review-service
+    runtime: docker
+    dockerfilePath: apps/review-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: REVIEW_PORT
+        value: '3006'
+      - key: REVIEW_MONGODB_URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  - type: pserv
+    name: snapsalon-subscription-service
+    runtime: docker
+    dockerfilePath: apps/subscription-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUBSCRIPTION_PORT
+        value: '3007'
+      - key: SUBSCRIPTION_MONGODB_URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: PAYHERE_MERCHANT_ID
+        sync: false
+      - key: PAYHERE_SECRET
+        sync: false
+      - key: PAYHERE_NOTIFY_URL
+        sync: false
+
+  - type: pserv
+    name: snapsalon-chat-service
+    runtime: docker
+    dockerfilePath: apps/chat-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CHAT_PORT
+        value: '3009'
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        value: '6379'
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: INTERNAL_SERVICE_TOKEN
+        sync: false
+      - key: NOTIFICATION_SERVICE_URL
+        sync: false

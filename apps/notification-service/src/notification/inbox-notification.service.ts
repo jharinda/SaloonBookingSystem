@@ -135,6 +135,14 @@ export class InboxNotificationService {
   }
 
   /**
+   * Delete all notifications for a user (clear inbox).
+   */
+  async deleteAll(userId: string): Promise<number> {
+    const result = await this.model.deleteMany({ userId });
+    return result.deletedCount;
+  }
+
+  /**
    * Get count of unread notifications for a user.
    * Used for notification bell badge.
    */

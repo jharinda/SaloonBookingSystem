@@ -10,6 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -47,12 +48,31 @@ export interface AdminUsersPageDto {
   limit: number;
 }
 
+@ApiTags('admin-users')
+@ApiBearerAuth('JWT')
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard)
 export class AdminUsersController {
   constructor(private readonly authService: AuthService) {}
 
-  /** GET /api/admin/users?page=1&limit=10&role=client|salon_owner|admin */
+  @ApiOperation({ summary: 'Count users with role=client (admin)' })
+  @ApiResponse({ status: 200, description: 'Client count' })
+  @Get('count')
+  @HttpCode(HttpStatus.OK)
+  async getUserCount(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<{ count: number }> {
+    if (req.user.role !== 'admin') {
+      throw new ForbiddenException('Admin access required');
+    }
+    return this.authService.adminCountClients();
+  }
+
+  @ApiOperation({ summary: 'List users (admin)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'role', required: false })
+  @ApiResponse({ status: 200, description: 'Paginated users' })
   @Get()
   @HttpCode(HttpStatus.OK)
   async listUsers(
@@ -69,7 +89,9 @@ export class AdminUsersController {
     });
   }
 
-  /** PATCH /api/admin/users/:id/suspend */
+  @ApiOperation({ summary: 'Suspend user (admin)' })
+  @ApiParam({ name: 'id', description: 'User id' })
+  @ApiResponse({ status: 204, description: 'Suspended' })
   @Patch(':id/suspend')
   @HttpCode(HttpStatus.NO_CONTENT)
   async suspendUser(

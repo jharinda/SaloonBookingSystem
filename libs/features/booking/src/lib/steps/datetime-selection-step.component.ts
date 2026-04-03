@@ -9,6 +9,7 @@ import {
 import { DatePipe } from '@angular/common';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { BookingStateService } from '../services/booking-state.service';
 import { BookingService } from '@org/shared-data-access';
@@ -30,6 +31,7 @@ import { BookingSlot } from '@org/models';
     DatePipe,
     ButtonModule,
     ProgressSpinnerModule,
+    TranslateModule,
   ],
   templateUrl: './datetime-selection-step.component.html',
   styleUrl: './datetime-selection-step.component.scss',

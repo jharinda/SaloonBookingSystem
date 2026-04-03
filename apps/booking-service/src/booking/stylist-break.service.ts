@@ -12,9 +12,11 @@ import { ConfigService } from '@nestjs/config';
 import { Model, Types } from 'mongoose';
 import { firstValueFrom } from 'rxjs';
 import Redis from 'ioredis';
+import { REDIS_CLIENT } from '@org/shared-auth';
 
 import { StylistBreak, StylistBreakDocument } from './schemas/stylist-break.schema';
-import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
+import { Booking, BookingDocument } from './schemas/booking.schema';
+import { BookingStatus } from '@org/models';
 import { CreateStylistBreakDto } from './dto/stylist-break.dto';
 
 /** Minimal salon shape returned by salon-service */
@@ -49,7 +51,7 @@ export class StylistBreakService {
     private readonly bookingModel: Model<BookingDocument>,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
-    @Inject('REDIS_CLIENT')
+    @Inject(REDIS_CLIENT)
     private readonly redis: Redis,
   ) {}
 

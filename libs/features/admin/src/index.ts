@@ -5,3 +5,4 @@ export * from './lib/salon-approvals/salon-approvals.component';
 export * from './lib/all-salons/all-salons.component';
 export * from './lib/users/admin-users.component';
 export * from './lib/reviews/admin-reviews.component';
+export * from './lib/plans/admin-plans.component';

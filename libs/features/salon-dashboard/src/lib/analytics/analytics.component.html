@@ -1,7 +1,42 @@
-<div class="analytics-container">
-  <p-toast />
+<div class="analytics-container relative">
+  <!-- ── Feature gate overlay ──────────────────────────────────────────────── -->
+  @if (isLocked()) {
+    <div class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm rounded-xl min-h-[60vh]">
+      <div class="w-20 h-20 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-5">
+        <i class="pi pi-lock text-4xl text-zinc-400 dark:text-zinc-500"></i>
+      </div>
+      <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">Analytics requires the {{ requiredPlan() }} plan</h2>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 text-center max-w-sm mb-6">
+        Unlock detailed revenue charts, staff performance breakdowns, and booking trends by upgrading your subscription.
+      </p>
+      <p-button
+        label="View Plans"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        [routerLink]="'/salon-dashboard/subscription'"
+      />
+    </div>
+  }
 
   <h2 class="page-title">Analytics & Performance</h2>
+
+  <div class="analytics-toolbar mb-4 flex flex-wrap items-end gap-3">
+    <div class="flex flex-col gap-1 min-w-[240px]">
+      <label class="text-sm text-zinc-600 dark:text-zinc-400" for="analytics-range">Date range</label>
+      <p-datepicker
+        inputId="analytics-range"
+        [ngModel]="dateRange()"
+        (ngModelChange)="onDateRangeChange($event)"
+        selectionMode="range"
+        [readonlyInput]="true"
+        [showIcon]="true"
+        dateFormat="yy-mm-dd"
+        styleClass="w-full max-w-md"
+        [appendTo]="'body'"
+        [baseZIndex]="11000"
+      />
+    </div>
+  </div>
 
   <!-- Key Metrics -->
   <div class="metrics-grid">
@@ -10,7 +45,7 @@
         <i class="pi pi-dollar metric-icon"></i>
         <div>
           <h3>{{ formatCurrency(totalRevenue()) }}</h3>
-          <p>Total Revenue (30 days)</p>
+          <p>Total Revenue ({{ periodLabel() }})</p>
         </div>
       </div>
     </p-card>
@@ -20,7 +55,7 @@
         <i class="pi pi-calendar metric-icon"></i>
         <div>
           <h3>{{ totalBookings() }}</h3>
-          <p>Total Bookings</p>
+          <p>Total Bookings ({{ periodLabel() }})</p>
         </div>
       </div>
     </p-card>
@@ -29,7 +64,11 @@
       <div class="metric-content">
         <i class="pi pi-star-fill metric-icon"></i>
         <div>
-          <h3>{{ averageRating().toFixed(1) }}</h3>
+          @if (staffLoading()) {
+            <p-progressspinner strokeWidth="4" [style]="{ width: '28px', height: '28px' }" />
+          } @else {
+            <h3>{{ averageRating().toFixed(1) }}</h3>
+          }
           <p>Average Rating</p>
         </div>
       </div>
@@ -39,7 +78,9 @@
       <div class="metric-content">
         <i class="pi pi-trophy metric-icon"></i>
         <div>
-          @if (getTopPerformer(); as top) {
+          @if (staffLoading()) {
+            <p-progressspinner strokeWidth="4" [style]="{ width: '28px', height: '28px' }" />
+          } @else if (getTopPerformer(); as top) {
             <h3>{{ top.staffName }}</h3>
             <p>Top Performer</p>
           } @else {
@@ -57,17 +98,26 @@
     <p-card styleClass="chart-card">
       <ng-template pTemplate="header">
         <div class="card-header">
-          <h3>Revenue Trend (Last 30 Days)</h3>
+          <h3>Revenue trend ({{ periodLabel() }})</h3>
           <p-button
             icon="pi pi-refresh"
             [text]="true"
             [rounded]="true"
-            (onClick)="loadRevenueData()"
+            [disabled]="salonMetricsLoading()"
+            (onClick)="loadSalonMetrics()"
             pTooltip="Refresh"
           />
         </div>
       </ng-template>
-      <div class="chart-container">
+      @if (salonMetricsError()) {
+        <p class="text-red-600 dark:text-red-400 text-sm px-4 pt-2">{{ salonMetricsError() }}</p>
+      }
+      <div class="chart-container relative">
+        @if (salonMetricsLoading()) {
+          <div class="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-zinc-900/70 rounded">
+            <p-progressspinner strokeWidth="4" [style]="{ width: '40px', height: '40px' }" />
+          </div>
+        }
         <canvas #revenueChart></canvas>
       </div>
     </p-card>
@@ -76,17 +126,26 @@
     <p-card styleClass="chart-card">
       <ng-template pTemplate="header">
         <div class="card-header">
-          <h3>Booking Status Breakdown</h3>
+          <h3>Booking status breakdown</h3>
           <p-button
             icon="pi pi-refresh"
             [text]="true"
             [rounded]="true"
-            (onClick)="loadBookingStats()"
+            [disabled]="salonMetricsLoading()"
+            (onClick)="loadSalonMetrics()"
             pTooltip="Refresh"
           />
         </div>
       </ng-template>
-      <div class="chart-container donut">
+      @if (salonMetricsError()) {
+        <p class="text-red-600 dark:text-red-400 text-sm px-4 pt-2">{{ salonMetricsError() }}</p>
+      }
+      <div class="chart-container donut relative">
+        @if (salonMetricsLoading()) {
+          <div class="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-zinc-900/70 rounded">
+            <p-progressspinner strokeWidth="4" [style]="{ width: '40px', height: '40px' }" />
+          </div>
+        }
         <canvas #bookingStatusChart></canvas>
       </div>
     </p-card>
@@ -95,12 +154,29 @@
   <!-- Staff Performance Section -->
   <p-card styleClass="staff-performance-card">
     <ng-template pTemplate="header">
-      <div class="card-header">
-        <h3>Staff Performance</h3>
+      <div class="card-header flex-wrap gap-2">
+        <h3>Staff performance</h3>
+        <p-button
+          icon="pi pi-refresh"
+          [text]="true"
+          [rounded]="true"
+          [disabled]="staffLoading()"
+          (onClick)="loadStaffPerformance()"
+          pTooltip="Refresh"
+        />
       </div>
     </ng-template>
 
-    <div class="staff-performance-grid">
+    @if (staffError()) {
+      <p class="text-red-600 dark:text-red-400 text-sm px-4 pb-2">{{ staffError() }}</p>
+    }
+
+    <div class="staff-performance-grid relative min-h-[120px]">
+      @if (staffLoading()) {
+        <div class="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-zinc-900/70 rounded">
+          <p-progressspinner strokeWidth="4" [style]="{ width: '40px', height: '40px' }" />
+        </div>
+      }
       @for (staff of staffPerformance(); track staff.staffId) {
         <div class="staff-card">
           <div class="staff-header">
@@ -111,7 +187,7 @@
               <h4>{{ staff.staffName }}</h4>
               <div class="staff-rating">
                 <i class="pi pi-star-fill"></i>
-                <span>{{ staff.rating }}</span>
+                <span>{{ staff.rating | number: '1.1-1' }}</span>
               </div>
             </div>
           </div>
@@ -143,10 +219,12 @@
           </div>
         </div>
       } @empty {
-        <div class="empty-state">
-          <i class="pi pi-users" style="font-size: 3rem"></i>
-          <p>No staff performance data available</p>
-        </div>
+        @if (!staffLoading() && !staffError()) {
+          <div class="empty-state">
+            <i class="pi pi-users" style="font-size: 3rem"></i>
+            <p>No staff performance data available</p>
+          </div>
+        }
       }
     </div>
   </p-card>

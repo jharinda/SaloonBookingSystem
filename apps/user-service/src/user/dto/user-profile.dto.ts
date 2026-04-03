@@ -10,27 +10,37 @@ import {
   IsNumber,
   Min,
   Max,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import type {
+  NotificationPreferences,
+  UpdateProfilePayload,
+  UserProfileResponse,
+  AddressPayload,
+  WorkingHours,
+  PortfolioImage,
+  StylistProfileShape,
+} from '@org/models';
 
-export class AddressDto {
+export class AddressDto implements AddressPayload {
   @IsString()
-  street: string;
+  street!: string;
 
   @IsString()
-  city: string;
+  city!: string;
 
   @IsString()
-  state: string;
+  state!: string;
 
   @IsString()
-  zipCode: string;
+  zipCode!: string;
 
   @IsString()
-  country: string;
+  country!: string;
 }
 
-export class UpdateProfileDto {
+export class UpdateProfileDto implements UpdateProfilePayload {
   @IsOptional()
   @IsString()
   @MaxLength(50)
@@ -43,6 +53,7 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^(\+94)?[0-9]{9,10}$/, { message: 'Phone must be a valid Sri Lanka number (+94XXXXXXXXX)' })
   phone?: string;
 
   @IsOptional()
@@ -60,18 +71,22 @@ export class UpdateProfileDto {
   address?: AddressDto;
 }
 
-export class UpdateNotificationPreferencesDto {
+export class UpdateNotificationPreferencesDto implements Partial<NotificationPreferences> {
+  @IsOptional()
   @IsBoolean()
-  email: boolean;
+  email?: boolean;
 
+  @IsOptional()
   @IsBoolean()
-  sms: boolean;
+  sms?: boolean;
 
+  @IsOptional()
   @IsBoolean()
-  whatsapp: boolean;
+  whatsapp?: boolean;
 
+  @IsOptional()
   @IsBoolean()
-  push: boolean;
+  push?: boolean;
 }
 
 export class UpdateStylistProfileDto {
@@ -96,12 +111,12 @@ export class UpdateStylistProfileDto {
   isAvailable?: boolean;
 }
 
-export class AddPortfolioImageDto {
+export class AddPortfolioImageDto implements PortfolioImage {
   @IsString()
-  cloudinaryId: string;
+  cloudinaryId!: string;
 
   @IsString()
-  url: string;
+  url!: string;
 
   @IsOptional()
   @IsString()
@@ -110,115 +125,83 @@ export class AddPortfolioImageDto {
 
 export class AddPortfolioReviewDto {
   @IsString()
-  reviewId: string;
+  reviewId!: string;
 
   @IsString()
-  salonId: string;
+  salonId!: string;
 
   @IsNumber()
   @Min(1)
   @Max(5)
-  rating: number;
+  rating!: number;
 
   @IsString()
-  comment: string;
+  comment!: string;
 
   @IsString()
-  serviceName: string;
+  serviceName!: string;
 
   @IsString()
-  clientName: string;
+  clientName!: string;
 
   @IsString()
-  date: string;
+  date!: string;
 }
 
-export class WorkingHoursDto {
+export class WorkingHoursDto implements WorkingHours {
   @IsNumber()
   @Min(0)
   @Max(6)
-  day: number;
+  day!: number;
 
   @IsString()
-  start: string;
+  start!: string;
 
   @IsString()
-  end: string;
+  end!: string;
 
   @IsBoolean()
-  isOff: boolean;
+  isOff!: boolean;
 }
 
-export class UserProfileResponseDto {
-  _id: string;
-  userId: string;
-  email: string;
-  firstName: string;
-  lastName: string;
+export class UserProfileResponseDto implements UserProfileResponse {
+  _id!: string;
+  userId!: string;
+  email!: string;
+  firstName!: string;
+  lastName!: string;
   phone?: string;
   avatarUrl?: string;
-  role: string;
-  timezone: string;
-  currency: string;
+  role!: string;
+  timezone!: string;
+  currency!: string;
   address?: AddressDto;
-  notificationPreferences: {
-    email: boolean;
-    sms: boolean;
-    whatsapp: boolean;
-    push: boolean;
-  };
-  stylistProfile?: {
-    bio?: string;
-    specialties: string[];
-    yearsExperience: number;
-    portfolioImages: Array<{
-      cloudinaryId: string;
-      url: string;
-      caption?: string;
-    }>;
-    portfolioReviews: Array<{
-      reviewId: string;
-      salonId: string;
-      rating: number;
-      comment: string;
-      serviceName: string;
-      clientName: string;
-      date: Date;
-    }>;
-    currentSalonId?: string;
-    joinRequestStatus: string;
-    isAvailable: boolean;
-    workingHours: Array<{
-      day: number;
-      start: string;
-      end: string;
-      isOff: boolean;
-    }>;
-  };
-  createdAt: string;
-  updatedAt: string;
+  notificationPreferences!: NotificationPreferences;
+  stylistProfile?: StylistProfileShape;
+  createdAt!: string;
+  updatedAt!: string;
 }
 
-export class NotificationPreferencesResponseDto {
-  email: boolean;
-  sms: boolean;
-  whatsapp: boolean;
-  push: boolean;
+export class NotificationPreferencesResponseDto implements NotificationPreferences {
+  email!: boolean;
+  sms!: boolean;
+  whatsapp!: boolean;
+  push!: boolean;
 }
 
 export class CreateUserProfileDto {
   @IsString()
-  userId: string;
+  userId!: string;
 
   @IsEmail()
-  email: string;
+  email!: string;
 
   @IsString()
-  firstName: string;
+  firstName!: string;
 
   @IsString()
-  lastName: string;
+  lastName!: string;
 
   @IsString()
-  role: string;
+  role!: string;
 }

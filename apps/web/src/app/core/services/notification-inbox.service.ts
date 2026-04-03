@@ -23,6 +23,28 @@ const MAX_ITEMS = 50;
 const STORAGE_PREFIX = 'snapsalon-notif-inbox-';
 
 /**
+ * Builds a human-readable fallback body for unexpected / unrecognised events.
+ * Picks well-known fields from the payload so the user never sees raw JSON.
+ */
+function formatFallbackBody(data: unknown): string {
+  if (!data || typeof data !== 'object') return 'You have a new notification.';
+  const d = data as Record<string, unknown>;
+
+  // Try to compose a sentence from common payload fields.
+  const parts: string[] = [];
+  if (d['serviceName'])     parts.push(String(d['serviceName']));
+  if (d['salonName'])       parts.push(`at ${d['salonName']}`);
+  if (d['startTime'])       parts.push(`at ${d['startTime']}`);
+  if (d['appointmentDate']) parts.push(`on ${String(d['appointmentDate']).slice(0, 10)}`);
+  if (d['clientName'])      parts.push(`from ${d['clientName']}`);
+  if (d['staffName'])       parts.push(`by ${d['staffName']}`);
+
+  return parts.length > 0
+    ? parts.join(' ')
+    : 'You have a new notification.';
+}
+
+/**
  * Maps backend `NotificationType` values (stored in DB) to the SSE event names
  * used by `labelFromEvent` and the click-routing logic.
  */
@@ -35,6 +57,8 @@ function serverTypeToEvent(type: string): string {
     case 'booking_reminder':  return 'booking.reminder.15min';
     case 'review_request':    return 'review.posted';
     case 'new_message':       return 'chat.new_message';
+    case 'staff_joined':      return 'staff.joined';
+    case 'system':            return 'system';
     default:                  return type;
   }
 }
@@ -86,8 +110,41 @@ function labelFromEvent(event: string, data: unknown): { title: string; body: st
         title: `💬 ${d['senderName'] ?? 'New message'}`,
         body: d['messageBody'] ?? 'You have a new chat message',
       };
+    case 'booking.new.stylist': {
+      const rawDate = d['appointmentDate'] ?? '';
+      const date = rawDate.length >= 10 ? rawDate.slice(0, 10) : rawDate;
+      return {
+        title: '💇 New Appointment',
+        body: `${d['clientName'] ?? 'A client'} booked ${d['serviceName'] ?? 'a service'}${date ? ' on ' + date : ''} at ${d['startTime'] ?? ''}`.trim(),
+      };
+    }
+    case 'staff.joined':
+      return {
+        title: '👥 New Staff Member',
+        body: `${d['staffName'] ?? 'A new staff member'} has joined${d['salonName'] ? ' ' + d['salonName'] : ' your salon'}.`,
+      };
+    case 'salon.invitation':
+      return {
+        title: '💌 Salon Invitation',
+        body: d['message'] ?? `You have been invited to join ${d['salonName'] ?? 'a salon'}.`,
+      };
+    case 'booking.reminder.24hr':
+      return {
+        title: '📅 Appointment Tomorrow',
+        body: `Your ${d['serviceName'] ?? 'appointment'} at ${d['salonName'] ?? 'the salon'} is tomorrow at ${d['startTime'] ?? ''}.`.trim(),
+      };
+    case 'booking.reminder.2hr':
+      return {
+        title: '⏰ Appointment in 2 Hours',
+        body: `Your ${d['serviceName'] ?? 'appointment'} at ${d['salonName'] ?? 'the salon'} starts at ${d['startTime'] ?? ''}.`.trim(),
+      };
+    case 'booking.review.request':
+      return {
+        title: '📝 Review Request',
+        body: 'How was your experience? Please leave a review for your recent appointment.',
+      };
     default:
-      return { title: event, body: JSON.stringify(data) };
+      return { title: 'Notification', body: formatFallbackBody(data) };
   }
 }
 
@@ -156,6 +213,11 @@ export class NotificationInboxService {
   markAllRead(): void {
     this._items.update(items => items.map(i => ({ ...i, read: true })));
     this.saveToStorage();
+
+    // Persist to the server so read-state survives page refreshes.
+    this.http.patch('/api/notifications/inbox/read-all', {}).subscribe({
+      error: () => { /* best-effort */ },
+    });
   }
 
   markRead(id: string): void {
@@ -163,11 +225,24 @@ export class NotificationInboxService {
       items.map(i => (i.id === id ? { ...i, read: true } : i)),
     );
     this.saveToStorage();
+
+    // If the id refers to a server-persisted notification, update the server.
+    const serverId = id.startsWith('srv-') ? id.slice(4) : null;
+    if (serverId) {
+      this.http.patch(`/api/notifications/inbox/${serverId}/read`, {}).subscribe({
+        error: () => { /* best-effort */ },
+      });
+    }
   }
 
   clearAll(): void {
     this._items.set([]);
     this.saveToStorage();
+
+    // Delete all server-side notifications so they don't reappear on refresh.
+    this.http.delete('/api/notifications/inbox').subscribe({
+      error: () => { /* best-effort */ },
+    });
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────

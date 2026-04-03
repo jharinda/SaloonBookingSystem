@@ -11,7 +11,10 @@ export interface AdminStats {
   totalClients:     number;
   bookingsToday:    number;
   monthlyRevenue:   number;
-  /** Percentage change vs last week */
+  totalBookings?:   number;
+  completionRate?:  number;
+  revenueBySalon?:  Array<{ salonId: string; salonName: string; revenue: number }>;
+  /** Percentage change vs last period */
   trends?: {
     totalSalons:     number;
     pendingApproval: number;
@@ -19,6 +22,15 @@ export interface AdminStats {
     bookingsToday:   number;
     monthlyRevenue:  number;
   };
+}
+
+export interface SubscriptionDistribution {
+  starter:   number;
+  basic:     number;
+  pro:       number;
+  franchise: number;
+  trial:     number;
+  total:     number;
 }
 
 export interface AdminSalon {
@@ -186,6 +198,43 @@ export class AdminService {
   deleteSpecialty(id: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`/api/salons/specialties/${id}`);
   }
+
+  // ── Plan management ───────────────────────────────────────────────────────
+
+  /** GET /api/subscriptions/admin/plan-distribution — subscription breakdown */
+  getSubscriptionDistribution(): Observable<SubscriptionDistribution> {
+    return this.http.get<SubscriptionDistribution>('/api/subscriptions/admin/plan-distribution');
+  }
+
+  /** GET /api/subscriptions/plans — returns all plan configs from DB */
+  getPlansConfig(): Observable<Record<string, AdminPlanConfig>> {
+    return this.http.get<Record<string, AdminPlanConfig>>('/api/subscriptions/plans');
+  }
+
+  /** PATCH /api/subscriptions/admin/plans/:key — update a plan's config */
+  updatePlanConfig(key: string, dto: AdminUpdatePlanDto): Observable<AdminPlanConfig> {
+    return this.http.patch<AdminPlanConfig>(`/api/subscriptions/admin/plans/${key}`, dto);
+  }
+}
+
+export interface AdminPlanConfig {
+  name: string;
+  price: number;
+  trialDays?: number | null;
+  maxLocations: number;
+  maxStaff: number;
+  maxStations: number;
+  features: string[];
+}
+
+export interface AdminUpdatePlanDto {
+  name?: string;
+  price?: number;
+  maxLocations?: number;
+  maxStaff?: number;
+  maxStations?: number;
+  trialDays?: number | null;
+  features?: string[];
 }
 
 export interface AdminSpecialty {

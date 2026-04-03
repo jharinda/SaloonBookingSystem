@@ -5,7 +5,8 @@ import * as Joi from 'joi';
  */
 export const validationSchema = Joi.object({
   REVIEW_PORT: Joi.number().integer().default(3006),
-  NODE_ENV:    Joi.string().valid('development', 'production', 'test').default('development'),
+  NODE_ENV:    Joi.string().valid('development', 'staging', 'production', 'test').default('development'),
+  SENTRY_DSN:  Joi.string().uri().optional(),
 
   // MongoDB
   REVIEW_MONGODB_URI: Joi.string().required().messages({
@@ -26,4 +27,7 @@ export const validationSchema = Joi.object({
   CLOUDINARY_CLOUD_NAME: Joi.string().default(''),
   CLOUDINARY_API_KEY:    Joi.string().default(''),
   CLOUDINARY_API_SECRET: Joi.string().default(''),
+
+  REDIS_PASSWORD: Joi.string().optional().allow(''),
+  REDIS_TLS:      Joi.string().optional().valid('true', 'false').default('false'),
 });

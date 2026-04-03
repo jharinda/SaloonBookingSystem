@@ -44,6 +44,7 @@ export const PLANS: Record<SubscriptionPlan, PlanConfig> = {
       'email_notifications',
       'sms_notifications',
       'whatsapp',
+      'instagram',
       'google_calendar',
       'analytics',
       'priority_support',

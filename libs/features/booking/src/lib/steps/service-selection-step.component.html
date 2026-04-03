@@ -1,8 +1,8 @@
 <div class="service-selection">
   <div class="service-selection__header">
-    <h2 class="service-selection__title">Choose Services</h2>
+    <h2 class="service-selection__title">{{ 'booking.selectService' | translate }}</h2>
     <p class="service-selection__subtitle">
-      Select a service at <strong>{{ salon()?.name }}</strong>
+      {{ 'booking.selectServiceAt' | translate }} <strong>{{ salon()?.name }}</strong>
     </p>
   </div>
 
@@ -11,7 +11,7 @@
     <div class="category-filter">
       <div class="flex gap-2 flex-wrap">
         <p-chip
-          label="All Services"
+          [label]="'booking.allServices' | translate"
           [styleClass]="activeCategory() === '' ? 'chip-selected' : ''"
           (click)="activeCategory.set('')"
         />
@@ -65,7 +65,7 @@
     } @empty {
       <div class="empty-state">
         <i class="pi pi-scissors empty-state__icon"></i>
-        <p class="empty-state__text">No services available</p>
+        <p class="empty-state__text">{{ 'booking.noServicesAvailable' | translate }}</p>
       </div>
     }
   </div>
@@ -76,7 +76,7 @@
       <div class="total-bar__content">
         <div class="total-bar__summary">
           <span class="total-bar__label">
-            {{ selectedServices().length }} service{{ selectedServices().length > 1 ? 's' : '' }} selected
+            {{ selectedServices().length }} {{ selectedServices().length > 1 ? ('booking.servicesSelectedPlural' | translate) : ('booking.servicesSelectedSingle' | translate) }}
           </span>
           <span class="total-bar__duration">
             <i class="pi pi-clock total-bar__icon"></i>
@@ -84,7 +84,7 @@
           </span>
         </div>
         <div class="total-bar__price">
-          <span class="total-bar__price-label">Total:</span>
+          <span class="total-bar__price-label">{{ 'booking.totalLabel' | translate }}</span>
           <span class="total-bar__price-value">
             {{ totalPrice() | appCurrency:true }}
           </span>

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -12,6 +13,16 @@ import {
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiExcludeEndpoint,
+  ApiHeader,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { InjectQueue } from '@nestjs/bull';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -28,6 +39,8 @@ import { SsePushService } from './providers/sse-push.service';
 import { InboxNotificationService, PaginatedInboxDto } from './inbox-notification.service';
 import { PushNotificationService } from './providers/push-notification.service';
 
+@ApiTags('notifications')
+@ApiBearerAuth('JWT')
 @Controller('notifications')
 export class NotificationController {
   private readonly logger = new Logger(NotificationController.name);
@@ -49,12 +62,14 @@ export class NotificationController {
     return this.enqueueBookingEvent(NotificationEvent.BOOKING_CREATED, body.booking);
   }
 
+  @ApiExcludeEndpoint()
   @Post('booking-confirmed')
   @HttpCode(HttpStatus.ACCEPTED)
   async bookingConfirmed(@Body() body: { booking: BookingPayload }) {
     return this.enqueueBookingEvent(NotificationEvent.BOOKING_CONFIRMED, body.booking);
   }
 
+  @ApiExcludeEndpoint()
   @Post('booking-cancelled')
   @HttpCode(HttpStatus.ACCEPTED)
   async bookingCancelled(@Body() body: { booking: BookingPayload; reason?: string }) {
@@ -64,6 +79,7 @@ export class NotificationController {
     });
   }
 
+  @ApiExcludeEndpoint()
   @Post('booking-completed')
   @HttpCode(HttpStatus.ACCEPTED)
   async bookingCompleted(@Body() body: { booking: BookingPayload }) {
@@ -75,6 +91,7 @@ export class NotificationController {
    * Called by review-service after a client submits a review.
    * Pushes a real-time SSE notification to the salon owner.
    */
+  @ApiExcludeEndpoint()
   @Post('review-posted')
   @HttpCode(HttpStatus.ACCEPTED)
   async reviewPosted(
@@ -119,6 +136,7 @@ export class NotificationController {
    * Generic endpoint for sending push notifications to users.
    * Called by other services (e.g., chat-service) to send FCM push notifications.
    */
+  @ApiExcludeEndpoint()
   @Post('push')
   @HttpCode(HttpStatus.ACCEPTED)
   async sendPushNotification(
@@ -156,6 +174,11 @@ export class NotificationController {
    *
    * Called by the Angular frontend to populate the notification inbox.
    */
+  @ApiOperation({ summary: 'Paginated notification inbox' })
+  @ApiHeader({ name: 'x-user-id', description: 'Set by API gateway from JWT', required: true })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiResponse({ status: 200, description: 'Inbox page' })
   @Get('inbox')
   async getInbox(
     @Headers('x-user-id') userId: string,
@@ -178,6 +201,9 @@ export class NotificationController {
    * Returns the count of unread notifications for the requesting user.
    * Used to display the notification bell badge.
    */
+  @ApiOperation({ summary: 'Unread notification count' })
+  @ApiHeader({ name: 'x-user-id', required: true })
+  @ApiResponse({ status: 200, description: 'Unread count' })
   @Get('inbox/unread-count')
   async getUnreadCount(
     @Headers('x-user-id') userId: string,
@@ -195,6 +221,10 @@ export class NotificationController {
    *
    * Marks a single notification as read.
    */
+  @ApiOperation({ summary: 'Mark one notification as read' })
+  @ApiHeader({ name: 'x-user-id', required: true })
+  @ApiParam({ name: 'id', description: 'Notification id' })
+  @ApiResponse({ status: 200, description: 'Success' })
   @Patch('inbox/:id/read')
   async markAsRead(
     @Headers('x-user-id') userId: string,
@@ -213,6 +243,9 @@ export class NotificationController {
    *
    * Marks all notifications as read for the requesting user.
    */
+  @ApiOperation({ summary: 'Mark all notifications as read' })
+  @ApiHeader({ name: 'x-user-id', required: true })
+  @ApiResponse({ status: 200, description: 'Count marked read' })
   @Patch('inbox/read-all')
   async markAllAsRead(
     @Headers('x-user-id') userId: string,
@@ -222,6 +255,26 @@ export class NotificationController {
     }
 
     const count = await this.inboxService.markAllAsRead(userId);
+    return { count };
+  }
+
+  /**
+   * DELETE /notifications/inbox
+   *
+   * Deletes all notifications for the requesting user (clear inbox).
+   */
+  @ApiOperation({ summary: 'Clear inbox (delete all notifications)' })
+  @ApiHeader({ name: 'x-user-id', required: true })
+  @ApiResponse({ status: 200, description: 'Count deleted' })
+  @Delete('inbox')
+  async clearInbox(
+    @Headers('x-user-id') userId: string,
+  ): Promise<{ count: number }> {
+    if (!userId) {
+      throw new UnauthorizedException('User ID missing from request headers');
+    }
+
+    const count = await this.inboxService.deleteAll(userId);
     return { count };
   }
 

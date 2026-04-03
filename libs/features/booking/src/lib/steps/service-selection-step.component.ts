@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { CardModule } from 'primeng/card';
 import { ChipModule } from 'primeng/chip';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { BookingStateService } from '../services/booking-state.service';
 import { AppCurrencyPipe } from '@org/shared-data-access';
@@ -26,6 +27,7 @@ import { SalonServiceItem } from '@org/models';
     CardModule,
     ChipModule,
     AppCurrencyPipe,
+    TranslateModule,
   ],
   templateUrl: './service-selection-step.component.html',
   styleUrl: './service-selection-step.component.scss',

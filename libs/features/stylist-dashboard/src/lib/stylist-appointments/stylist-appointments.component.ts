@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 
@@ -44,7 +45,9 @@ import {
   RealtimeNotificationService,
 } from '@org/shared-data-access';
 import { CalendarGridComponent, CalendarColumn } from '@org/shared-ui';
+import { StylistAppointmentsAllComponent } from './stylist-appointments-all.component';
 
+type PageSection = 'calendar' | 'appointments';
 type ViewMode = 'day' | 'week' | 'month' | 'list';
 type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -81,20 +84,40 @@ type CalendarEntry = (Booking & { isBreak?: false }) | BreakEntry;
     Tooltip,
     CalendarGridComponent,
     FullCalendarModule,
+    StylistAppointmentsAllComponent,
   ],
   providers: [MessageService],
   templateUrl: './stylist-appointments.component.html',
   styleUrl: './stylist-appointments.component.scss',
 })
 export class StylistAppointmentsComponent implements OnInit {
+  private readonly fullCalendarRef = viewChild(FullCalendarComponent);
+
   private readonly userService = inject(UserService);
   private readonly adminService = inject(SalonAdminService);
   private readonly messageService = inject(MessageService);
   private readonly realtimeSvc = inject(RealtimeNotificationService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   // ── State ────────────────────────────────────────────────────────────────
+  pageSection = signal<PageSection>('calendar');
+  appointmentsListRefresh = signal(0);
+
+  private bumpAppointmentsListRefresh(): void {
+    this.appointmentsListRefresh.update((n) => n + 1);
+  }
+
+  pageSectionOptions = [
+    { label: 'Calendar', value: 'calendar' as const, icon: 'pi pi-calendar' },
+    { label: 'Appointments', value: 'appointments' as const, icon: 'pi pi-list' },
+  ];
+
+  /** Accepted salon — for breaks, service filter catalog */
+  acceptedSalonId = signal('');
+
   viewMode = signal<ViewMode>('day');
   bookings = signal<Booking[]>([]);
   breaks = signal<StylistBreakDto[]>([]);
@@ -153,34 +176,51 @@ export class StylistAppointmentsComponent implements OnInit {
       timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
     }
 
-    const grid: { [time: string]: { schedule: CalendarEntry | null } } = {};
+    const grid: { [time: string]: { schedule: CalendarEntry | 'occupied' | null } } = {};
 
-    timeSlots.forEach((time) => {
-      // Check for a booking at this time
-      const booking = bookings.find((b) => b.startTime === time);
-      if (booking) {
-        grid[time] = { schedule: { ...booking, isBreak: false } };
-        return;
+    // Initialise every slot to null
+    timeSlots.forEach((time) => { grid[time] = { schedule: null }; });
+
+    // Place bookings and mark the slots they span as 'occupied'
+    for (const booking of bookings) {
+      const startIdx = timeSlots.indexOf(booking.startTime);
+      if (startIdx === -1) continue;
+      const duration = booking.services.reduce((sum, s) => sum + s.durationMinutes, 0);
+      const span = Math.max(1, Math.ceil(duration / 30));
+
+      grid[booking.startTime] = { schedule: { ...booking, isBreak: false } };
+      for (let i = 1; i < span; i++) {
+        const slot = timeSlots[startIdx + i];
+        if (slot !== undefined) grid[slot] = { schedule: 'occupied' };
       }
+    }
 
-      // Check for a break at this time
-      const brk = dayBreaks.find((b) => b.startTime === time);
-      if (brk) {
-        grid[time] = {
-          schedule: {
-            _id: brk._id,
-            isBreak: true,
-            type: brk.type,
-            note: brk.note,
-            startTime: brk.startTime,
-            endTime: brk.endTime,
-          },
-        };
-        return;
+    // Place breaks (don't overwrite an existing booking)
+    for (const brk of dayBreaks) {
+      const startIdx = timeSlots.indexOf(brk.startTime);
+      if (startIdx === -1 || grid[brk.startTime]?.schedule !== null) continue;
+
+      const [sh, sm] = brk.startTime.split(':').map(Number);
+      const [eh, em] = brk.endTime.split(':').map(Number);
+      const span = Math.max(1, Math.ceil(((eh * 60 + em) - (sh * 60 + sm)) / 30));
+
+      grid[brk.startTime] = {
+        schedule: {
+          _id: brk._id,
+          isBreak: true,
+          type: brk.type,
+          note: brk.note,
+          startTime: brk.startTime,
+          endTime: brk.endTime,
+        },
+      };
+      for (let i = 1; i < span; i++) {
+        const slot = timeSlots[startIdx + i];
+        if (slot !== undefined && grid[slot]?.schedule === null) {
+          grid[slot] = { schedule: 'occupied' };
+        }
       }
-
-      grid[time] = { schedule: null };
-    });
+    }
 
     return { grid, timeSlots };
   });
@@ -271,12 +311,25 @@ export class StylistAppointmentsComponent implements OnInit {
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
   ngOnInit(): void {
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const section = params['section'];
+      if (section === 'appointments' || section === 'calendar') {
+        this.pageSection.set(section);
+      }
+    });
+
+    const sectionSnap = this.route.snapshot.queryParamMap.get('section');
+    if (sectionSnap === 'appointments' || sectionSnap === 'calendar') {
+      this.pageSection.set(sectionSnap);
+    }
+
     // Get accepted salons to determine salonId for breaks
     this.userService.getStylistInvitations().subscribe({
       next: (invitations) => {
         const accepted = invitations.find((inv) => inv.status === 'accepted');
         if (accepted) {
           this.salonId = accepted.salonId;
+          this.acceptedSalonId.set(accepted.salonId);
         }
       },
     });
@@ -290,6 +343,7 @@ export class StylistAppointmentsComponent implements OnInit {
       )
       .subscribe(({ data }) => {
         this.loadData();
+        this.bumpAppointmentsListRefresh();
         const d = (data ?? {}) as Record<string, unknown>;
         this.messageService.add({
           severity: 'info',
@@ -300,8 +354,24 @@ export class StylistAppointmentsComponent implements OnInit {
       });
   }
 
+  onPageSectionChange(section: PageSection): void {
+    this.pageSection.set(section);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { section },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+    if (section === 'calendar') {
+      this.loadData();
+    }
+  }
+
   // ── Data Loading ─────────────────────────────────────────────────────────
   loadData(): void {
+    if (this.pageSection() !== 'calendar') {
+      return;
+    }
     this.loading.set(true);
     const mode = this.viewMode();
     const selected = this.selectedDate();
@@ -351,7 +421,9 @@ export class StylistAppointmentsComponent implements OnInit {
         this.breaks.set(data);
         this.cdr.markForCheck();
       },
-      error: () => { /* silently handle */ },
+      error: () => {
+        /* silently handle */
+      },
     });
   }
 
@@ -483,6 +555,7 @@ export class StylistAppointmentsComponent implements OnInit {
           prev.map((b) => (b._id === booking._id ? updated : b)),
         );
         this.confirmInFlight.set(null);
+        this.bumpAppointmentsListRefresh();
         this.messageService.add({
           severity: 'success',
           summary:  'Approved',
@@ -556,7 +629,20 @@ export class StylistAppointmentsComponent implements OnInit {
   }
 
   getBookingRowSpan(booking: Booking): number {
-    return Math.ceil(this.getBookingDuration(booking) / 30);
+    return Math.max(1, Math.ceil(this.getBookingDuration(booking) / 30));
+  }
+
+  /** Fractional number of 30-min slots the booking actually fills (for CSS height). */
+  getBookingSlots(booking: Booking): number {
+    return this.getBookingDuration(booking) / 30;
+  }
+
+  isCompactBooking(booking: Booking): boolean {
+    return this.getBookingDuration(booking) < 30;
+  }
+
+  getBookingTooltip(booking: Booking): string {
+    return `${booking.clientName} · ${booking.serviceName} · ${booking.startTime}–${booking.endTime} · ${booking.status}`;
   }
 
   getBreakRowSpan(brk: BreakEntry): number {
@@ -564,6 +650,13 @@ export class StylistAppointmentsComponent implements OnInit {
     const [eh, em] = brk.endTime.split(':').map(Number);
     const duration = (eh * 60 + em) - (sh * 60 + sm);
     return Math.max(1, Math.ceil(duration / 30));
+  }
+
+  /** Fractional number of 30-min slots the break actually fills (for CSS height). */
+  getBreakSlots(brk: BreakEntry): number {
+    const [sh, sm] = brk.startTime.split(':').map(Number);
+    const [eh, em] = brk.endTime.split(':').map(Number);
+    return ((eh * 60 + em) - (sh * 60 + sm)) / 30;
   }
 
   previousDay(): void {

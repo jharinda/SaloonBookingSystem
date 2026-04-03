@@ -50,6 +50,7 @@ export class AdminLayoutComponent implements OnInit {
     { label: 'Users',           icon: 'pi-users',        route: '/admin/users' },
     { label: 'Reviews',         icon: 'pi-star',         route: '/admin/reviews' },
     { label: 'Specialties',     icon: 'pi-tags',         route: '/admin/specialties' },
+    { label: 'Plans',           icon: 'pi-credit-card',  route: '/admin/plans' },
   ];
 
   ngOnInit(): void {

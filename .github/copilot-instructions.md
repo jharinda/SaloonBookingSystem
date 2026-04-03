@@ -14,6 +14,13 @@
 - Use async/await, never raw Promises or .then() chains
 - Error handling: throw NestJS HttpException with proper status codes
 
+## Dependency Inversion Principle (DIP)
+- External services (file upload, email, SMS, payment, etc.) MUST be accessed through an abstract interface, never a concrete implementation
+- Define a TypeScript interface + injection token for each external concern (e.g. `FileUploadService`, `EMAIL_SERVICE`)
+- Concrete implementations (Cloudinary, S3, SendGrid, etc.) implement the interface and are registered via `useClass` in the module
+- Controllers and business services inject the token/interface — never the concrete class
+- This allows swapping providers (e.g. Cloudinary → S3) by changing ONE line in the module
+
 ## File Structure per NestJS Service
 src/
   module-name/

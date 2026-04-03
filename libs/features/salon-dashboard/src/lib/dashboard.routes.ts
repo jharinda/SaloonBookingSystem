@@ -15,6 +15,13 @@ export const DASHBOARD_ROUTES: Routes = [
           ),
       },
       {
+        path: 'franchise',
+        loadComponent: () =>
+          import('./franchise/franchise-overview.component').then(
+            (m) => m.FranchiseOverviewComponent,
+          ),
+      },
+      {
         path: 'register',
         loadComponent: () =>
           import('./register-salon/register-salon.component').then(
@@ -81,6 +88,13 @@ export const DASHBOARD_ROUTES: Routes = [
         loadComponent: () =>
           import('./salon-settings/salon-settings.component').then(
             (m) => m.SalonSettingsComponent,
+          ),
+      },
+      {
+        path: 'subscription',
+        loadComponent: () =>
+          import('./subscription/subscription.component').then(
+            (m) => m.SubscriptionComponent,
           ),
       },
     ],

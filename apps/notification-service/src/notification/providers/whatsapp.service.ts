@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
+import { IWhatsAppService } from '../interfaces/notification-channel.interface';
+
 export interface SendWhatsAppOptions {
   to: string;      // E.164 format
   message: string; // Used as body param for text-based templates
@@ -17,7 +19,7 @@ export interface SendWhatsAppOptions {
  * can keep a single generic template and vary only the body copy.
  */
 @Injectable()
-export class WhatsAppService {
+export class WhatsAppService implements IWhatsAppService {
   private readonly logger = new Logger(WhatsAppService.name);
   private readonly apiToken: string;
   private readonly phoneNumberId: string;

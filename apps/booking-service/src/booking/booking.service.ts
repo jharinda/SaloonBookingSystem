@@ -19,18 +19,30 @@ import Redis from 'ioredis';
 import { fromZonedTime } from 'date-fns-tz';
 import { REDIS_CLIENT } from '@org/shared-auth';
 
-import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
+import { Booking, BookingDocument } from './schemas/booking.schema';
+import { BookingStatus } from '@org/models';
 import { StylistBreak, StylistBreakDocument } from './schemas/stylist-break.schema';
+import { WaitlistEntry, WaitlistEntryDocument } from './schemas/waitlist.schema';
+import { JoinWaitlistDto, WaitlistEntryResponseDto } from './dto/waitlist.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CreateManualBookingDto } from './dto/create-manual-booking.dto';
 import { BookingListQueryDto } from './dto/booking-query.dto';
 import { RescheduleBookingDto } from './dto/reschedule-booking.dto';
+import { ModifyBookingDto } from './dto/modify-booking.dto';
 import {
   AvailableSlotsResponseDto,
   BookingResponseDto,
   PaginatedBookingsDto,
 } from './dto/booking-response.dto';
+import {
+  BookingStatusBreakdownDto,
+  ClientAnalyticsResponseDto,
+  DailyRevenueDto,
+  PeakHourDto,
+  SalonAnalyticsResponseDto,
+} from './dto/analytics.dto';
 import { BOOKING_QUEUE, BookingEvent } from './constants/booking-events.constants';
+import { SubscriptionCheckService } from '@org/subscription-check';
 
 const SLOT_INTERVAL_MINUTES = 30;
 const BOOKING_BUFFER_MINUTES = 15;
@@ -100,10 +112,13 @@ export class BookingService {
     private readonly bookingModel: Model<BookingDocument>,
     @InjectModel(StylistBreak.name)
     private readonly breakModel: Model<StylistBreakDocument>,
+    @InjectModel(WaitlistEntry.name)
+    private readonly waitlistModel: Model<WaitlistEntryDocument>,
     @InjectQueue(BOOKING_QUEUE)
     private readonly bookingQueue: Queue,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly subscriptionCheck: SubscriptionCheckService,
     @Inject(REDIS_CLIENT)
     private readonly redis: Redis,
   ) {}
@@ -350,6 +365,14 @@ export class BookingService {
     dto: CreateBookingDto,
     clientId: string,
   ): Promise<BookingResponseDto> {
+    // Verify the salon has an active subscription before accepting bookings
+    const subCheck = await this.subscriptionCheck.getFeatureCheckDetails(dto.salonId, 'basic_booking');
+    if (!subCheck.allowed) {
+      throw new BadRequestException(
+        subCheck.reason || 'This salon\'s subscription is not active. Bookings are currently unavailable.',
+      );
+    }
+
     const totalDuration = dto.services.reduce(
       (acc, s) => acc + s.durationMinutes,
       0,
@@ -357,7 +380,7 @@ export class BookingService {
     const endTime = addMinutes(dto.startTime, totalDuration);
     const totalPrice = dto.services.reduce((acc, s) => acc + s.price, 0);
 
-    // Acquire a distributed lock to prevent double-booking races
+    // Acquire a distributed lock to prevent double-booking races to prevent double-booking races
     const lockKey = `booking-lock:${dto.salonId}:${dto.appointmentDate}:${dto.startTime}:${dto.stylistId ?? 'any'}`;
     const lockValue = await this.acquireLock(lockKey, 5, 3, 100);
     if (!lockValue) {
@@ -694,6 +717,14 @@ export class BookingService {
   async createManualBooking(
     dto: CreateManualBookingDto,
   ): Promise<BookingResponseDto> {
+    // Verify the salon has an active subscription before accepting bookings
+    const subCheck = await this.subscriptionCheck.getFeatureCheckDetails(dto.salonId, 'basic_booking');
+    if (!subCheck.allowed) {
+      throw new BadRequestException(
+        subCheck.reason || 'This salon\'s subscription is not active. Bookings are currently unavailable.',
+      );
+    }
+
     const totalDuration = dto.services.reduce(
       (acc, s) => acc + s.durationMinutes,
       0,
@@ -889,6 +920,15 @@ export class BookingService {
     }
   }
 
+  /** Sort for paginated lists: default chronological by appointment; optional `createdAt` (newest first). */
+  private buildBookingListSort(query: BookingListQueryDto): Record<string, 1 | -1> {
+    if (query.sortBy === 'createdAt') {
+      const dir = query.sortOrder === 'asc' ? 1 : -1;
+      return { createdAt: dir };
+    }
+    return { appointmentDate: 1, startTime: 1 };
+  }
+
   async findAll(
     query: BookingListQueryDto,
     filter: Record<string, unknown> = {},
@@ -915,6 +955,9 @@ export class BookingService {
 
     if (query.salonId) where['salonId'] = new Types.ObjectId(query.salonId);
     if (query.stylistId) where['stylistId'] = new Types.ObjectId(query.stylistId);
+    if (query.serviceId) {
+      where['services.serviceId'] = new Types.ObjectId(query.serviceId);
+    }
     if (query.status) where['status'] = query.status;
     if (query.date) {
       where['appointmentDate'] = new Date(`${query.date}T00:00:00.000Z`);
@@ -926,10 +969,12 @@ export class BookingService {
       where['appointmentDate'] = range;
     }
 
+    const sort = this.buildBookingListSort(query);
+
     const [data, total] = await Promise.all([
       this.bookingModel
         .find(where)
-        .sort({ appointmentDate: 1, startTime: 1 })
+        .sort(sort)
         .skip(skip)
         .limit(limit)
         .lean()
@@ -944,6 +989,543 @@ export class BookingService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  // ── Salon analytics ─────────────────────────────────────────────────────
+
+  /**
+   * Aggregated salon metrics for a date range (by appointmentDate).
+   * Revenue counts only COMPLETED bookings. Separate pipelines keep each metric clear.
+   */
+  async getSalonAnalytics(
+    salonId: string,
+    from: string,
+    to: string,
+  ): Promise<SalonAnalyticsResponseDto> {
+    if (!Types.ObjectId.isValid(salonId)) {
+      throw new BadRequestException('Invalid salon ID');
+    }
+
+    let fromStr = from;
+    let toStr = to;
+    if (fromStr > toStr) {
+      [fromStr, toStr] = [toStr, fromStr];
+    }
+
+    const salonOid = new Types.ObjectId(salonId);
+    const rangeStart = new Date(`${fromStr}T00:00:00.000Z`);
+    const rangeEnd = new Date(`${toStr}T23:59:59.999Z`);
+    const matchFilter = {
+      salonId: salonOid,
+      appointmentDate: { $gte: rangeStart, $lte: rangeEnd },
+    };
+
+    const [
+      dailyRows,
+      statusRows,
+      peakRows,
+      topServiceRows,
+      totalsRows,
+    ] = await Promise.all([
+      this.bookingModel
+        .aggregate<{
+          _id: string;
+          revenue: number;
+          count: number;
+        }>([
+          { $match: matchFilter },
+          { $match: { status: BookingStatus.COMPLETED } },
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m-%d',
+                  date: '$appointmentDate',
+                  timezone: 'UTC',
+                },
+              },
+              revenue: { $sum: '$totalPrice' },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ])
+        .exec(),
+      this.bookingModel
+        .aggregate<{ _id: BookingStatus; count: number }>([
+          { $match: matchFilter },
+          { $group: { _id: '$status', count: { $sum: 1 } } },
+        ])
+        .exec(),
+      this.bookingModel
+        .aggregate<{ _id: number; count: number }>([
+          { $match: matchFilter },
+          {
+            $addFields: {
+              hour: {
+                $toInt: {
+                  $substrCP: ['$startTime', 0, 2],
+                },
+              },
+            },
+          },
+          { $group: { _id: '$hour', count: { $sum: 1 } } },
+          { $sort: { _id: 1 } },
+        ])
+        .exec(),
+      this.bookingModel
+        .aggregate<{
+          _id: string;
+          count: number;
+          revenue: number;
+        }>([
+          { $match: matchFilter },
+          { $match: { status: BookingStatus.COMPLETED } },
+          { $unwind: '$services' },
+          {
+            $group: {
+              _id: '$services.name',
+              count: { $sum: 1 },
+              revenue: { $sum: '$services.price' },
+            },
+          },
+          { $sort: { revenue: -1 } },
+          { $limit: 10 },
+        ])
+        .exec(),
+      this.bookingModel
+        .aggregate<{
+          totalBookings: number;
+          totalRevenue: number;
+          completedCount: number;
+        }>([
+          { $match: matchFilter },
+          {
+            $group: {
+              _id: null,
+              totalBookings: { $sum: 1 },
+              totalRevenue: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', BookingStatus.COMPLETED] },
+                    '$totalPrice',
+                    0,
+                  ],
+                },
+              },
+              completedCount: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', BookingStatus.COMPLETED] }, 1, 0],
+                },
+              },
+            },
+          },
+        ])
+        .exec(),
+    ]);
+
+    const byStatus = Object.fromEntries(
+      statusRows.map((r) => [r._id, r.count]),
+    ) as Record<string, number>;
+
+    const statusBreakdown: BookingStatusBreakdownDto = {
+      pending: byStatus[BookingStatus.PENDING] ?? 0,
+      confirmed:
+        (byStatus[BookingStatus.CONFIRMED] ?? 0) +
+        (byStatus[BookingStatus.IN_PROGRESS] ?? 0),
+      completed: byStatus[BookingStatus.COMPLETED] ?? 0,
+      cancelled: byStatus[BookingStatus.CANCELLED] ?? 0,
+      noShow: byStatus[BookingStatus.NO_SHOW] ?? 0,
+    };
+
+    const completed = statusBreakdown.completed;
+    const cancelled = statusBreakdown.cancelled;
+    const noShow = statusBreakdown.noShow;
+    const terminalDen = completed + cancelled + noShow;
+    const completionRate =
+      terminalDen > 0 ? completed / terminalDen : 0;
+
+    const totals = totalsRows[0];
+    const totalBookings = totals?.totalBookings ?? 0;
+    const totalRevenue = totals?.totalRevenue ?? 0;
+    const completedCount = totals?.completedCount ?? 0;
+    const averageBookingValue =
+      completedCount > 0 ? totalRevenue / completedCount : 0;
+
+    const dailyMap = new Map(
+      dailyRows.map((r) => [r._id, { revenue: r.revenue, count: r.count }]),
+    );
+    const dateKeys = this.enumerateDateStrings(fromStr, toStr);
+    const dailyRevenue: DailyRevenueDto[] = dateKeys.map((d) => {
+      const row = dailyMap.get(d);
+      return {
+        date: d,
+        revenue: row?.revenue ?? 0,
+        count: row?.count ?? 0,
+      };
+    });
+
+    const peakByHour = new Map(peakRows.map((r) => [r._id, r.count]));
+    const peakHours: PeakHourDto[] = Array.from({ length: 24 }, (_, h) => ({
+      hour: h,
+      count: peakByHour.get(h) ?? 0,
+    }));
+
+    const topServices: SalonAnalyticsResponseDto['topServices'] = topServiceRows.map(
+      (r) => ({
+        serviceName: r._id,
+        count: r.count,
+        revenue: r.revenue,
+      }),
+    );
+
+    return {
+      salonId,
+      period: { from: fromStr, to: toStr },
+      totalRevenue,
+      totalBookings,
+      completionRate,
+      averageBookingValue,
+      dailyRevenue,
+      statusBreakdown,
+      peakHours,
+      topServices,
+    };
+  }
+
+  /**
+   * Bookings on a calendar day (UTC) that are not yet finished (still on the schedule).
+   */
+  async getPlatformStats(): Promise<{
+    bookingsToday: number;
+    monthlyRevenue: number;
+    totalBookings: number;
+    completionRate: number;
+    revenueBySalon: Array<{ salonId: string; salonName: string; revenue: number }>;
+    trends: { bookingsTodayVsLastMonth: number; monthlyRevenueVsLastMonth: number };
+  }> {
+    const now = new Date();
+
+    // Today bounds (UTC date string matching appointmentDate storage)
+    const todayStr = now.toISOString().split('T')[0];
+    const todayStart = new Date(`${todayStr}T00:00:00.000Z`);
+    const todayEnd   = new Date(`${todayStr}T23:59:59.999Z`);
+
+    // This month bounds
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const monthEnd   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+
+    // Last month bounds (for trends)
+    const lastMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const lastMonthEnd   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59, 999));
+
+    // Same day last month (for bookingsToday trend)
+    const lastMonthDayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, now.getUTCDate()));
+    const lastMonthDayEnd   = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, now.getUTCDate(), 23, 59, 59, 999));
+
+    const [
+      bookingsToday,
+      monthlyRevenueAgg,
+      totalBookings,
+      completedCount,
+      cancelledNoShowCount,
+      revenueBySlonAgg,
+      lastMonthRevenueAgg,
+      lastMonthDayCount,
+    ] = await Promise.all([
+      this.bookingModel.countDocuments({
+        appointmentDate: { $gte: todayStart, $lte: todayEnd },
+      }),
+      this.bookingModel.aggregate<{ total: number }>([
+        { $match: { status: BookingStatus.COMPLETED, appointmentDate: { $gte: monthStart, $lte: monthEnd } } },
+        { $group: { _id: null, total: { $sum: '$totalPrice' } } },
+      ]),
+      this.bookingModel.countDocuments({}),
+      this.bookingModel.countDocuments({ status: BookingStatus.COMPLETED }),
+      this.bookingModel.countDocuments({
+        status: { $in: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+      }),
+      this.bookingModel.aggregate<{ _id: string; salonName: string; revenue: number }>([
+        { $match: { status: BookingStatus.COMPLETED, appointmentDate: { $gte: monthStart, $lte: monthEnd } } },
+        { $group: { _id: '$salonId', salonName: { $first: '$salonName' }, revenue: { $sum: '$totalPrice' } } },
+        { $sort: { revenue: -1 } },
+        { $limit: 10 },
+        { $project: { salonId: { $toString: '$_id' }, salonName: 1, revenue: 1, _id: 0 } },
+      ]),
+      this.bookingModel.aggregate<{ total: number }>([
+        { $match: { status: BookingStatus.COMPLETED, appointmentDate: { $gte: lastMonthStart, $lte: lastMonthEnd } } },
+        { $group: { _id: null, total: { $sum: '$totalPrice' } } },
+      ]),
+      this.bookingModel.countDocuments({
+        appointmentDate: { $gte: lastMonthDayStart, $lte: lastMonthDayEnd },
+      }),
+    ]);
+
+    const monthlyRevenue = monthlyRevenueAgg[0]?.total ?? 0;
+    const lastMonthRevenue = lastMonthRevenueAgg[0]?.total ?? 0;
+    const denominator = completedCount + cancelledNoShowCount;
+    const completionRate = denominator > 0 ? Math.round((completedCount / denominator) * 100) : 0;
+
+    const revenueBySalon = (revenueBySlonAgg as Array<{ salonId?: string; _id?: string; salonName: string; revenue: number }>).map((r) => ({
+      salonId:   r.salonId ?? r._id ?? '',
+      salonName: r.salonName,
+      revenue:   r.revenue,
+    }));
+
+    const revenueChange = lastMonthRevenue > 0
+      ? Math.round(((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100)
+      : 0;
+    const bookingsTodayChange = lastMonthDayCount > 0
+      ? Math.round(((bookingsToday - lastMonthDayCount) / lastMonthDayCount) * 100)
+      : 0;
+
+    return {
+      bookingsToday,
+      monthlyRevenue,
+      totalBookings,
+      completionRate,
+      revenueBySalon,
+      trends: {
+        bookingsTodayVsLastMonth:   bookingsTodayChange,
+        monthlyRevenueVsLastMonth:  revenueChange,
+      },
+    };
+  }
+
+  async countActiveBookingsForSalonOnDate(salonId: string, dateStr: string): Promise<number> {
+    if (!Types.ObjectId.isValid(salonId)) {
+      throw new BadRequestException('Invalid salon ID');
+    }
+    const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
+    const dayEnd = new Date(`${dateStr}T23:59:59.999Z`);
+    return this.bookingModel.countDocuments({
+      salonId: new Types.ObjectId(salonId),
+      appointmentDate: { $gte: dayStart, $lte: dayEnd },
+      status: {
+        $in: [BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS],
+      },
+    });
+  }
+
+  // ── Client analytics ──────────────────────────────────────────────────────
+
+  async getClientAnalytics(clientId: string): Promise<ClientAnalyticsResponseDto> {
+    if (!Types.ObjectId.isValid(clientId)) {
+      throw new BadRequestException('Invalid client ID');
+    }
+
+    const clientOid = new Types.ObjectId(clientId);
+    const matchFilter = { clientId: clientOid };
+
+    // Six months ago boundary for monthly spending
+    const now = new Date();
+    const sixMonthsAgo = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1),
+    );
+
+    const [
+      totalsRows,
+      favoriteServiceRows,
+      favoriteSalonRows,
+      monthlyRows,
+      lastVisitRows,
+      visitDatesRows,
+    ] = await Promise.all([
+      // Totals: count all, sum totalPrice where COMPLETED
+      this.bookingModel
+        .aggregate<{
+          totalBookings: number;
+          totalSpent: number;
+          completedCount: number;
+        }>([
+          { $match: matchFilter },
+          {
+            $group: {
+              _id: null,
+              totalBookings: { $sum: 1 },
+              totalSpent: {
+                $sum: {
+                  $cond: [
+                    { $eq: ['$status', BookingStatus.COMPLETED] },
+                    '$totalPrice',
+                    0,
+                  ],
+                },
+              },
+              completedCount: {
+                $sum: {
+                  $cond: [{ $eq: ['$status', BookingStatus.COMPLETED] }, 1, 0],
+                },
+              },
+            },
+          },
+        ])
+        .exec(),
+
+      // Favorite services: top 5 by count (unwind services array, group by name)
+      this.bookingModel
+        .aggregate<{ _id: string; count: number }>([
+          { $match: matchFilter },
+          { $unwind: '$services' },
+          { $group: { _id: '$services.name', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 5 },
+        ])
+        .exec(),
+
+      // Favorite salons: top 3 by visit count, with last service IDs
+      this.bookingModel
+        .aggregate<{
+          _id: Types.ObjectId;
+          salonName: string;
+          visitCount: number;
+          lastServiceIds: string[];
+        }>([
+          { $match: matchFilter },
+          { $sort: { appointmentDate: -1 } },
+          {
+            $group: {
+              _id: '$salonId',
+              salonName: { $first: '$salonName' },
+              visitCount: { $sum: 1 },
+              lastServices: { $first: '$services' },
+            },
+          },
+          { $sort: { visitCount: -1 } },
+          { $limit: 3 },
+          {
+            $project: {
+              salonName: 1,
+              visitCount: 1,
+              lastServiceIds: {
+                $map: {
+                  input: '$lastServices',
+                  as: 's',
+                  in: { $toString: '$$s.serviceId' },
+                },
+              },
+            },
+          },
+        ])
+        .exec(),
+
+      // Monthly spending: last 6 months, grouped by month
+      this.bookingModel
+        .aggregate<{ _id: string; total: number }>([
+          {
+            $match: {
+              ...matchFilter,
+              status: BookingStatus.COMPLETED,
+              appointmentDate: { $gte: sixMonthsAgo },
+            },
+          },
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$appointmentDate',
+                  timezone: 'UTC',
+                },
+              },
+              total: { $sum: '$totalPrice' },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ])
+        .exec(),
+
+      // Last visit: most recent completed booking date
+      this.bookingModel
+        .aggregate<{ lastVisit: Date }>([
+          { $match: { ...matchFilter, status: BookingStatus.COMPLETED } },
+          { $sort: { appointmentDate: -1 } },
+          { $limit: 1 },
+          { $project: { lastVisit: '$appointmentDate' } },
+        ])
+        .exec(),
+
+      // All booking dates (for visit frequency calculation)
+      this.bookingModel
+        .aggregate<{ d: Date }>([
+          { $match: matchFilter },
+          { $sort: { appointmentDate: 1 } },
+          { $project: { d: '$appointmentDate' } },
+        ])
+        .exec(),
+    ]);
+
+    const totals = totalsRows[0];
+    const totalBookings = totals?.totalBookings ?? 0;
+    const totalSpent = totals?.totalSpent ?? 0;
+    const completedCount = totals?.completedCount ?? 0;
+    const averageBookingValue =
+      completedCount > 0 ? totalSpent / completedCount : 0;
+
+    // Visit frequency: average days between consecutive bookings
+    let visitFrequency = 0;
+    if (visitDatesRows.length > 1) {
+      let totalDays = 0;
+      for (let i = 1; i < visitDatesRows.length; i++) {
+        const diff =
+          new Date(visitDatesRows[i].d).getTime() -
+          new Date(visitDatesRows[i - 1].d).getTime();
+        totalDays += diff / (1000 * 60 * 60 * 24);
+      }
+      visitFrequency = Math.round(totalDays / (visitDatesRows.length - 1));
+    }
+
+    const favoriteServices = favoriteServiceRows.map((r) => ({
+      serviceName: r._id,
+      count: r.count,
+    }));
+
+    const favoriteSalons = favoriteSalonRows.map((r) => ({
+      salonId: r._id.toString(),
+      salonName: r.salonName || 'Unknown Salon',
+      visitCount: r.visitCount,
+      lastServiceIds: r.lastServiceIds ?? [],
+    }));
+
+    // Fill in missing months with 0
+    const monthlyMap = new Map(
+      monthlyRows.map((r) => [r._id, r.total]),
+    );
+    const monthlySpending: ClientAnalyticsResponseDto['monthlySpending'] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1),
+      );
+      const key = d.toISOString().substring(0, 7); // YYYY-MM
+      monthlySpending.push({ month: key, total: monthlyMap.get(key) ?? 0 });
+    }
+
+    const lastVisit =
+      lastVisitRows[0]?.lastVisit
+        ? new Date(lastVisitRows[0].lastVisit).toISOString()
+        : null;
+
+    return {
+      totalBookings,
+      totalSpent,
+      averageBookingValue,
+      visitFrequency,
+      favoriteServices,
+      favoriteSalons,
+      monthlySpending,
+      lastVisit,
+    };
+  }
+
+  private enumerateDateStrings(fromStr: string, toStr: string): string[] {
+    const out: string[] = [];
+    const cur = new Date(`${fromStr}T12:00:00.000Z`);
+    const end = new Date(`${toStr}T12:00:00.000Z`);
+    while (cur.getTime() <= end.getTime()) {
+      out.push(cur.toISOString().split('T')[0]);
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+    return out;
   }
 
   async findById(id: string): Promise<BookingResponseDto> {
@@ -1038,8 +1620,8 @@ export class BookingService {
     await this.bookingQueue.add(BookingEvent.CANCELLED, { booking: response, reason });
 
     // Invalidate slot cache since availability has changed
+    const appointmentDateStr = booking.appointmentDate.toISOString().split('T')[0];
     try {
-      const appointmentDateStr = booking.appointmentDate.toISOString().split('T')[0];
       await this.invalidateSlotCache(
         booking.salonId.toString(),
         appointmentDateStr,
@@ -1048,6 +1630,14 @@ export class BookingService {
       // Cache invalidation errors are non-fatal
       this.logger.warn(`Cache invalidation failed: ${(err as Error).message}`);
     }
+
+    // Notify waitlisted clients whose preferred window overlaps the freed slot
+    await this.checkWaitlistOnCancellation(
+      booking.salonId.toString(),
+      appointmentDateStr,
+      booking.startTime,
+      booking.endTime,
+    );
 
     return response;
   }
@@ -1141,6 +1731,168 @@ export class BookingService {
     return response;
   }
 
+  async modifyBooking(
+    bookingId: string,
+    dto: ModifyBookingDto,
+    clientId: string,
+  ): Promise<BookingResponseDto> {
+    const booking = await this.bookingModel.findById(bookingId);
+    if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
+
+    if (booking.clientId.toString() !== clientId) {
+      throw new ForbiddenException('You can only modify your own bookings');
+    }
+
+    const modifiable: BookingStatus[] = [BookingStatus.PENDING, BookingStatus.CONFIRMED];
+    if (!modifiable.includes(booking.status)) {
+      throw new BadRequestException(
+        `Only PENDING or CONFIRMED bookings can be modified (current: ${booking.status})`,
+      );
+    }
+
+    const appointmentDateStr = booking.appointmentDate.toISOString().split('T')[0];
+
+    // ── Services change ───────────────────────────────────────────────────
+    if (dto.services && dto.services.length > 0) {
+      if (dto.services.length === 0) {
+        throw new BadRequestException('At least one service is required');
+      }
+
+      const newDuration = dto.services.reduce((acc, s) => acc + s.durationMinutes, 0);
+      const newEndTime = addMinutes(booking.startTime, newDuration);
+      const newTotalPrice = dto.services.reduce((acc, s) => acc + s.price, 0);
+
+      // Verify new endTime is within salon operating hours
+      const salonServiceUrl = this.configService.get<string>(
+        'services.salonUrl',
+        'http://salon-service:3001',
+      );
+
+      let salon: SalonResponse;
+      try {
+        const { data } = await firstValueFrom(
+          this.httpService.get<SalonResponse>(
+            `${salonServiceUrl}/api/salons/${booking.salonId.toString()}`,
+          ),
+        );
+        salon = data;
+      } catch (err) {
+        this.logger.error(`Failed to fetch salon during modify: ${(err as Error).message}`);
+        throw new BadRequestException('Could not verify salon operating hours');
+      }
+
+      const dayOfWeek = new Date(`${appointmentDateStr}T12:00:00.000Z`).getUTCDay();
+      const hours = salon.operatingHours?.find((h) => h.day === dayOfWeek);
+      if (!hours || hours.closed) {
+        throw new BadRequestException('The salon is closed on this day');
+      }
+
+      const closeMin = toMinutes(hours.close);
+      if (toMinutes(newEndTime) > closeMin) {
+        throw new BadRequestException(
+          `The new end time ${newEndTime} exceeds salon closing time ${hours.close}`,
+        );
+      }
+
+      // Verify no slot conflicts (exclude current booking)
+      const appointmentDate = new Date(`${appointmentDateStr}T00:00:00.000Z`);
+
+      if (booking.stylistId) {
+        const clash = await this.bookingModel.findOne({
+          salonId: booking.salonId,
+          appointmentDate,
+          status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+          _id: { $ne: booking._id },
+          stylistId: booking.stylistId,
+          startTime: { $lt: newEndTime },
+          endTime: { $gt: booking.startTime },
+        });
+        if (clash) {
+          throw new BadRequestException(
+            `The updated duration creates a conflict with another booking (${booking.startTime}–${newEndTime})`,
+          );
+        }
+      }
+
+      booking.services = dto.services.map((s) => ({
+        ...s,
+        serviceId: new Types.ObjectId(s.serviceId),
+      }));
+      booking.endTime = newEndTime;
+      booking.totalPrice = newTotalPrice;
+    }
+
+    // ── Stylist change ────────────────────────────────────────────────────
+    if (dto.stylistId !== undefined) {
+      const newStylistOid = dto.stylistId ? new Types.ObjectId(dto.stylistId) : null;
+
+      if (dto.stylistId) {
+        const appointmentDate = new Date(`${appointmentDateStr}T00:00:00.000Z`);
+        const currentEndTime = booking.endTime; // may have been updated above
+
+        // Check for booking clash with new stylist
+        const clash = await this.bookingModel.findOne({
+          salonId: booking.salonId,
+          appointmentDate,
+          status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+          _id: { $ne: booking._id },
+          stylistId: newStylistOid,
+          startTime: { $lt: currentEndTime },
+          endTime: { $gt: booking.startTime },
+        });
+        if (clash) {
+          throw new BadRequestException(
+            `The selected stylist is not available during ${booking.startTime}–${currentEndTime}`,
+          );
+        }
+
+        // Check for break conflict
+        const breakConflict = await this.breakModel.findOne({
+          stylistId: newStylistOid,
+          date: appointmentDate,
+          startTime: { $lt: currentEndTime },
+          endTime: { $gt: booking.startTime },
+        });
+        if (breakConflict) {
+          throw new BadRequestException(
+            `The selected stylist is on a break from ${breakConflict.startTime} to ${breakConflict.endTime}`,
+          );
+        }
+
+        try {
+          booking.stylistName = await this.fetchStylistName(dto.stylistId);
+        } catch {
+          /* non-fatal */
+        }
+      } else {
+        booking.stylistName = '';
+      }
+
+      booking.stylistId = newStylistOid as Types.ObjectId | null;
+    }
+
+    // ── Notes change ──────────────────────────────────────────────────────
+    if (dto.notes !== undefined) {
+      booking.notes = dto.notes || null;
+    }
+
+    await booking.save();
+
+    const response = this.toResponse(booking);
+    await this.bookingQueue.add(BookingEvent.MODIFIED, response);
+
+    try {
+      await this.invalidateSlotCache(
+        booking.salonId.toString(),
+        appointmentDateStr,
+      );
+    } catch (err) {
+      this.logger.warn(`Cache invalidation failed after modify: ${(err as Error).message}`);
+    }
+
+    return response;
+  }
+
   /** Internal: store the Google Calendar event ID returned by calendar-service */
   async setGoogleEventId(
     bookingId: string,
@@ -1184,6 +1936,32 @@ export class BookingService {
 
     const response = this.toResponse(booking);
     await this.bookingQueue.add(BookingEvent.COMPLETED, response);
+    return response;
+  }
+
+  async markNoShow(bookingId: string): Promise<BookingResponseDto> {
+    const booking = await this.bookingModel.findById(bookingId);
+    if (!booking) throw new NotFoundException(`Booking ${bookingId} not found`);
+
+    if (booking.status !== BookingStatus.CONFIRMED && booking.status !== BookingStatus.IN_PROGRESS) {
+      throw new BadRequestException(
+        `Only CONFIRMED or IN_PROGRESS bookings can be marked as no-show (current: ${booking.status})`,
+      );
+    }
+
+    booking.status = BookingStatus.NO_SHOW;
+    await booking.save();
+
+    const response = this.toResponse(booking);
+    await this.bookingQueue.add(BookingEvent.NO_SHOW, response).catch(() => {/* non-fatal */});
+
+    try {
+      await this.invalidateSlotCache(
+        booking.salonId.toString(),
+        booking.appointmentDate.toISOString().split('T')[0],
+      );
+    } catch { /* non-fatal */ }
+
     return response;
   }
 
@@ -1538,4 +2316,211 @@ export class BookingService {
       updatedAt: booking.updatedAt,
     };
   }
+
+  // ── Waitlist ──────────────────────────────────────────────────────────────
+
+  /**
+   * Add a client to the waitlist for a fully-booked time slot.
+   * Validates that the slot is actually full before creating the entry,
+   * and rejects duplicate entries for the same client/salon/date/time.
+   */
+  async joinWaitlist(
+    dto: JoinWaitlistDto,
+    clientId: string,
+  ): Promise<WaitlistEntryResponseDto> {
+    const totalDuration = dto.services.reduce((acc, s) => acc + s.durationMinutes, 0);
+    const endTime = dto.preferredEndTime ?? addMinutes(dto.preferredStartTime, totalDuration);
+    const appointmentDate = new Date(`${dto.appointmentDate}T00:00:00.000Z`);
+
+    // Verify the requested slot is actually fully booked (prevents phantom waitlists)
+    const salonServiceUrl = this.configService.get<string>('services.salonUrl', 'http://salon-service:3001');
+    let stationCount = 1;
+    try {
+      const { data: stationsData } = await firstValueFrom(
+        this.httpService.get<StationsResponse>(`${salonServiceUrl}/api/salons/${dto.salonId}/stations`),
+      );
+      stationCount = stationsData.stationCount || 1;
+    } catch (err) {
+      this.logger.warn(`Waitlist: could not fetch station count for ${dto.salonId}: ${(err as Error).message}`);
+    }
+
+    const overlappingCount = await this.bookingModel.countDocuments({
+      salonId: new Types.ObjectId(dto.salonId),
+      appointmentDate,
+      status: { $nin: [BookingStatus.CANCELLED, BookingStatus.NO_SHOW] },
+      startTime: { $lt: endTime },
+      endTime: { $gt: dto.preferredStartTime },
+    });
+
+    if (overlappingCount < stationCount) {
+      throw new BadRequestException(
+        'This time slot still has availability. Please book directly instead of joining the waitlist.',
+      );
+    }
+
+    // Prevent duplicate active waitlist entries
+    const duplicate = await this.waitlistModel.findOne({
+      clientId: new Types.ObjectId(clientId),
+      salonId: new Types.ObjectId(dto.salonId),
+      appointmentDate,
+      preferredStartTime: dto.preferredStartTime,
+      status: { $in: ['waiting', 'notified'] },
+    });
+
+    if (duplicate) {
+      throw new BadRequestException(
+        'You already have an active waitlist entry for this slot.',
+      );
+    }
+
+    const entry = await this.waitlistModel.create({
+      clientId: new Types.ObjectId(clientId),
+      salonId: new Types.ObjectId(dto.salonId),
+      appointmentDate,
+      preferredStartTime: dto.preferredStartTime,
+      preferredEndTime: endTime,
+      stylistId: dto.stylistId ?? null,
+      services: dto.services.map((s) => ({
+        serviceId: new Types.ObjectId(s.serviceId),
+        name: s.name,
+        price: s.price,
+        durationMinutes: s.durationMinutes,
+      })),
+    });
+
+    return this.toWaitlistResponse(entry);
+  }
+
+  /**
+   * Return all active waitlist entries for the authenticated client.
+   */
+  async getMyWaitlist(clientId: string): Promise<WaitlistEntryResponseDto[]> {
+    const entries = await this.waitlistModel
+      .find({ clientId: new Types.ObjectId(clientId), status: { $in: ['waiting', 'notified'] } })
+      .sort({ appointmentDate: 1, preferredStartTime: 1 })
+      .lean()
+      .exec();
+    return entries.map((e) => this.toWaitlistResponse(e));
+  }
+
+  /**
+   * Remove a client from the waitlist (only the owning client may do this).
+   */
+  async leaveWaitlist(entryId: string, clientId: string): Promise<{ success: boolean }> {
+    const entry = await this.waitlistModel.findById(entryId);
+    if (!entry) throw new NotFoundException(`Waitlist entry ${entryId} not found`);
+    if (entry.clientId.toString() !== clientId) {
+      throw new ForbiddenException('You can only remove your own waitlist entries');
+    }
+    await entry.deleteOne();
+    return { success: true };
+  }
+
+  /**
+   * Called after a booking is cancelled.
+   * Finds waitlist entries whose preferred window overlaps the freed slot,
+   * emits 'waitlist.slot-available' to the notification queue,
+   * and marks each entry as 'notified'.
+   */
+  async checkWaitlistOnCancellation(
+    salonId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+  ): Promise<void> {
+    const appointmentDate = new Date(`${date}T00:00:00.000Z`);
+
+    // An entry overlaps the freed slot when:
+    //   entry.preferredStartTime < endTime  AND  entry.preferredEndTime > startTime
+    const matching = await this.waitlistModel.find({
+      salonId: new Types.ObjectId(salonId),
+      appointmentDate,
+      status: 'waiting',
+      preferredStartTime: { $lt: endTime },
+      preferredEndTime: { $gt: startTime },
+    }).lean().exec();
+
+    if (matching.length === 0) return;
+
+    // Fetch salon name for the notification payload
+    const salonServiceUrl = this.configService.get<string>('services.salonUrl', 'http://salon-service:3001');
+    let salonName = '';
+    try {
+      const { data } = await firstValueFrom(
+        this.httpService.get<{ name?: string }>(`${salonServiceUrl}/api/salons/${salonId}`),
+      );
+      salonName = data.name ?? '';
+    } catch {
+      // Non-fatal — the notification processor can fall back to salonId
+    }
+
+    await Promise.allSettled(
+      matching.map(async (entry) => {
+        try {
+          await this.bookingQueue.add(BookingEvent.WAITLIST_SLOT_AVAILABLE, {
+            waitlistEntryId: entry._id.toString(),
+            clientId: entry.clientId.toString(),
+            salonId,
+            salonName,
+            date,
+            startTime,
+            endTime,
+          });
+          await this.waitlistModel.findByIdAndUpdate(entry._id, {
+            status: 'notified',
+            notifiedAt: new Date(),
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Failed to notify waitlist entry ${entry._id.toString()}: ${(err as Error).message}`,
+          );
+        }
+      }),
+    );
+  }
+
+  /**
+   * Nightly cron: expire waitlist entries whose appointment date has passed.
+   */
+  @Cron('0 0 * * *', { name: 'expireWaitlistEntries' })
+  async expireWaitlistEntries(): Promise<void> {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const result = await this.waitlistModel.updateMany(
+      {
+        appointmentDate: { $lt: today },
+        status: { $in: ['waiting', 'notified'] },
+      },
+      { status: 'expired' },
+    );
+
+    if (result.modifiedCount > 0) {
+      this.logger.log(`[WaitlistCron] Expired ${result.modifiedCount} waitlist entries`);
+    }
+  }
+
+  private toWaitlistResponse(entry: any): WaitlistEntryResponseDto {
+    return {
+      id: entry._id?.toString(),
+      clientId: entry.clientId?.toString(),
+      salonId: entry.salonId?.toString(),
+      appointmentDate: entry.appointmentDate instanceof Date
+        ? entry.appointmentDate.toISOString().split('T')[0]
+        : String(entry.appointmentDate),
+      preferredStartTime: entry.preferredStartTime,
+      preferredEndTime: entry.preferredEndTime,
+      stylistId: entry.stylistId ?? null,
+      services: (entry.services ?? []).map((s: any) => ({
+        serviceId: s.serviceId?.toString(),
+        name: s.name,
+        price: s.price,
+        durationMinutes: s.durationMinutes,
+      })),
+      status: entry.status,
+      notifiedAt: entry.notifiedAt ? new Date(entry.notifiedAt).toISOString() : null,
+      createdAt: entry.createdAt ? new Date(entry.createdAt).toISOString() : new Date().toISOString(),
+    };
+  }
 }
+

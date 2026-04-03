@@ -292,7 +292,7 @@ export class SalonReviewsComponent implements OnInit {
   readonly hasMore = signal(false);
 
   ngOnInit(): void {
-    this.adminService.getOwnSalon().subscribe({
+    this.adminService.getDashboardSalon().subscribe({
       next: (salon) => {
         this.salonId = salon._id;
         this.fetchPage();

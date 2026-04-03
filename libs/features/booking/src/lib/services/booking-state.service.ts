@@ -61,6 +61,17 @@ export class BookingStateService {
     this.selectedServices.set([]);
   }
 
+  /** Pre-select services by their IDs (for "Book Again" flow) */
+  preselectServicesByIds(serviceIds: string[]): void {
+    const salon = this.salon();
+    if (!salon?.services?.length || !serviceIds.length) return;
+    const idSet = new Set(serviceIds);
+    const matched = salon.services.filter((s) => idSet.has(s._id));
+    if (matched.length) {
+      this.selectedServices.set(matched);
+    }
+  }
+
   // ── Step 2: Date & Time ──────────────────────────────────────────────────
 
   selectDate(date: Date): void {

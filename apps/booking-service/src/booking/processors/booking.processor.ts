@@ -79,14 +79,8 @@ export class BookingProcessor {
           `[${BookingEvent.CREATED}] Failed to queue notification for bookingId=${job.data.id}: ${(err as Error).message}`,
         );
       }
-
-      // Push real-time SSE notification to the salon owner.
-      await this.pushSseToOwner(payload.salonOwnerId, job.data);
-
-      // Push real-time SSE notification to the assigned stylist.
-      if (payload.stylistId) {
-        await this.pushSseToStylist(payload.stylistId, job.data);
-      }
+      // SSE push is handled by the notification-service's BookingCreatedProcessor
+      // after it consumes the queued notification job — no need to push here.
     }
   }
 
@@ -269,18 +263,23 @@ export class BookingProcessor {
     }
   }
 
+  /** Fetch any user by ID from auth-service (reused for client, owner, stylist). */
+  private async fetchUserById(userId: string): Promise<RecipientInfo> {
+    const { data } = await firstValueFrom(
+      this.httpService.get(`${this.authUrl}/api/auth/users/${userId}`, {
+        headers: { 'x-internal-token': this.internalToken ?? '' },
+      }),
+    );
+    return {
+      name: data.name ?? `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
+      email: data.email ?? '',
+      phone: data.phone ?? '',
+    };
+  }
+
   private async fetchClient(clientId: string): Promise<RecipientInfo> {
     try {
-      const { data } = await firstValueFrom(
-        this.httpService.get(`${this.authUrl}/api/auth/users/${clientId}`, {
-          headers: { 'x-internal-token': this.internalToken ?? '' },
-        }),
-      );
-      return {
-        name: data.name ?? `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
-        email: data.email ?? '',
-        phone: data.phone ?? '',
-      };
+      return await this.fetchUserById(clientId);
     } catch (err) {
       this.logger.warn(`Could not fetch client ${clientId}: ${(err as Error).message}`);
       return { name: 'Unknown', email: '', phone: '' };
@@ -289,16 +288,7 @@ export class BookingProcessor {
 
   private async fetchStylist(stylistId: string): Promise<RecipientInfo | null> {
     try {
-      const { data } = await firstValueFrom(
-        this.httpService.get(`${this.authUrl}/api/auth/users/${stylistId}`, {
-          headers: { 'x-internal-token': this.internalToken ?? '' },
-        }),
-      );
-      return {
-        name: data.name ?? `${data.firstName ?? ''} ${data.lastName ?? ''}`.trim(),
-        email: data.email ?? '',
-        phone: data.phone ?? '',
-      };
+      return await this.fetchUserById(stylistId);
     } catch (err) {
       this.logger.warn(`Could not fetch stylist ${stylistId}: ${(err as Error).message}`);
       return null;
@@ -312,16 +302,33 @@ export class BookingProcessor {
       const { data } = await firstValueFrom(
         this.httpService.get(`${this.salonUrl}/api/salons/${salonId}`),
       );
-      return {
-        owner: {
-          name: data.ownerName ?? data.owner?.name ?? 'Salon Owner',
-          email: data.ownerEmail ?? data.owner?.email ?? '',
-          phone: data.ownerPhone ?? data.owner?.phone ?? '',
-        },
-        ownerId: data.ownerId ?? '',
-        name: data.name ?? '',
-        address: data.address ?? '',
+
+      const ownerId: string = data.ownerId ?? '';
+
+      // Resolve a human-readable address string from the address object or raw string.
+      const addr = data.address;
+      const address: string =
+        addr && typeof addr === 'object'
+          ? [addr.street, addr.city, addr.state].filter(Boolean).join(', ')
+          : (addr ?? '');
+
+      // The salon API exposes ownerId but NOT the owner's personal contact details.
+      // Fetch those from auth-service so emails reach the owner's real inbox.
+      let owner: RecipientInfo = {
+        name: 'Salon Owner',
+        email: data.email ?? '',   // fallback: salon contact email
+        phone: data.phone ?? '',
       };
+      if (ownerId) {
+        try {
+          owner = await this.fetchUserById(ownerId);
+        } catch {
+          // Non-fatal: keep the salon contact email as fallback.
+          this.logger.warn(`Could not fetch owner profile for ownerId=${ownerId}; falling back to salon email`);
+        }
+      }
+
+      return { owner, ownerId, name: data.name ?? '', address };
     } catch (err) {
       this.logger.warn(`Could not fetch salon ${salonId}: ${(err as Error).message}`);
       return {

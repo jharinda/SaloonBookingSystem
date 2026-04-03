@@ -6,4 +6,7 @@ export enum BookingEvent {
   CANCELLED = 'booking.cancelled',
   COMPLETED = 'booking.completed',
   RESCHEDULED = 'booking.rescheduled',
+  MODIFIED = 'booking.modified',
+  NO_SHOW = 'booking.no_show',
+  WAITLIST_SLOT_AVAILABLE = 'waitlist.slot-available',
 }

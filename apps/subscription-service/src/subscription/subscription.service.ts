@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -16,23 +17,114 @@ import {
   SubscriptionDocument,
   SubscriptionPlan,
 } from './schemas/subscription.schema';
-import { PLANS } from './plans.config';
-import { GeneratePaymentDto, PayhereWebhookDto } from './dto/subscription.dto';
+import { PlanEntry, PlanEntryDocument } from './schemas/plan-config.schema';
+import { PLANS, PlanConfig } from './plans.config';
+import {
+  GeneratePaymentDto,
+  PayhereWebhookDto,
+  UpdatePlanConfigDto,
+} from './dto/subscription.dto';
+
+const PLANS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 @Injectable()
-export class SubscriptionService {
+export class SubscriptionService implements OnModuleInit {
   private readonly logger = new Logger(SubscriptionService.name);
+
+  /** In-memory cache for plan configs loaded from DB */
+  private plansCache: { data: Record<string, PlanConfig>; expiresAt: number } | null = null;
 
   constructor(
     @InjectModel(Subscription.name)
     private readonly subscriptionModel: Model<SubscriptionDocument>,
+    @InjectModel(PlanEntry.name)
+    private readonly planModel: Model<PlanEntryDocument>,
     private readonly configService: ConfigService,
   ) {}
 
-  // ── Public helpers ────────────────────────────────────────────────────────
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-  getAllPlans() {
-    return PLANS;
+  async onModuleInit(): Promise<void> {
+    await this.seedPlansIfEmpty();
+  }
+
+  private async seedPlansIfEmpty(): Promise<void> {
+    const count = await this.planModel.countDocuments();
+    if (count > 0) return;
+
+    const entries = Object.entries(PLANS).map(([key, config]) => ({
+      key,
+      name: config.name,
+      price: config.price,
+      trialDays: config.trialDays ?? null,
+      maxLocations: config.maxLocations,
+      maxStaff: config.maxStaff,
+      maxStations: config.maxStations,
+      features: [...config.features],
+    }));
+
+    await this.planModel.insertMany(entries);
+    this.logger.log('Seeded default plan configurations into MongoDB');
+  }
+
+  // ── Internal plan map (DB-backed with cache) ──────────────────────────────
+
+  private async getPlansMap(): Promise<Record<string, PlanConfig>> {
+    const now = Date.now();
+    if (this.plansCache && this.plansCache.expiresAt > now) {
+      return this.plansCache.data;
+    }
+
+    const dbPlans = await this.planModel.find().lean();
+    const map: Record<string, PlanConfig> = {};
+
+    for (const p of dbPlans) {
+      map[p.key] = {
+        name: p.name,
+        price: p.price,
+        trialDays: p.trialDays ?? undefined,
+        maxLocations: p.maxLocations,
+        maxStaff: p.maxStaff,
+        maxStations: p.maxStations,
+        features: p.features,
+      };
+    }
+
+    // Fallback to hardcoded defaults when DB is empty
+    if (Object.keys(map).length === 0) {
+      return PLANS as unknown as Record<string, PlanConfig>;
+    }
+
+    this.plansCache = { data: map, expiresAt: now + PLANS_CACHE_TTL_MS };
+    return map;
+  }
+
+  // ── Public plan helpers ───────────────────────────────────────────────────
+
+  async getAllPlans(): Promise<Record<string, PlanConfig>> {
+    return this.getPlansMap();
+  }
+
+  async updatePlanConfig(key: string, dto: UpdatePlanConfigDto): Promise<PlanConfig> {
+    const updated = await this.planModel.findOneAndUpdate(
+      { key },
+      { $set: dto },
+      { new: true, upsert: false },
+    );
+    if (!updated) throw new NotFoundException(`Plan '${key}' not found`);
+
+    this.plansCache = null; // invalidate cache
+    this.logger.log(`[Admin] Plan config updated: key=${key}`);
+
+    return {
+      name: updated.name,
+      price: updated.price,
+      trialDays: updated.trialDays ?? undefined,
+      maxLocations: updated.maxLocations,
+      maxStaff: updated.maxStaff,
+      maxStations: updated.maxStations,
+      features: updated.features,
+    };
   }
 
   // ── Trial ─────────────────────────────────────────────────────────────────
@@ -77,14 +169,15 @@ export class SubscriptionService {
     dto: GeneratePaymentDto,
   ): Promise<{ paymentUrl: string; paymentData: Record<string, string> }> {
     const { salonId, plan } = dto;
+    const plans = await this.getPlansMap();
+    const planConfig = plans[plan];
 
-    const merchantId = this.configService.get<string>('payhere.merchantId') ?? '';
-    const payhereSecret = this.configService.get<string>('payhere.secret') ?? '';
-
-    const planConfig = PLANS[plan];
     if (!planConfig || planConfig.price === 0) {
       throw new ConflictException(`Plan '${plan}' does not require a payment`);
     }
+
+    const merchantId = this.configService.get<string>('payhere.merchantId') ?? '';
+    const payhereSecret = this.configService.get<string>('payhere.secret') ?? '';
 
     const orderId = `SS-${Date.now()}`;
     const amount = planConfig.price.toFixed(2);
@@ -116,7 +209,6 @@ export class SubscriptionService {
       hash,
     };
 
-    // Persist the pending order id so we can match the webhook
     await this.subscriptionModel.findOneAndUpdate(
       { salonId },
       { payhereOrderId: orderId },
@@ -151,18 +243,26 @@ export class SubscriptionService {
     this.logger.log(`Webhook received: orderId=${order_id} status=${status_code}`);
 
     if (status_code === '2') {
-      // Payment success
       const salonId = payload.custom_1;
       const plan = (payload.custom_2 ?? 'basic') as SubscriptionPlan;
       const now = new Date();
-      const currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      const existingSub = await this.subscriptionModel.findOne({ salonId });
+      let newPeriodEnd: Date;
+      if (existingSub?.currentPeriodEnd && existingSub.currentPeriodEnd > now) {
+        newPeriodEnd = new Date(
+          existingSub.currentPeriodEnd.getTime() + 30 * 24 * 60 * 60 * 1000,
+        );
+      } else {
+        newPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      }
 
       await this.subscriptionModel.findOneAndUpdate(
         { salonId },
         {
           plan,
           status: 'active',
-          currentPeriodEnd,
+          currentPeriodEnd: newPeriodEnd,
           payhereOrderId: order_id,
           $push: {
             paymentHistory: {
@@ -178,7 +278,7 @@ export class SubscriptionService {
       );
 
       this.logger.log(
-        `Subscription activated for salonId=${salonId} plan=${plan} until=${currentPeriodEnd.toISOString()}`,
+        `Subscription activated for salonId=${salonId} plan=${plan} until=${newPeriodEnd.toISOString()}`,
       );
     } else {
       this.logger.warn(
@@ -187,11 +287,45 @@ export class SubscriptionService {
     }
   }
 
+  // ── Dev: simulate a paid upgrade ─────────────────────────────────────────
+
+  async simulateUpgrade(salonId: string, plan: SubscriptionPlan): Promise<SubscriptionDocument> {
+    const plans = await this.getPlansMap();
+    const planConfig = plans[plan];
+    if (!planConfig) throw new NotFoundException(`Plan '${plan}' not found`);
+
+    const now = new Date();
+    const currentPeriodEnd = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+    const subscription = await this.subscriptionModel.findOneAndUpdate(
+      { salonId },
+      {
+        plan,
+        status: 'active',
+        currentPeriodEnd,
+        $push: {
+          paymentHistory: {
+            orderId: `SIM-${Date.now()}`,
+            amount: planConfig.price,
+            currency: 'LKR',
+            status: 'SIMULATED',
+            paidAt: now,
+          },
+        },
+      },
+      { upsert: true, new: true },
+    );
+
+    this.logger.log(`[DEV] Simulated upgrade for salonId=${salonId} to plan=${plan}`);
+    return subscription;
+  }
+
   // ── Feature access ────────────────────────────────────────────────────────
 
   async checkFeatureAccess(salonId: string, feature: string): Promise<boolean> {
     const sub = await this.getSubscription(salonId);
-    const planFeatures = PLANS[sub.plan]?.features ?? [];
+    const plans = await this.getPlansMap();
+    const planFeatures = plans[sub.plan]?.features ?? [];
     return planFeatures.includes('all') || planFeatures.includes(feature);
   }
 
@@ -199,11 +333,12 @@ export class SubscriptionService {
     salonId: string,
     feature: string,
   ): Promise<{ allowed: boolean; plan: string; reason?: string }> {
+    const plans = await this.getPlansMap();
+
     try {
       const sub = await this.getSubscription(salonId);
-      const planConfig = PLANS[sub.plan];
+      const planConfig = plans[sub.plan];
 
-      // Check if subscription is active or in trial
       if (sub.status !== 'trial' && sub.status !== 'active') {
         return {
           allowed: false,
@@ -212,7 +347,6 @@ export class SubscriptionService {
         };
       }
 
-      // Check if feature is included in plan
       const planFeatures = planConfig?.features ?? [];
       const hasFeature = planFeatures.includes('all') || planFeatures.includes(feature);
 
@@ -220,21 +354,32 @@ export class SubscriptionService {
         return {
           allowed: false,
           plan: sub.plan,
-          reason: `Feature '${feature}' is not available in your ${planConfig.name} plan. Please upgrade.`,
+          reason: `Feature '${feature}' is not available in your ${planConfig?.name ?? sub.plan} plan. Please upgrade.`,
         };
       }
 
-      return {
-        allowed: true,
-        plan: sub.plan,
-      };
+      return { allowed: true, plan: sub.plan };
     } catch {
-      // Subscription not found
-      return {
-        allowed: false,
-        plan: 'none',
-        reason: 'No active subscription found. Please start a trial or subscribe.',
-      };
+      // No subscription record — auto-start a 30-day trial
+      try {
+        await this.startTrial(salonId);
+        this.logger.log(`Auto-started trial for salonId=${salonId} during feature check`);
+        const starterFeatures = plans['starter']?.features ?? [];
+        const hasFeature = starterFeatures.includes('all') || starterFeatures.includes(feature);
+        return {
+          allowed: hasFeature,
+          plan: 'starter',
+          reason: hasFeature
+            ? undefined
+            : `Feature '${feature}' is not available in the Starter plan. Please upgrade.`,
+        };
+      } catch {
+        return {
+          allowed: false,
+          plan: 'none',
+          reason: 'No active subscription found. Please start a trial or subscribe.',
+        };
+      }
     }
   }
 
@@ -243,20 +388,102 @@ export class SubscriptionService {
   ): Promise<{ plan: string; maxStaff: number; maxLocations: number; maxStations: number; status: string }> {
     try {
       const sub = await this.getSubscription(salonId);
-      const planConfig = PLANS[sub.plan];
+      const plans = await this.getPlansMap();
+      const planConfig = plans[sub.plan];
 
       return {
         plan: sub.plan,
-        maxStaff: planConfig.maxStaff,
-        maxLocations: planConfig.maxLocations,
-        maxStations: planConfig.maxStations,
+        maxStaff: planConfig?.maxStaff ?? 3,
+        maxLocations: planConfig?.maxLocations ?? 1,
+        maxStations: planConfig?.maxStations ?? 2,
         status: sub.status,
       };
     } catch {
-      throw new NotFoundException(
-        `No subscription found for salon ${salonId}`,
-      );
+      throw new NotFoundException(`No subscription found for salon ${salonId}`);
     }
+  }
+
+  /** Renewal UI: days left, expiring-soon flag (matches cron window). */
+  async getRenewalStatus(salonId: string): Promise<{
+    status: string;
+    plan: string;
+    currentPeriodEnd: Date | null;
+    daysRemaining: number;
+    isExpiringSoon: boolean;
+  }> {
+    const sub = await this.getSubscription(salonId);
+    const now = new Date();
+    const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    let daysRemaining = 0;
+    if (sub.status === 'trial' && sub.trialEndsAt) {
+      daysRemaining = Math.ceil((sub.trialEndsAt.getTime() - now.getTime()) / dayMs);
+    } else if (sub.currentPeriodEnd) {
+      daysRemaining = Math.ceil((sub.currentPeriodEnd.getTime() - now.getTime()) / dayMs);
+    }
+
+    let isExpiringSoon = false;
+    if (
+      sub.status === 'trial' &&
+      sub.trialEndsAt &&
+      sub.trialEndsAt > now &&
+      sub.trialEndsAt <= in3Days
+    ) {
+      isExpiringSoon = true;
+    } else if (
+      sub.status === 'active' &&
+      sub.currentPeriodEnd &&
+      sub.currentPeriodEnd > now &&
+      sub.currentPeriodEnd <= in3Days
+    ) {
+      isExpiringSoon = true;
+    }
+
+    return {
+      status: sub.status,
+      plan: sub.plan,
+      currentPeriodEnd: sub.currentPeriodEnd,
+      daysRemaining,
+      isExpiringSoon,
+    };
+  }
+
+  async getPlanDistribution(): Promise<{
+    starter: number;
+    basic: number;
+    pro: number;
+    franchise: number;
+    trial: number;
+    total: number;
+  }> {
+    const results = await this.subscriptionModel.aggregate<{ _id: string; count: number }>([
+      {
+        $group: {
+          _id: {
+            $cond: [{ $eq: ['$status', 'trial'] }, 'trial', '$plan'],
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const dist: Record<string, number> = { starter: 0, basic: 0, pro: 0, franchise: 0, trial: 0 };
+    let total = 0;
+    for (const r of results) {
+      const key = r._id ?? 'starter';
+      if (key in dist) dist[key] = r.count;
+      total += r.count;
+    }
+
+    return {
+      starter:   dist['starter'],
+      basic:     dist['basic'],
+      pro:       dist['pro'],
+      franchise: dist['franchise'],
+      trial:     dist['trial'],
+      total,
+    };
   }
 
   // ── Cron: expiring trials ─────────────────────────────────────────────────
@@ -273,13 +500,63 @@ export class SubscriptionService {
       })
       .lean();
 
-    if (expiring.length === 0) return;
-
-    this.logger.warn(
-      `[Trials expiring in 3 days] ${expiring.length} salon(s): ${expiring
-        .map((s) => s.salonId)
-        .join(', ')}`,
-    );
+    for (const trial of expiring) {
+      this.logger.warn(
+        `Trial expiring soon: salonId=${trial.salonId} plan=${trial.plan} trialEndsAt=${trial.trialEndsAt?.toISOString?.() ?? ''}`,
+      );
+    }
+    if (expiring.length > 0) {
+      this.logger.warn(
+        `[Trials expiring in 3 days] ${expiring.length} salon(s): ${expiring
+          .map((s) => s.salonId)
+          .join(', ')}`,
+      );
+    }
     // TODO: send email reminders via notification-service
+  }
+
+  @Cron('0 9 * * *')
+  async checkExpiringSubscriptions(): Promise<void> {
+    const now = new Date();
+
+    const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const expiringSoon = await this.subscriptionModel
+      .find({
+        status: 'active',
+        currentPeriodEnd: { $gte: now, $lte: in3Days },
+      })
+      .lean();
+
+    for (const sub of expiringSoon) {
+      this.logger.warn(
+        'Subscription expiring soon: salonId=' + sub.salonId + ' plan=' + sub.plan,
+      );
+      // TODO: emit event to notification queue for renewal reminder email
+    }
+
+    const expired = await this.subscriptionModel.updateMany(
+      {
+        status: 'active',
+        currentPeriodEnd: { $lt: now },
+      },
+      { $set: { status: 'past_due' } },
+    );
+    if (expired.modifiedCount > 0) {
+      this.logger.warn('Marked ' + expired.modifiedCount + ' subscription(s) as past_due');
+    }
+
+    const gracePeriodEnd = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const cancelled = await this.subscriptionModel.updateMany(
+      {
+        status: 'past_due',
+        currentPeriodEnd: { $lt: gracePeriodEnd },
+      },
+      { $set: { status: 'cancelled' } },
+    );
+    if (cancelled.modifiedCount > 0) {
+      this.logger.warn(
+        'Cancelled ' + cancelled.modifiedCount + ' subscription(s) past grace period',
+      );
+    }
   }
 }

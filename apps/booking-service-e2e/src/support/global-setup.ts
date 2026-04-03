@@ -1,16 +1,35 @@
-import { waitForPortOpen } from '@nx/node/utils';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 
-/* eslint-disable */
-var __TEARDOWN_MESSAGE__: string;
+/**
+ * Temp file used to share the MongoDB URI between the globalSetup process
+ * and the Jest worker processes (which have a separate Node.js context and
+ * therefore cannot share globalThis or process.env directly).
+ */
+export const MONGO_TMP_FILE = path.join(
+  os.tmpdir(),
+  '__snapsalon-booking-e2e-mongo__.json',
+);
 
 module.exports = async function () {
-  // Start services that that the app needs to run (e.g. database, docker-compose, etc.).
-  console.log('\nSetting up...\n');
+  console.log('\nSetting up booking-service-e2e integration test infrastructure...\n');
 
-  const host = process.env.HOST ?? 'localhost';
-  const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-  await waitForPortOpen(port, { host });
+  // ── MongoDB Memory Server ──────────────────────────────────────────────────
+  const mongoServer = await MongoMemoryServer.create({
+    instance: { dbName: 'snapsalon-booking-e2e' },
+  });
+  const mongoUri = mongoServer.getUri();
 
-  // Hint: Use `globalThis` to pass variables to global teardown.
-  globalThis.__TEARDOWN_MESSAGE__ = '\nTearing down...\n';
+  // Write URI to a temp file so each Jest worker process can read it
+  // (globalSetup and worker processes run in different Node.js contexts).
+  fs.writeFileSync(MONGO_TMP_FILE, JSON.stringify({ mongoUri }), 'utf-8');
+
+  // Store on globalThis for globalTeardown — both run in the same process.
+  globalThis.__MONGO_SERVER__ = mongoServer;
+  globalThis.__TEARDOWN_MESSAGE__ = '\nTearing down booking-service-e2e infrastructure...\n';
+
+  console.log(`  ✔ MongoDB Memory Server: ${mongoUri}`);
+  console.log('  ✔ Redis: ioredis-mock (in-process, no external server needed)\n');
 };

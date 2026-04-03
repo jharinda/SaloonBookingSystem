@@ -1,7 +1,9 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap, catchError, of } from 'rxjs';
 import { Booking } from '@org/models';
+
+import type { PaginatedBookingsPage } from '../types/paginated-bookings';
 
 export interface UserProfile {
   _id: string;
@@ -13,6 +15,7 @@ export interface UserProfile {
   role: string;
   currency?: string;
   createdAt: string;
+  notificationPreferences?: NotificationPreferences;
   stylistProfile?: {
     bio?: string;
     specialties: string[];
@@ -48,6 +51,38 @@ export interface ChangePasswordDto {
 @Injectable({ providedIn: 'root' })
 export class UserService {
   private readonly http = inject(HttpClient);
+
+  // ── Shared profile state ──────────────────────────────────────────────
+  private readonly _currentProfile = signal<UserProfile | null>(null);
+
+  /** Reactive profile available to all components (navbar, account, etc.) */
+  readonly currentProfile = this._currentProfile.asReadonly();
+
+  /** Convenience computed — avatar URL from the shared profile state. */
+  readonly avatarUrl = computed(() => this._currentProfile()?.avatarUrl ?? null);
+
+  /**
+   * Fetches the full user profile from the backend and stores it in the
+   * shared signal.  Called once at app startup (after auth init) and can
+   * be called again to refresh.
+   */
+  loadProfile(): Observable<void> {
+    return this.http.get<UserProfile>('/api/users/me').pipe(
+      tap((profile) => this._currentProfile.set(profile)),
+      map(() => void 0),
+      catchError(() => of(void 0)),
+    );
+  }
+
+  /** Update only the avatarUrl in the shared profile signal (after upload). */
+  patchAvatarUrl(url: string): void {
+    this._currentProfile.update((p) => p ? { ...p, avatarUrl: url } : p);
+  }
+
+  /** Clear the cached profile (e.g. on logout). */
+  clearProfile(): void {
+    this._currentProfile.set(null);
+  }
 
   /** GET /api/users/me */
   getProfile(): Observable<UserProfile> {
@@ -142,16 +177,57 @@ export class UserService {
       .pipe(
         map((res) => {
           const list = Array.isArray(res) ? res : (res as { data: Booking[] }).data ?? [];
-          return list.map((b) => ({
-            ...b,
-            _id: b._id || (b as unknown as { id?: string }).id || '',
-            appointmentDate:
-              typeof b.appointmentDate === 'string'
-                ? b.appointmentDate.substring(0, 10)
-                : String(b.appointmentDate ?? ''),
-          }));
+          return list.map((b) => this.normStylistBooking(b));
         }),
       );
+  }
+
+  /** GET /api/bookings/stylist/me — paginated with optional service filter */
+  getStylistBookingsPage(params: {
+    startDate: string;
+    endDate: string;
+    serviceId?: string;
+    page?: number;
+    limit?: number;
+    sortBy?: 'appointment' | 'createdAt';
+    sortOrder?: 'asc' | 'desc';
+  }): Observable<PaginatedBookingsPage> {
+    let p = new HttpParams()
+      .set('startDate', params.startDate)
+      .set('endDate', params.endDate)
+      .set('limit', String(params.limit ?? 20))
+      .set('page', String(params.page ?? 1));
+    if (params.serviceId) p = p.set('serviceId', params.serviceId);
+    if (params.sortBy) p = p.set('sortBy', params.sortBy);
+    if (params.sortOrder) p = p.set('sortOrder', params.sortOrder);
+    return this.http
+      .get<{
+        data: Booking[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      }>('/api/bookings/stylist/me', { params: p })
+      .pipe(
+        map((res) => ({
+          data: (res.data ?? []).map((b) => this.normStylistBooking(b)),
+          total: res.total,
+          page: res.page,
+          limit: res.limit,
+          totalPages: res.totalPages,
+        })),
+      );
+  }
+
+  private normStylistBooking(b: Booking & { id?: string }): Booking {
+    return {
+      ...b,
+      _id: b._id || b.id || '',
+      appointmentDate:
+        typeof b.appointmentDate === 'string'
+          ? b.appointmentDate.substring(0, 10)
+          : String(b.appointmentDate ?? ''),
+    } as Booking;
   }
 
   // ── Stylist breaks ──────────────────────────────────────────────────

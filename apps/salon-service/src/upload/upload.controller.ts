@@ -14,6 +14,15 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
@@ -64,6 +73,10 @@ export class UploadController {
    * IMPORTANT: this route must be declared before any :id routes so that
    * NestJS does not treat the literal "upload" segment as a param value.
    */
+  @ApiOperation({ summary: 'Upload image to Cloudinary (field: file)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiQuery({ name: 'folder', required: false, enum: ['profiles', 'gallery', 'stylists'] })
+  @ApiResponse({ status: 201, description: 'cloudinaryId and url' })
   @Post('upload')
   @HttpCode(HttpStatus.CREATED)
   @Roles(UserRole.SALON_OWNER)
@@ -117,6 +130,8 @@ export class UploadController {
    * Remove an image from Cloudinary and from the salon's `images` array.
    * `:imageId` is the MongoDB `_id` of the SalonImage subdocument.
    */
+  @ApiOperation({ summary: 'Delete salon image' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Delete(':id/images/:imageId')
   @HttpCode(HttpStatus.OK)
   @Roles(UserRole.SALON_OWNER)
@@ -148,6 +163,8 @@ export class UploadController {
    * Set a specific image as the primary (hero) image for the salon.
    * Clears `isPrimary` on all other images first.
    */
+  @ApiOperation({ summary: 'Set primary salon image' })
+  @ApiResponse({ status: 200, description: 'Updated salon' })
   @Patch(':id/images/:imageId/primary')
   @HttpCode(HttpStatus.OK)
   @Roles(UserRole.SALON_OWNER)
@@ -165,6 +182,9 @@ export class UploadController {
    * Returns a short-lived Cloudinary signature so the browser can upload
    * directly without routing the binary through this server (optional flow).
    */
+  @ApiOperation({ summary: 'Cloudinary signed upload params' })
+  @ApiQuery({ name: 'folder', required: false })
+  @ApiResponse({ status: 200, description: 'Signature payload' })
   @Get(':id/upload-signature')
   @Roles(UserRole.SALON_OWNER)
   generateSignature(@Query('folder') folderParam: string | undefined) {

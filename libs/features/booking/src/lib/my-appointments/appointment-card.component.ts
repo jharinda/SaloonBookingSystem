@@ -9,21 +9,24 @@ import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 
 import { Button } from 'primeng/button';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { Booking, BookingStatus } from '@org/models';
 import { AppCurrencyPipe } from '@org/shared-data-access';
 
 export type AppointmentTab = 'upcoming' | 'past' | 'cancelled';
 
-/** Config for the status badge */
-const STATUS_CONFIG: Record<BookingStatus, { label: string; css: string }> = {
-  PENDING:     { label: 'Pending',     css: 'badge--pending'     },
-  CONFIRMED:   { label: 'Confirmed',   css: 'badge--confirmed'   },
-  IN_PROGRESS: { label: 'In Progress', css: 'badge--in-progress' },
-  COMPLETED:   { label: 'Completed',   css: 'badge--completed'   },
-  CANCELLED:   { label: 'Cancelled',   css: 'badge--cancelled'   },
-  NO_SHOW:     { label: 'No Show',     css: 'badge--cancelled'   },
+/** Config for the status badge - only CSS class, label comes from i18n */
+const STATUS_CONFIG: Record<BookingStatus, { css: string }> = {
+  PENDING:     { css: 'badge--pending'     },
+  CONFIRMED:   { css: 'badge--confirmed'   },
+  IN_PROGRESS: { css: 'badge--in-progress' },
+  COMPLETED:   { css: 'badge--completed'   },
+  CANCELLED:   { css: 'badge--cancelled'   },
+  NO_SHOW:     { css: 'badge--cancelled'   },
 };
+
+const MODIFIABLE_STATUSES: BookingStatus[] = [BookingStatus.PENDING, BookingStatus.CONFIRMED];
 
 function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
   const r = Math.max(0, Math.min(5, rating));
@@ -39,7 +42,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
   selector: 'lib-appointment-card',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DatePipe, Button, AppCurrencyPipe],
+  imports: [DatePipe, Button, AppCurrencyPipe, TranslateModule],
   template: `
     <article class="appt-card" [class.appt-card--cancelled]="tab() === 'cancelled'">
 
@@ -66,8 +69,8 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
           <span
             class="appt-badge"
             [class]="'appt-badge ' + statusCss()"
-            [attr.aria-label]="'Status: ' + statusLabel()"
-          >{{ statusLabel() }}</span>
+            [attr.aria-label]="'Status: ' + booking().status"
+          >{{ 'appointments.status.' + booking().status | translate }}</span>
         </div>
 
         <!-- Date / time row -->
@@ -105,7 +108,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
                 aria-hidden="true"
               ></i>
             }
-            <span class="appt-review-label">Your review</span>
+            <span class="appt-review-label">{{ 'appointments.yourReview' | translate }}</span>
           </div>
         }
 
@@ -115,7 +118,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
           @if (tab() === 'upcoming') {
             <p-button
               icon="pi pi-compass"
-              label="Get Directions"
+              [label]="'appointments.getDirections' | translate"
               [outlined]="true"
               size="small"
               [rounded]="true"
@@ -124,7 +127,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
             />
             <p-button
               icon="pi pi-calendar-plus"
-              label="Add to Calendar"
+              [label]="'appointments.addToCalendar' | translate"
               [outlined]="true"
               size="small"
               [rounded]="true"
@@ -133,7 +136,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
             />
             <p-button
               icon="pi pi-times-circle"
-              label="Cancel"
+              [label]="'appointments.cancel' | translate"
               [outlined]="true"
               severity="danger"
               size="small"
@@ -141,13 +144,24 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
               (onClick)="cancelRequested.emit()"
               aria-label="Cancel this appointment"
             />
+            @if (canModify()) {
+              <p-button
+                icon="pi pi-pencil"
+                [label]="'appointments.modify' | translate"
+                [outlined]="true"
+                size="small"
+                [rounded]="true"
+                (onClick)="modifyRequested.emit()"
+                aria-label="Modify services on this appointment"
+              />
+            }
           }
 
           @if (tab() === 'past') {
             @if (!booking().hasReview && booking().status === 'COMPLETED') {
               <p-button
                 icon="pi pi-pencil"
-                label="Leave a Review"
+                [label]="'appointments.leaveReview' | translate"
                 size="small"
                 [rounded]="true"
                 (onClick)="reviewRequested.emit()"
@@ -156,7 +170,7 @@ function buildStars(rating: number): ('full' | 'half' | 'empty')[] {
             }
             <p-button
               icon="pi pi-replay"
-              label="Book Again"
+              [label]="'appointments.bookAgain' | translate"
               [outlined]="true"
               size="small"
               [rounded]="true"
@@ -340,19 +354,22 @@ export class AppointmentCardComponent {
   /** Emitted when the user clicks "Leave a Review" (parent opens dialog). */
   readonly reviewRequested = output<void>();
 
+  /** Emitted when the user requests to modify services on this booking. */
+  readonly modifyRequested = output<void>();
+
   private readonly router = inject(Router);
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  statusLabel(): string {
-    return STATUS_CONFIG[this.booking().status]?.label ?? this.booking().status;
-  }
-
   statusCss(): string {
     return STATUS_CONFIG[this.booking().status]?.css ?? '';
   }
 
   stars() {
     return buildStars(this.booking().clientRating ?? 0);
+  }
+
+  canModify(): boolean {
+    return MODIFIABLE_STATUSES.includes(this.booking().status);
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────

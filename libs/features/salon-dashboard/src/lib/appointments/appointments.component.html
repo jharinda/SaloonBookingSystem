@@ -1,23 +1,49 @@
 <div class="appointments-container">
   <p-toast />
 
-  <!-- Toolbar -->
-  <p-toolbar styleClass="mb-4">
+  <!-- ── Pull-to-refresh indicator (mobile) ────────────────────────────── -->
+  @if (isRefreshing()) {
+    <div class="ptr-indicator">
+      <p-progressSpinner strokeWidth="3" animationDuration=".6s" [style]="{ width: '28px', height: '28px' }" />
+    </div>
+  }
+  <!-- ── Row 1: Title | Date nav | Section toggle ──────────────────────── -->
+  <p-toolbar styleClass="appt-toolbar-row1 mb-1">
     <ng-template pTemplate="start">
       <h2 class="m-0 text-xl font-semibold">Appointments</h2>
     </ng-template>
 
     <ng-template pTemplate="center">
-      <div class="date-navigation">
-        <p-button icon="pi pi-chevron-left" [text]="true" (onClick)="previousDay()" />
-        <span class="date-display">{{ formatDate(selectedDate()) }}</span>
-        <p-button icon="pi pi-chevron-right" [text]="true" (onClick)="nextDay()" />
-        <p-button label="Today" [outlined]="true" size="small" (onClick)="today()" styleClass="ml-2" />
-      </div>
+      @if (pageSection() === 'calendar') {
+        <div class="date-navigation">
+          <p-button icon="pi pi-chevron-left" [text]="true" (onClick)="previousDay()" />
+          <span class="date-display">{{ formatDate(selectedDate()) }}</span>
+          <p-button icon="pi pi-chevron-right" [text]="true" (onClick)="nextDay()" />
+          <p-button label="Today" [outlined]="true" size="small" (onClick)="today()" styleClass="ml-2" />
+        </div>
+      }
     </ng-template>
 
     <ng-template pTemplate="end">
-      <div class="flex items-center gap-2">
+      <p-selectButton
+        [options]="pageSectionOptions"
+        [ngModel]="pageSection()"
+        (ngModelChange)="onPageSectionChange($event)"
+        optionLabel="label"
+        optionValue="value"
+      >
+        <ng-template let-item>
+          <i [class]="item.icon" aria-hidden="true"></i>
+          <span class="ml-2 hidden-on-mobile">{{ item.label }}</span>
+        </ng-template>
+      </p-selectButton>
+    </ng-template>
+  </p-toolbar>
+
+  <!-- ── Row 2: Station filter | Stylist filter | View mode (calendar only) -->
+  @if (pageSection() === 'calendar') {
+    <div class="appt-toolbar-row2 mb-4">
+      <div class="row2-left">
         @if (viewMode() === 'day') {
           <p-select
             [options]="stationFilterOptions()"
@@ -26,9 +52,22 @@
             placeholder="All Stations"
             [ngModel]="selectedStationId()"
             (ngModelChange)="onStationFilterChange($event)"
-            styleClass="station-filter"
+            styleClass="toolbar-filter"
+            [appendTo]="'body'"
           />
         }
+        <p-select
+          [options]="stylistFilterOptions()"
+          optionLabel="label"
+          optionValue="_id"
+          placeholder="All Stylists"
+          [ngModel]="selectedStylistId()"
+          (ngModelChange)="onStylistFilterChange($event)"
+          styleClass="toolbar-filter"
+          [appendTo]="'body'"
+        />
+      </div>
+      <div class="row2-right">
         <p-selectButton
           [options]="viewOptions"
           [ngModel]="viewMode()"
@@ -42,11 +81,88 @@
           </ng-template>
         </p-selectButton>
       </div>
-    </ng-template>
-  </p-toolbar>
+    </div>
+  }
 
-  <!-- Day View (station grid) -->
-  @if (viewMode() === 'day') {
+  @if (pageSection() === 'appointments' && salon(); as salonData) {
+    @defer (on idle) {
+      <lib-salon-appointments-all
+        [salonId]="salonData._id"
+        [salonServices]="salonData.services"
+        [refreshNonce]="appointmentsListRefresh()"
+        (bookingOpen)="openBookingDetails($event)"
+      />
+    } @placeholder {
+      <div class="appointments-defer-placeholder text-center py-8 text-surface-500 dark:text-surface-400">
+        Loading appointments…
+      </div>
+    }
+  }
+
+  <!-- ── Mobile Vertical Timeline (day view, < 768px) ────────────────── -->
+  @if (pageSection() === 'calendar' && viewMode() === 'day' && isMobile()) {
+    <div class="mobile-timeline">
+      @if (loading()) {
+        <div class="flex justify-center py-8">
+          <p-progressSpinner strokeWidth="3" animationDuration=".8s" [style]="{ width: '36px', height: '36px' }" />
+        </div>
+      } @else if (timelineBookings().length === 0) {
+        <div class="mobile-timeline-empty">
+          <i class="pi pi-calendar-times text-3xl text-zinc-300 dark:text-zinc-600"></i>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 mt-2 mb-0">No appointments for this day</p>
+          <p class="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Tap <strong>+</strong> to add one</p>
+        </div>
+      } @else {
+        @for (booking of timelineBookings(); track booking._id) {
+          <div
+            class="mobile-timeline-card"
+            [class.status-pending]="booking.status === 'PENDING'"
+            [class.status-confirmed]="booking.status === 'CONFIRMED'"
+            [class.status-completed]="booking.status === 'COMPLETED'"
+            [class.status-no-show]="booking.status === 'NO_SHOW'"
+            [class.status-in-progress]="booking.status === 'IN_PROGRESS'"
+            role="button"
+            tabindex="0"
+            (click)="openBookingDetails(booking)"
+            (keydown.enter)="openBookingDetails(booking)"
+          >
+            <div class="mobile-timeline-time">
+              <span class="time-start">{{ booking.startTime }}</span>
+              <span class="time-sep">–</span>
+              <span class="time-end">{{ booking.endTime }}</span>
+            </div>
+            <div class="mobile-timeline-body">
+              <p class="client-name">{{ booking.clientName }}</p>
+              <p class="service-name">{{ booking.serviceName || booking.services[0]?.name }}</p>
+              @if (booking.stylistName) {
+                <p class="stylist-name"><i class="pi pi-user text-[10px]"></i> {{ booking.stylistName }}</p>
+              }
+            </div>
+            <div class="mobile-timeline-badge">
+              <p-tag
+                [value]="booking.status"
+                [severity]="getStatusSeverity(booking.status)"
+                styleClass="text-[10px] px-1.5 py-0.5"
+              />
+            </div>
+          </div>
+        }
+      }
+    </div>
+
+    <!-- ── FAB: Create appointment ─────────────────────────────────────── -->
+    <button
+      type="button"
+      class="mobile-fab"
+      (click)="openCreateNow()"
+      aria-label="Add appointment"
+    >
+      <i class="pi pi-plus text-xl"></i>
+    </button>
+  }
+
+  <!-- Day View (station grid) — hidden on mobile, replaced by timeline above -->
+  @if (pageSection() === 'calendar' && viewMode() === 'day' && !isMobile()) {
     <div class="calendar-view">
       @let gridData = calendarGrid();
       <lib-calendar-grid
@@ -80,33 +196,69 @@
 
         <!-- Cell template for each station × time slot -->
         <ng-template #cellTemplate let-ctx>
-          @let booking = calendarGrid().grid[ctx.time][ctx.columnId];
-          @if (booking) {
-            <div
-              class="booking-cell"
-              role="button"
-              tabindex="0"
-              [class.status-pending]="booking.status === 'PENDING'"
-              [class.status-confirmed]="booking.status === 'CONFIRMED'"
-              [class.status-completed]="booking.status === 'COMPLETED'"
-              [class.status-no-show]="booking.status === 'NO_SHOW'"
-              [style.grid-row-end]="'span ' + getBookingRowSpan(booking)"
-              (click)="openBookingDetails(booking)"
-              (keydown.enter)="openBookingDetails(booking)"
-            >
-              <div class="booking-content">
-                <strong>{{ booking.clientName }}</strong>
-                <div class="booking-service">{{ booking.serviceName }}</div>
-                <div class="booking-stylist">{{ booking.stylistName }}</div>
-                <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
-                <p-tag
-                  [value]="booking.status"
-                  [severity]="getStatusSeverity(booking.status)"
-                  styleClass="mt-1 text-xs"
-                />
+          @let cell = calendarGrid().grid[ctx.time][ctx.columnId];
+          @if (cell && cell !== 'occupied') {
+            @let booking = $any(cell);
+            @if (isCompactBooking(booking)) {
+              <div class="slot-split" [style.--booking-fraction]="getBookingSlots(booking)">
+                <div
+                  class="booking-cell--compact"
+                  role="button"
+                  tabindex="0"
+                  [class.status-pending]="booking.status === 'PENDING'"
+                  [class.status-confirmed]="booking.status === 'CONFIRMED'"
+                  [class.status-completed]="booking.status === 'COMPLETED'"
+                  [class.status-no-show]="booking.status === 'NO_SHOW'"
+                  [pTooltip]="getBookingTooltip(booking)"
+                  tooltipPosition="top"
+                  (click)="openBookingDetails(booking)"
+                  (keydown.enter)="openBookingDetails(booking)"
+                >
+                  <div class="booking-content-compact">
+                    <strong>{{ booking.clientName }}</strong>
+                    <span class="booking-service">{{ booking.serviceName }}</span>
+                    <span class="booking-time">{{ booking.startTime }}-{{ booking.endTime }}</span>
+                  </div>
+                </div>
+                <div
+                  class="empty-cell slot-remainder"
+                  role="button"
+                  tabindex="0"
+                  (click)="onEmptySlotClick(ctx.time, { _id: ctx.columnId, name: ctx.columnName })"
+                  (keydown.enter)="onEmptySlotClick(ctx.time, { _id: ctx.columnId, name: ctx.columnName })"
+                >
+                  <span class="empty-cell-hint">
+                    <i class="pi pi-plus-circle"></i>
+                  </span>
+                </div>
               </div>
-            </div>
-          } @else {
+            } @else {
+              <div
+                class="booking-cell"
+                role="button"
+                tabindex="0"
+                [class.status-pending]="booking.status === 'PENDING'"
+                [class.status-confirmed]="booking.status === 'CONFIRMED'"
+                [class.status-completed]="booking.status === 'COMPLETED'"
+                [class.status-no-show]="booking.status === 'NO_SHOW'"
+                [style.grid-row-end]="'span ' + getBookingRowSpan(booking)"
+                (click)="openBookingDetails(booking)"
+                (keydown.enter)="openBookingDetails(booking)"
+              >
+                <div class="booking-content">
+                  <strong>{{ booking.clientName }}</strong>
+                  <div class="booking-service">{{ booking.serviceName }}</div>
+                  <div class="booking-stylist">{{ booking.stylistName }}</div>
+                  <div class="booking-time">{{ booking.startTime }} - {{ booking.endTime }}</div>
+                  <p-tag
+                    [value]="booking.status"
+                    [severity]="getStatusSeverity(booking.status)"
+                    styleClass="mt-1 text-xs"
+                  />
+                </div>
+              </div>
+            }
+          } @else if (!cell) {
             <div
               class="empty-cell"
               role="button"
@@ -119,6 +271,7 @@
               </span>
             </div>
           }
+          <!-- 'occupied' slots render nothing — covered by the booking span above -->
         </ng-template>
       </lib-calendar-grid>
     </div>
@@ -153,14 +306,14 @@
     }
   }
 
-  @if (viewMode() === 'week' || viewMode() === 'month') {
+  @if (pageSection() === 'calendar' && (viewMode() === 'week' || viewMode() === 'month')) {
     <div class="fullcalendar-view">
       <full-calendar [options]="fullCalendarOptions()" [deepChangeDetection]="true" />
     </div>
   }
 
   <!-- List View -->
-  @if (viewMode() === 'list') {
+  @if (pageSection() === 'calendar' && viewMode() === 'list') {
     <div class="list-view">
       <p-table
         [value]="filteredBookings()"

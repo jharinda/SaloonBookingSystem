@@ -41,6 +41,16 @@
             [class.max-w-xs]="isExpanded()"
             [class.max-w-0]="!isExpanded()">Overview</span>
     </a>
+    @if (showFranchise()) {
+      <a [routerLink]="'/salon-dashboard/franchise'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Franchise" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
+        <span class="flex-shrink-0 w-5 flex items-center justify-center"><i class="pi pi-sitemap"></i></span>
+        <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
+              [class.opacity-100]="isExpanded()"
+              [class.opacity-0]="!isExpanded()"
+              [class.max-w-xs]="isExpanded()"
+              [class.max-w-0]="!isExpanded()">Franchise</span>
+      </a>
+    }
     <a [routerLink]="'/salon-dashboard/appointments'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Appointments" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
       <span class="flex-shrink-0 w-5 flex items-center justify-center relative">
         <i class="pi pi-calendar"></i>
@@ -96,6 +106,42 @@
             [class.max-w-xs]="isExpanded()"
             [class.max-w-0]="!isExpanded()">Reviews</span>
     </a>
+    <!-- Analytics — locked when plan doesn't include the feature -->
+    <a
+      [routerLink]="hasAnalytics() ? '/salon-dashboard/analytics' : '/salon-dashboard/subscription'"
+      routerLinkActive="active-nav-item"
+      class="nav-icon-btn w-full px-3"
+      [ngClass]="{'opacity-50': !hasAnalytics()}"
+      [pTooltip]="isExpanded() ? (hasAnalytics() ? '' : analyticsUpgradeMsg()) : (hasAnalytics() ? 'Analytics' : analyticsUpgradeMsg())"
+      tooltipPosition="right"
+      [tooltipOptions]="{showDelay: 200}"
+      [tooltipDisabled]="isExpanded() && hasAnalytics()"
+    >
+      <span class="relative flex-shrink-0 w-5 flex items-center justify-center">
+        <i class="pi pi-chart-bar"></i>
+        @if (!hasAnalytics()) {
+          <i class="pi pi-lock absolute -bottom-1.5 -right-2 text-[8px] text-zinc-500 dark:text-zinc-400 bg-zinc-200 dark:bg-zinc-700 rounded-full p-0.5"></i>
+        }
+      </span>
+      <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200 flex items-center gap-1"
+            [class.opacity-100]="isExpanded()"
+            [class.opacity-0]="!isExpanded()"
+            [class.max-w-xs]="isExpanded()"
+            [class.max-w-0]="!isExpanded()">
+        Analytics
+        @if (!hasAnalytics() && isExpanded()) {
+          <i class="pi pi-lock text-[10px] text-zinc-400"></i>
+        }
+      </span>
+    </a>
+    <a [routerLink]="'/salon-dashboard/subscription'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Subscription" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
+      <span class="flex-shrink-0 w-5 flex items-center justify-center"><i class="pi pi-credit-card"></i></span>
+      <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
+            [class.opacity-100]="isExpanded()"
+            [class.opacity-0]="!isExpanded()"
+            [class.max-w-xs]="isExpanded()"
+            [class.max-w-0]="!isExpanded()">Subscription</span>
+    </a>
     <a [routerLink]="'/salon-dashboard/settings'" routerLinkActive="active-nav-item" class="nav-icon-btn w-full px-3" pTooltip="Settings" tooltipPosition="right" [tooltipOptions]="{showDelay: 200}" [tooltipDisabled]="isExpanded()">
       <span class="flex-shrink-0 w-5 flex items-center justify-center"><i class="pi pi-cog"></i></span>
       <span class="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden transition-all duration-200"
@@ -125,3 +171,73 @@
   </div>
 
 </aside>
+
+<!-- ── Mobile Bottom Navigation Bar (< 768px) ──────────────────────────── -->
+@if (isMobile()) {
+  <nav class="mobile-bottom-nav">
+    <a [routerLink]="'/salon-dashboard/overview'" routerLinkActive="active-nav-item" class="mobile-nav-item">
+      <i class="pi pi-home"></i>
+      <span>Home</span>
+    </a>
+    <a [routerLink]="'/salon-dashboard/appointments'" routerLinkActive="active-nav-item" class="mobile-nav-item">
+      <span class="relative inline-flex items-center justify-center">
+        <i class="pi pi-calendar"></i>
+        @if (newBookingsCount() > 0) {
+          <span class="mobile-nav-badge">{{ newBookingsCount() > 9 ? '9+' : newBookingsCount() }}</span>
+        }
+      </span>
+      <span>Calendar</span>
+    </a>
+    <a [routerLink]="'/salon-dashboard/services'" routerLinkActive="active-nav-item" class="mobile-nav-item">
+      <i class="pi pi-wrench"></i>
+      <span>Services</span>
+    </a>
+    <a [routerLink]="'/salon-dashboard/staff'" routerLinkActive="active-nav-item" class="mobile-nav-item">
+      <i class="pi pi-users"></i>
+      <span>Staff</span>
+    </a>
+    <button type="button" class="mobile-nav-item" (click)="toggleMore()">
+      <i class="pi pi-ellipsis-h"></i>
+      <span>More</span>
+    </button>
+  </nav>
+
+  <!-- ── More sheet overlay ───────────────────────────────────────────── -->
+  @if (moreOpen()) {
+    <div class="mobile-more-overlay" (click)="moreOpen.set(false)" role="dialog" aria-modal="true" aria-label="More navigation">
+      <nav class="mobile-more-menu" (click)="$event.stopPropagation()">
+        @if (showFranchise()) {
+          <a [routerLink]="'/salon-dashboard/franchise'" routerLinkActive="active-nav-item" class="mobile-more-item" (click)="moreOpen.set(false)">
+            <i class="pi pi-sitemap"></i><span>Franchise</span>
+          </a>
+        }
+        <a [routerLink]="'/salon-dashboard/stations'" routerLinkActive="active-nav-item" class="mobile-more-item" (click)="moreOpen.set(false)">
+          <i class="pi pi-box"></i><span>Stations</span>
+        </a>
+        <a [routerLink]="'/salon-dashboard/hours'" routerLinkActive="active-nav-item" class="mobile-more-item" (click)="moreOpen.set(false)">
+          <i class="pi pi-clock"></i><span>Hours</span>
+        </a>
+        <a [routerLink]="'/salon-dashboard/reviews'" routerLinkActive="active-nav-item" class="mobile-more-item" (click)="moreOpen.set(false)">
+          <i class="pi pi-star"></i><span>Reviews</span>
+        </a>
+        <a
+          [routerLink]="hasAnalytics() ? '/salon-dashboard/analytics' : '/salon-dashboard/subscription'"
+          routerLinkActive="active-nav-item"
+          class="mobile-more-item"
+          [ngClass]="{'opacity-50': !hasAnalytics()}"
+          (click)="moreOpen.set(false)">
+          <i class="pi pi-chart-bar"></i><span>Analytics</span>
+        </a>
+        <a [routerLink]="'/salon-dashboard/subscription'" routerLinkActive="active-nav-item" class="mobile-more-item" (click)="moreOpen.set(false)">
+          <i class="pi pi-credit-card"></i><span>Subscription</span>
+        </a>
+        <a [routerLink]="'/salon-dashboard/settings'" routerLinkActive="active-nav-item" class="mobile-more-item" (click)="moreOpen.set(false)">
+          <i class="pi pi-cog"></i><span>Settings</span>
+        </a>
+        <button type="button" class="mobile-more-item" (click)="logout(); moreOpen.set(false)">
+          <i class="pi pi-sign-out"></i><span>Logout</span>
+        </button>
+      </nav>
+    </div>
+  }
+}

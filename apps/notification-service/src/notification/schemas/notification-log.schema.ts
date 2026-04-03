@@ -42,3 +42,9 @@ export const NotificationLogSchema =
   SchemaFactory.createForClass(NotificationLog);
 
 NotificationLogSchema.index({ bookingId: 1, channel: 1 });
+
+/** Retain delivery audit rows for 90 days (MongoDB TTL). */
+NotificationLogSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 90 * 24 * 60 * 60 },
+);

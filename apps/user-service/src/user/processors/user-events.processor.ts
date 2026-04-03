@@ -45,7 +45,7 @@ export class UserEventsProcessor {
   }
 
   @Process('user.updated')
-  async handleUserUpdated(job: Job<{ userId: string; email?: string; firstName?: string; lastName?: string }>) {
+  async handleUserUpdated(job: Job<{ userId: string; email?: string; firstName?: string; lastName?: string; avatarUrl?: string }>) {
     this.logger.log(`Processing user.updated event for userId: ${job.data.userId}`);
 
     try {
@@ -56,8 +56,13 @@ export class UserEventsProcessor {
 
       if (Object.keys(updateData).length > 0) {
         await this.userService.updateProfile(job.data.userId, updateData);
-        this.logger.log(`Successfully updated user profile for userId: ${job.data.userId}`);
       }
+
+      if (job.data.avatarUrl) {
+        await this.userService.setAvatarUrl(job.data.userId, job.data.avatarUrl);
+      }
+
+      this.logger.log(`Successfully updated user profile for userId: ${job.data.userId}`);
     } catch (error) {
       this.logger.error(
         `Failed to update user profile for userId: ${job.data.userId}`,

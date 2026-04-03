@@ -1,5 +1,7 @@
 export const environment = {
   production: true,
+  /** Set your browser DSN before deploy (Project Settings → Client Keys), or leave empty to disable Sentry. */
+  sentryDsn: '',
   /**
    * In production, the Angular app is served from the same origin as the gateway
    * (or configure via CORS).  Override with the actual deployed gateway URL.

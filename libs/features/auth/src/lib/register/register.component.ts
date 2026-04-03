@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   inject,
+  OnInit,
   signal,
 } from '@angular/core';
 import {
@@ -10,7 +11,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
@@ -19,6 +20,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
 import { SelectButtonModule } from 'primeng/selectbutton';
 import { DividerModule } from 'primeng/divider';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { AuthService, RegisterDto } from '@org/shared-data-access';
 
@@ -37,12 +39,15 @@ import { AuthService, RegisterDto } from '@org/shared-data-access';
     PasswordModule,
     SelectButtonModule,
     DividerModule,
+    TranslateModule,
   ],
   templateUrl: './register.component.html',
+  styles: [`:host { display: block; height: 100%; }`],
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   private readonly fb          = inject(FormBuilder);
   private readonly router      = inject(Router);
+  private readonly route       = inject(ActivatedRoute);
   private readonly authService = inject(AuthService);
 
   readonly isLoading    = signal(false);
@@ -63,6 +68,17 @@ export class RegisterComponent {
     password:  ['', [Validators.required, Validators.minLength(8)]],
     salonName: [''],
   });
+
+  ngOnInit(): void {
+    const role = this.route.snapshot.queryParamMap.get('role');
+    if (role === 'salon_owner' || role === 'franchise_owner') {
+      this.accountType = 'owner';
+    } else if (role === 'stylist') {
+      this.accountType = 'stylist';
+    } else if (role === 'client') {
+      this.accountType = 'client';
+    }
+  }
 
   get fullName()  { return this.form.controls.fullName; }
   get email()     { return this.form.controls.email; }

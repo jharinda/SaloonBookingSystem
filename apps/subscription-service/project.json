@@ -61,6 +61,13 @@
           "buildTarget": "subscription-service:build:production"
         }
       }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/apps/subscription-service"],
+      "options": {
+        "jestConfig": "apps/subscription-service/jest.config.ts"
+      }
     }
   },
   "tags": ["scope:app"]

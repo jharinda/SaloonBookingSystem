@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -12,6 +13,7 @@ import { Model, Types } from 'mongoose';
 import { firstValueFrom, timeout } from 'rxjs';
 import type Redis from 'ioredis';
 import { SubscriptionCheckService } from '@org/subscription-check';
+import { REDIS_CLIENT, UserRole } from '@org/shared-auth';
 
 import { Salon, SalonDocument } from './schemas/salon.schema';
 import { CreateSalonDto, OperatingHoursDto } from './dto/create-salon.dto';
@@ -31,6 +33,7 @@ import {
   AppointmentByMonthDto,
 } from './dto/staff-analytics.dto';
 import { UploadService } from '../upload/upload.service';
+import { FranchiseOverviewDto } from './dto/franchise.dto';
 
 export interface AdminSalonDto {
   _id:              string;
@@ -55,7 +58,7 @@ export class SalonService {
     private readonly httpService: HttpService,
     private readonly config: ConfigService,
     private readonly subscriptionCheck: SubscriptionCheckService,
-    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   async createSalon(
@@ -624,6 +627,173 @@ export class SalonService {
       .exec();
 
     return salons.map((s) => this.toResponse(s as unknown as SalonDocument));
+  }
+
+  /**
+   * Franchise branches (non-null franchiseId) and solo locations (null franchiseId) for this owner.
+   */
+  async getFranchiseBranches(ownerId: string): Promise<SalonResponseDto[]> {
+    const salons = await this.salonModel
+      .find({ ownerId: new Types.ObjectId(ownerId) })
+      .sort({ franchiseId: 1, name: 1 })
+      .lean()
+      .exec();
+
+    return salons.map((s) => this.toResponse(s as unknown as SalonDocument));
+  }
+
+  async getFranchiseOverview(ownerId: string): Promise<FranchiseOverviewDto> {
+    const branches = await this.getFranchiseBranches(ownerId);
+    if (branches.length === 0) {
+      return {
+        totalBranches: 0,
+        totalStaff: 0,
+        averageRating: 0,
+        totalRevenue: 0,
+        activeTodayCount: 0,
+        branches: [],
+      };
+    }
+
+    const bookingUrl = this.config.get<string>('services.bookingUrl', 'http://localhost:3002');
+    const internalToken = this.config.get<string>('internalToken', '');
+    const today = new Date().toISOString().split('T')[0];
+
+    const perBranch = await Promise.all(
+      branches.map(async (b) => {
+        const salonId = b.id;
+        try {
+          const [analyticsRes, activeRes] = await Promise.all([
+            firstValueFrom(
+              this.httpService
+                .get<{ totalRevenue: number }>(
+                  `${bookingUrl}/api/bookings/internal/analytics/salon/${salonId}`,
+                  { headers: { 'x-internal-token': internalToken }, timeout: 15000 },
+                )
+                .pipe(timeout(15000)),
+            ),
+            firstValueFrom(
+              this.httpService
+                .get<{ count: number }>(
+                  `${bookingUrl}/api/bookings/internal/salon/${salonId}/active-bookings-count`,
+                  { params: { date: today }, headers: { 'x-internal-token': internalToken }, timeout: 15000 },
+                )
+                .pipe(timeout(15000)),
+            ),
+          ]);
+          return {
+            revenue: analyticsRes.data.totalRevenue ?? 0,
+            active: activeRes.data.count ?? 0,
+          };
+        } catch (err) {
+          this.logger.warn(
+            `Franchise overview: booking data for salon ${salonId}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return { revenue: 0, active: 0 };
+        }
+      }),
+    );
+
+    const totalRevenue = perBranch.reduce((s, x) => s + x.revenue, 0);
+    const activeTodayCount = perBranch.reduce((s, x) => s + x.active, 0);
+    const totalStaff = branches.reduce((s, b) => s + (b.staff?.length ?? 0), 0);
+
+    const totalReviews = branches.reduce((s, b) => s + (b.reviewCount ?? 0), 0);
+    let averageRating = 0;
+    if (totalReviews > 0) {
+      averageRating =
+        branches.reduce((s, b) => s + (b.rating ?? 0) * (b.reviewCount ?? 0), 0) / totalReviews;
+    } else {
+      averageRating =
+        branches.reduce((s, b) => s + (b.rating ?? 0), 0) / Math.max(branches.length, 1);
+    }
+    averageRating = Math.round(averageRating * 10) / 10;
+
+    return {
+      totalBranches: branches.length,
+      totalStaff,
+      averageRating,
+      totalRevenue,
+      activeTodayCount,
+      branches,
+    };
+  }
+
+  async addBranch(ownerId: string, dto: CreateSalonDto, ownerEmail = ''): Promise<SalonResponseDto> {
+    const oid = new Types.ObjectId(ownerId);
+    const owned = await this.salonModel.find({ ownerId: oid }).lean().exec();
+    if (owned.length === 0) {
+      throw new BadRequestException('Create your first salon before adding branches.');
+    }
+
+    const referenceSalonId = (owned[0]._id as Types.ObjectId).toString();
+    const limits = await this.subscriptionCheck.getPlanLimits(referenceSalonId);
+    const branchCount = owned.length;
+    if (limits.maxLocations !== -1 && branchCount >= limits.maxLocations) {
+      throw new ForbiddenException(
+        `Your ${limits.plan} plan allows a maximum of ${limits.maxLocations} locations. Please upgrade to add more branches.`,
+      );
+    }
+
+    const existingFranchise = owned.find((s) => s.franchiseId != null);
+    const franchiseId = existingFranchise?.franchiseId ?? new Types.ObjectId();
+
+    return this.createSalon(
+      { ...dto, franchiseId: franchiseId.toString() },
+      ownerId,
+      ownerEmail,
+    );
+  }
+
+  async transferBranch(
+    ownerId: string,
+    salonId: string,
+    newOwnerId: string,
+    options?: { isAdmin?: boolean },
+  ): Promise<void> {
+    const salon = await this.salonModel.findById(salonId);
+    if (!salon) {
+      throw new NotFoundException(`Salon with id ${salonId} not found`);
+    }
+    if (!options?.isAdmin && salon.ownerId.toString() !== ownerId) {
+      throw new ForbiddenException('You can only transfer salons you own');
+    }
+
+    const authUrl = this.config.get<string>('services.authUrl', 'http://localhost:3003');
+    const internalToken = this.config.get<string>('internalToken', '');
+
+    interface AuthUserPayload {
+      role: string;
+      email?: string;
+    }
+
+    let user: AuthUserPayload;
+    try {
+      const res = await firstValueFrom(
+        this.httpService
+          .get<AuthUserPayload>(`${authUrl}/api/auth/users/${newOwnerId}`, {
+            headers: { 'x-internal-token': internalToken },
+            timeout: 10000,
+          })
+          .pipe(timeout(10000)),
+      );
+      user = res.data;
+    } catch {
+      throw new NotFoundException(`User ${newOwnerId} not found`);
+    }
+
+    if (user.role !== UserRole.FRANCHISE_OWNER) {
+      throw new ForbiddenException(
+        'The new owner must have the franchise_owner role.',
+      );
+    }
+
+    await this.salonModel.findByIdAndUpdate(salonId, {
+      $set: {
+        ownerId: new Types.ObjectId(newOwnerId),
+        ownerEmail: user.email ?? '',
+      },
+    });
   }
 
   /** Find salons that have a given stylist in their staff array */
