@@ -224,10 +224,22 @@ export class DashboardSidebarComponent {
   );
 
   readonly salonName   = input<string | null>(null);
+  /** True once dashboard finished loading the owner's salon (or confirmed none). */
+  readonly salonContextReady = input(false);
+  /** True when GET /api/salons/owner/me returned at least one salon. */
+  readonly hasSalon    = input(false);
   readonly userEmail   = input<string>('');
   readonly isExpanded  = input<boolean>(false);
   /** Show Franchise nav link (franchise_owner only). */
   readonly showFranchise = input<boolean>(false);
+
+  /**
+   * When true, salon-dependent routes would error — show only "Register salon" until
+   * {@link hasSalon} is true. While {@link salonContextReady} is false, keep full nav to avoid a flash during load.
+   */
+  readonly showRestrictedNav = computed(
+    () => this.salonContextReady() && !this.hasSalon(),
+  );
 
   readonly expanded      = output<void>();
   readonly collapsed     = output<void>();

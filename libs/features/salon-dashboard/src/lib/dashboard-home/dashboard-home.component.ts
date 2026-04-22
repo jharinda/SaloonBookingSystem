@@ -75,12 +75,23 @@ export class DashboardHomeComponent implements OnInit {
         skip(1),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(() => {
-        if (this.authService.getUserRole() !== 'franchise_owner') return;
-        this.adminService.getDashboardSalon().subscribe({
-          next: (s) => this.salon.set(s),
-          error: () => {},
-        });
+      .subscribe((e) => {
+        const role = this.authService.getUserRole();
+        if (role === 'franchise_owner') {
+          this.adminService.getDashboardSalon().subscribe({
+            next: (s) => this.salon.set(s),
+            error: () => {},
+          });
+        }
+        const onRegister = e.urlAfterRedirects.includes('/salon-dashboard/register');
+        if (
+          (role === 'salon_owner' || role === 'franchise_owner') &&
+          !this.salon() &&
+          !onRegister &&
+          !this.isLoading()
+        ) {
+          this.loadSalon();
+        }
       });
   }
 

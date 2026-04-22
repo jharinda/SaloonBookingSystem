@@ -619,7 +619,7 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                         <div class="flex justify-center py-12">
                           <p-progressSpinner styleClass="w-8 h-8" strokeWidth="4" />
                         </div>
-                      } @else if (savedSalons().length === 0) {
+                      } @else if (displayedSavedSalons().length === 0) {
                         <div class="flex flex-col items-center justify-center py-16 gap-3 text-gray-400 dark:text-zinc-500">
                           <i class="pi pi-heart text-5xl"></i>
                           <p class="text-sm text-center m-0">No saved salons yet.<br>Browse salons to save your favorites.</p>
@@ -633,7 +633,7 @@ const STATUS_SEVERITY: Record<BookingStatus, StatusSeverity> = {
                         </div>
                       } @else {
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          @for (salon of savedSalons(); track salon._id) {
+                          @for (salon of displayedSavedSalons(); track salon._id) {
                             <lib-salon-card [salon]="salon" />
                           }
                         </div>
@@ -720,6 +720,12 @@ export class AccountComponent implements OnInit {
   readonly isStylist = computed(() => this.profile()?.role?.toLowerCase() === 'stylist');
   readonly isClient  = computed(() => this.profile()?.role?.toLowerCase() === 'client');
   readonly savedSalonsCount = computed(() => this.favoritesService.favorites().size);
+
+  /** Filters loaded salon objects against the live favorites set so un-saving a salon removes it immediately. */
+  readonly displayedSavedSalons = computed(() => {
+    const ids = this.favoritesService.favorites();
+    return this.savedSalons().filter(s => ids.has(s._id));
+  });
 
   deleteDialogVisible = false;
   deleteConfirmText   = '';
@@ -811,9 +817,10 @@ export class AccountComponent implements OnInit {
         if (p.role?.toLowerCase() === 'stylist') {
           this.loadInvitations();
         }
-        // Load saved salons for clients
+        // Load saved salons for clients — must wait for favorites to be
+        // loaded first, since loadSavedSalons() reads the favorites signal.
         if (p.role?.toLowerCase() === 'client') {
-          this.loadSavedSalons();
+          this.favoritesService.loadFavorites().subscribe(() => this.loadSavedSalons());
         }
       },
       error: () => {

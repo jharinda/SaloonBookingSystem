@@ -4,6 +4,8 @@
   <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
   <lib-dashboard-sidebar
     [salonName]="salon()?.name ?? null"
+    [salonContextReady]="!isLoading()"
+    [hasSalon]="!!salon()"
     [userEmail]="userEmail()"
     [isExpanded]="isExpanded()"
     [showFranchise]="isFranchiseOwner()"

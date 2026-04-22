@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, effect } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import { AuthService } from './auth.service';
@@ -12,6 +12,20 @@ export class FavoritesService {
 
   /** Read-only reactive set of saved salon IDs. */
   readonly favorites = this._favorites.asReadonly();
+
+  constructor() {
+    // Automatically load favorites when the user logs in (including silent
+    // session-restore on app startup) and clear them when they log out.
+    // This fixes the race condition where APP_INITIALIZER ran loadFavorites()
+    // concurrently with initAuth(), before the access token was set.
+    effect(() => {
+      if (this.authService.isLoggedIn()) {
+        this.loadFavorites().subscribe();
+      } else {
+        this.clear();
+      }
+    });
+  }
 
   /** Returns true if the given salonId is in the favorites set. */
   isFavorite(salonId: string): boolean {

@@ -16,7 +16,7 @@ import { provideServiceWorker } from '@angular/service-worker';
 import { HttpClient } from '@angular/common/http';
 import { TranslateModule } from '@ngx-translate/core';
 import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
-import { AuthService, UserService, authInterceptor, CurrencyService, FCM_CONFIG, LanguageService, FavoritesService } from '@org/shared-data-access';
+import { AuthService, UserService, authInterceptor, CurrencyService, FCM_CONFIG, LanguageService } from '@org/shared-data-access';
 import { environment } from '../environments/environment';
 
 // Images are already stored as full Cloudinary URLs — this pass-through loader
@@ -136,15 +136,6 @@ function provideLanguageInit() {
   };
 }
 
-function provideFavoritesInit() {
-  return {
-    provide: APP_INITIALIZER,
-    useFactory: (favs: FavoritesService) => () => favs.loadFavorites(),
-    deps: [FavoritesService],
-    multi: true,
-  };
-}
-
 export const appConfig: ApplicationConfig = {
   providers: [
     { provide: ErrorHandler, useValue: Sentry.createErrorHandler({ showDialog: false }) },
@@ -179,7 +170,6 @@ export const appConfig: ApplicationConfig = {
     provideProfileInit(),
     provideCurrencyInit(),
     provideLanguageInit(),
-    provideFavoritesInit(),
     // Provide FCM configuration for push notifications
     {
       provide: FCM_CONFIG,

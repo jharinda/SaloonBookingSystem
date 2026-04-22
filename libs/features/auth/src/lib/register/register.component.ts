@@ -24,6 +24,9 @@ import { TranslateModule } from '@ngx-translate/core';
 
 import { AuthService, RegisterDto } from '@org/shared-data-access';
 
+/** Client-only hint so "Register your salon" can pre-fill the name after owner signup (not persisted server-side). */
+const PENDING_SALON_NAME_KEY = 'snapsalon.pendingSalonName';
+
 @Component({
   selector: 'lib-register',
   standalone: true,
@@ -112,6 +115,14 @@ export class RegisterComponent implements OnInit {
     this.authService.register(dto).subscribe({
       next: () => {
         this.isLoading.set(false);
+        const pendingName = raw.salonName?.trim();
+        if (
+          pendingName &&
+          typeof sessionStorage !== 'undefined' &&
+          (this.accountType === 'owner')
+        ) {
+          sessionStorage.setItem(PENDING_SALON_NAME_KEY, pendingName);
+        }
         void this.router.navigate(['/discover']);
       },
       error: (err: { status?: number; error?: { message?: string } }) => {

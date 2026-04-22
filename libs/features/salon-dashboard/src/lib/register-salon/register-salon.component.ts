@@ -3,6 +3,7 @@ import {
   Component,
   inject,
   input,
+  OnInit,
   output,
   signal,
 } from '@angular/core';
@@ -38,6 +39,9 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
   const v = Number(c.value);
   return isNaN(v) || v < -180 || v > 180 ? { invalidLng: true } : null;
 }
+
+/** Set at owner signup (`register.component`) so the salon name field can be pre-filled. */
+const PENDING_SALON_NAME_KEY = 'snapsalon.pendingSalonName';
 
 @Component({
   selector: 'lib-register-salon',
@@ -98,14 +102,14 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
           <!-- Stepper form -->
           <p-stepper [value]="activeStep()">
             <p-step-list>
-              <p-step [value]="0">Salon Info</p-step>
-              <p-step [value]="1">Location</p-step>
-              <p-step [value]="2">Confirm</p-step>
+              <p-step [value]="1">Salon Info</p-step>
+              <p-step [value]="2">Location</p-step>
+              <p-step [value]="3">Confirm</p-step>
             </p-step-list>
 
             <p-step-panels>
               <!-- Step 1: Salon Info -->
-              <p-step-panel [value]="0">
+              <p-step-panel [value]="1">
                 <ng-template #content>
                   <form [formGroup]="infoGroup" novalidate class="step-form">
 
@@ -155,7 +159,7 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
               </p-step-panel>
 
               <!-- Step 2: Location -->
-              <p-step-panel [value]="1">
+              <p-step-panel [value]="2">
                 <ng-template #content>
                   <form [formGroup]="addressGroup" novalidate class="step-form">
 
@@ -221,7 +225,7 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
               </p-step-panel>
 
               <!-- Step 3: Confirm -->
-              <p-step-panel [value]="2">
+              <p-step-panel [value]="3">
                 <ng-template #content>
                   <div class="review-step">
                     <h3 class="review-title">Review your details</h3>
@@ -512,7 +516,7 @@ function lngValidator(c: AbstractControl): ValidationErrors | null {
     }
   `],
 })
-export class RegisterSalonComponent {
+export class RegisterSalonComponent implements OnInit {
   private readonly fb           = inject(FormBuilder);
   private readonly adminService = inject(SalonAdminService);
   private readonly router       = inject(Router);
@@ -521,7 +525,7 @@ export class RegisterSalonComponent {
   readonly branchMode = input(false, { alias: 'branchMode' });
   readonly branchCreated = output<Salon>();
 
-  readonly activeStep    = signal(0);  readonly isSubmitting = signal(false);
+  readonly activeStep    = signal(1);  readonly isSubmitting = signal(false);
   readonly errorMessage = signal<string | null>(null);
   readonly submitted    = signal(false);
   readonly submittedName = signal('');
@@ -540,6 +544,17 @@ export class RegisterSalonComponent {
     lat:      [null as unknown as number, [Validators.required, latValidator]],
     lng:      [null as unknown as number, [Validators.required, lngValidator]],
   });
+
+  ngOnInit(): void {
+    if (typeof sessionStorage === 'undefined') return;
+    const pending = sessionStorage.getItem(PENDING_SALON_NAME_KEY)?.trim();
+    if (!pending) return;
+    const current = this.infoGroup.get('name')?.value?.trim();
+    if (!current) {
+      this.infoGroup.patchValue({ name: pending });
+    }
+    sessionStorage.removeItem(PENDING_SALON_NAME_KEY);
+  }
 
   onLocationSelected(loc: SelectedLocation): void {
     this.addressGroup.patchValue({ lat: loc.lat, lng: loc.lng });
@@ -563,16 +578,16 @@ export class RegisterSalonComponent {
 
   nextFromInfo(): void {
     this.touchInfo();
-    if (this.infoGroup.valid) this.activeStep.set(1);
+    if (this.infoGroup.valid) this.activeStep.set(2);
   }
 
   nextFromAddress(): void {
     this.touchAddress();
-    if (this.addressGroup.valid) this.activeStep.set(2);
+    if (this.addressGroup.valid) this.activeStep.set(3);
   }
 
   prevStep(): void {
-    this.activeStep.update(s => Math.max(0, s - 1));
+    this.activeStep.update((s) => Math.max(1, s - 1));
   }
 
   submit(): void {
@@ -623,6 +638,6 @@ export class RegisterSalonComponent {
   }
 
   goToDashboard(): void {
-    void this.router.navigate(['/salon-dashboard', 'bookings']);
+    void this.router.navigate(['/salon-dashboard', 'overview']);
   }
 }
